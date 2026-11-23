@@ -22,10 +22,10 @@ export async function loadWorkspace(){
   const [modelData,colorData,modelColorData,customerData,reservationData,
     reservationLineData,orderData,orderLineData,reservationColorData,orderColorData,revisionData,
     paymentData,paymentReviewData,deliveryData,deliveryLineData,linkData,qrData]=await Promise.all([
-    db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at').order('created_at',{ascending:false}),
+    db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at,updated_at').order('created_at',{ascending:false}),
     db.from('colors').select('id,name,hex_code,is_active').order('name'),
     db.from('model_colors').select('model_id,color_id'),
-    db.from('customers').select('id,name,whatsapp,created_at').order('created_at',{ascending:false}),
+    db.from('customers').select('id,name,whatsapp,created_at,updated_at').order('created_at',{ascending:false}),
     db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at').order('created_at',{ascending:false}).limit(200),
     db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units'),
     db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at').order('confirmed_at',{ascending:false}).limit(200),
@@ -96,6 +96,20 @@ export async function createModel({name,size,price,colorIds,stockDocenas,imagePa
     p_initial_units:stockDocenas*12,p_request_id:requestId,p_image_path:imagePath
   }),'Registrar modelo');
 }
+/** Cambio de precio/foto solo para futuras ventas; cada actualización queda auditada. */
+export async function updateModel({modelId,price,imagePath=null,expectedUpdatedAt,requestId}){
+ return unwrap(await client().rpc('update_evalia_model',{
+  p_model_id:modelId,p_price:price,p_new_image_path:imagePath,
+  p_expected_updated_at:expectedUpdatedAt,p_request_id:requestId
+ }),'Actualizar modelo');
+}
+export async function updateCustomer({customerId,name,whatsapp,expectedUpdatedAt,requestId}){
+ return unwrap(await client().rpc('update_evalia_customer',{
+  p_customer_id:customerId,p_name:name,p_whatsapp:whatsapp,
+  p_expected_updated_at:expectedUpdatedAt,p_request_id:requestId
+ }),'Corregir ficha de cliente');
+}
+
 export async function adjustStock({modelId,operation,units,version,requestId}){
   return unwrap(await client().rpc('adjust_model_inventory',{
     p_model_id:modelId,p_operation:operation,p_units:units,
