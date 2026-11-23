@@ -598,7 +598,7 @@ function LineComposition({line,colors,compact=false}){
  </div>;
 }
 
-function PaymentForm({targetId,kind='order',onSubmit,busy}){
+function PaymentForm({targetId,onSubmit,busy}){
  const [amount,setAmount]=useState(''),[note,setNote]=useState('');
  const requestId=useRef(null);
  async function submit(e){
@@ -607,8 +607,7 @@ function PaymentForm({targetId,kind='order',onSubmit,busy}){
   if(!/^\d+(?:\.\d{1,2})?$/.test(parsed)||Number(parsed)<=0)return;
   if(!requestId.current)requestId.current=uuid();
   const ok=await onSubmit({
-   reservationId:kind==='reservation'?targetId:null,
-   orderId:kind==='order'?targetId:null,
+   orderId:targetId,
    amount:parsed,requestId:requestId.current,note:note.trim()||null
   });
   if(ok){requestId.current=null;setAmount('');setNote('');}

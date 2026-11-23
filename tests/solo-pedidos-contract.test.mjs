@@ -24,6 +24,8 @@ test('La captura únicamente confirma pedidos, con cliente, cantidades y colores
 test('API cliente no ofrece crear ni modificar reservas, pero conserva conversión histórica',()=>{
  assert.doesNotMatch(api,/create_evalia_reservation/);
  assert.doesNotMatch(api,/revise_evalia_reservation/);
+ assert.doesNotMatch(api,/p_reservation_id:reservationId/);
+ assert.match(api,/p_reservation_id:null,p_order_id:orderId/);
  assert.match(api,/confirm_evalia_reservation/);
  assert.match(api,/create_evalia_order/);
 });

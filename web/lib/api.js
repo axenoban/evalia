@@ -128,9 +128,10 @@ export async function confirmReservation(reservationId,requestId){
 }
 
 /** Declarar dinero informado sin aprobarlo ni modificar el saldo. */
-export async function reportPayment({reservationId=null,orderId=null,amount,requestId,note=null}){
+export async function reportPayment({orderId,amount,requestId,note=null}){
+ if(!orderId)throw new Error('Solo se registran avisos de pago de pedidos confirmados.');
  return unwrap(await client().rpc('report_evalia_payment',{
-  p_reservation_id:reservationId,p_order_id:orderId,
+  p_reservation_id:null,p_order_id:orderId,
   p_amount:amount,p_request_id:requestId,p_note:note||null
  }),'Registrar declaración de pago');
 }
