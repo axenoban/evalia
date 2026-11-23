@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
   createCustomer, createModel, uploadPhoto, adjustStock, createReservation,
@@ -144,20 +144,25 @@ function StockTable({data,limit=null}){
 }
 function StockEditor({model,stock,onSave,busy}){
  const [operation,setOperation]=useState('add'),[amount,setAmount]=useState('12');
+ const requestId=useRef(null);
  const units=Number(amount),valid=Number.isSafeInteger(units)&&units>=(operation==='set_total'?0:1);
  const expected=operation==='set_total'?units:operation==='add'?Number(stock.on_hand)+units:Number(stock.on_hand)-units;
  const committed=Number(stock.reserved)+Number(stock.pending_delivery);
- async function submit(e){e.preventDefault();if(!valid)return;const ok=await onSave(model.id,operation,units,stock.version);if(ok)setAmount('12');}
+ async function submit(e){e.preventDefault();if(!valid)return;
+  if(!requestId.current)requestId.current=uuid();
+  const ok=await onSave(model.id,operation,units,stock.version,requestId.current);
+  if(ok){requestId.current=null;setAmount('12');}
+ }
  return <form className="stock-editor" onSubmit={submit}>
   <p className="editor-title">Ajuste de inventario — {model.name}</p>
   <div className="stock-ops" role="group" aria-label="Tipo de movimiento">
    {[['add','＋ Añadir'],['physical_sale','− Venta física'],['set_total','= Corregir total']].map(([v,label])=>
     <button key={v} type="button" className={'pill '+(operation===v?'active':'')}
-      aria-pressed={operation===v} onClick={()=>setOperation(v)}>{label}</button>)}
+      aria-pressed={operation===v} onClick={()=>{setOperation(v);requestId.current=null;}}>{label}</button>)}
   </div>
   <div className="stock-bottom"><Field title="Cantidad en prendas"><input type="number" name="units" required
    min={operation==='set_total'?0:1} max="2147483647" step="1" inputMode="numeric"
-   value={amount} onChange={e=>setAmount(e.target.value)}/></Field>
+   value={amount} onChange={e=>{setAmount(e.target.value);requestId.current=null;}}/></Field>
    <div className="stock-projection"><small>Resultado estimado</small><b>{valid?rup(expected):'—'} prendas</b>
     <span>{committed} comprometidas; nunca se pueden consumir</span></div>
   </div>
@@ -226,8 +231,9 @@ function ModelForm({colors,onCreate,busy}){
  const [docenas,setDocenas]=useState('0'),[selected,setSelected]=useState([]);
  const [photo,setPhoto]=useState(null),[preview,setPreview]=useState('');
  const [localError,setLocalError]=useState('');
+ const requestId=useRef(null);
  function choosePhoto(file){
-  setPhoto(file||null);setPreview('');setLocalError('');
+  setPhoto(file||null);setPreview('');setLocalError('');requestId.current=null;
   if(file){if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880){
    setPhoto(null);setLocalError('Selecciona una foto JPG, PNG o WebP de hasta 5 MB.');return;
   }
@@ -240,8 +246,9 @@ function ModelForm({colors,onCreate,busy}){
    centsFromBs(price);
    if(!selected.length)throw new Error('Selecciona al menos un color ofertado.');
    if(!Number.isSafeInteger(Number(docenas))||Number(docenas)<0)throw new Error('Registra docenas completas publicables.');
-   const ok=await onCreate({name:name.trim(),size:size.trim(),price,stockDocenas:Number(docenas),colorIds:selected,photo});
-   if(ok){setName('');setSize('');setPrice('');setDocenas('0');setSelected([]);setPhoto(null);setPreview('');}
+   if(!requestId.current)requestId.current=uuid();
+   const ok=await onCreate({name:name.trim(),size:size.trim(),price,stockDocenas:Number(docenas),colorIds:selected,photo,requestId:requestId.current});
+   if(ok){requestId.current=null;setName('');setSize('');setPrice('');setDocenas('0');setSelected([]);setPhoto(null);setPreview('');}
   }catch(err){setLocalError(err.message);}
  }
  return <form onSubmit={submit} className="model-form">
@@ -254,22 +261,22 @@ function ModelForm({colors,onCreate,busy}){
   </div>
   <div className="form-inline">
    <Field title="Nombre del modelo"><input name="modelName" required maxLength={120} value={name}
-     onChange={e=>setName(e.target.value)} placeholder="Nombre comercial…"/></Field>
+     onChange={e=>{setName(e.target.value);requestId.current=null;}} placeholder="Nombre comercial…"/></Field>
    <Field title="Talla única del modelo"><input name="modelSize" required maxLength={24} value={size}
-     onChange={e=>setSize(e.target.value)} placeholder="Ej. M, XL o 2XL…"/></Field>
+     onChange={e=>{setSize(e.target.value);requestId.current=null;}} placeholder="Ej. M, XL o 2XL…"/></Field>
    <Field title="Precio mayorista por docena (Bs)"><input name="modelPrice" required
-     inputMode="decimal" value={price} onChange={e=>setPrice(e.target.value)}
+     inputMode="decimal" value={price} onChange={e=>{setPrice(e.target.value);requestId.current=null;}}
      placeholder="Importe por docena…"/></Field>
    <Field title="Docenas completas publicables"
      hint={'Publicarás '+rup((Number(docenas)||0)*12)+' prendas; deja fuera tu margen de seguridad.'}>
      <input name="modelStock" type="number" step="1" min="0" max="178956970" value={docenas}
-      onChange={e=>setDocenas(e.target.value)} required/></Field>
+      onChange={e=>{setDocenas(e.target.value);requestId.current=null;}} required/></Field>
   </div>
   <div className="palette-selector">
    <div className="palette-title"><strong>Colores que ofrece este modelo</strong><span>{selected.length} seleccionados</span></div>
    <p>Selecciona muestras de la paleta. No registraremos unidades por color.</p>
    {colors.length?<div className="color-select-grid">{colors.map(c=><ColorChip key={c.id} color={c}
-     selected={selected.includes(c.id)} onClick={()=>setSelected(current=>current.includes(c.id)?current.filter(x=>x!==c.id):[...current,c.id])}/>)}</div>:
+     selected={selected.includes(c.id)} onClick={()=>{requestId.current=null;setSelected(current=>current.includes(c.id)?current.filter(x=>x!==c.id):[...current,c.id]);}}/>)}</div>:
      <Notice>Primero crea un color desde el panel de paleta.</Notice>}
   </div>
   {localError&&<p className="form-error" role="alert">{localError}</p>}
@@ -319,6 +326,7 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
  const [quantities,setQuantities]=useState({});
  const [mode,setMode]=useState('reservation'),[localError,setLocalError]=useState('');
  const [addClient,setAddClient]=useState(false);
+ const requestId=useRef(null);
  const models=data.models.filter(m=>m.is_active);
  const selection=models.filter(m=>Number(quantities[m.id]||0)>0);
  const amount=selection.reduce((s,m)=>{
@@ -326,14 +334,15 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
    return s+(Number.isSafeInteger(n)&&n>=6?subtotalCents(m.price_dozen_bs,n):0n);
  },0n);
  useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
- function changeQuantity(id,value){setQuantities(prev=>({...prev,[id]:value}));setLocalError('');}
+ function changeQuantity(id,value){requestId.current=null;setQuantities(prev=>({...prev,[id]:value}));setLocalError('');}
  async function submit(e){
   e.preventDefault();setLocalError('');
   try{
    if(!customerId)throw new Error('Selecciona un cliente antes de continuar.');
    const lines=checkedLines(models,quantities,data.stock);
-   const ok=mode==='reservation'?await onReservation(customerId,lines):await onOrder(customerId,lines);
-   if(ok){setQuantities({});setCustomerId('');}
+   if(!requestId.current)requestId.current=uuid();
+   const ok=mode==='reservation'?await onReservation(customerId,lines,requestId.current):await onOrder(customerId,lines,requestId.current);
+   if(ok){requestId.current=null;setQuantities({});setCustomerId('');}
   }catch(err){
    setLocalError(err.message);
   }
@@ -346,7 +355,7 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
     <section className="form-section">
      <div className="form-section-title"><span className="step">1</span><div><h2>Cliente</h2><p>Vincula la operación a una ficha.</p></div></div>
      <div className="client-selection"><Field title="Comprador registrado"><select name="customerId" value={customerId}
-       required onChange={e=>setCustomerId(e.target.value)}>
+       required onChange={e=>{setCustomerId(e.target.value);requestId.current=null;}}>
        <option value="">Selecciona una persona…</option>
        {data.customers.map(c=><option key={c.id} value={c.id}>{c.name} · {c.whatsapp}</option>)}
       </select></Field>
@@ -387,12 +396,12 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
      <div className="mode-choice">
       <label className={mode==='reservation'?'selected':''}>
        <input type="radio" name="operationType" value="reservation" checked={mode==='reservation'}
-        onChange={()=>setMode('reservation')}/>
+        onChange={()=>{setMode('reservation');requestId.current=null;}}/>
        <span><b>Reservar</b><small>Bloquea cupo hasta su vencimiento comercial.</small></span>
       </label>
       <label className={mode==='order'?'selected':''}>
        <input type="radio" name="operationType" value="order" checked={mode==='order'}
-        onChange={()=>setMode('order')}/>
+        onChange={()=>{setMode('order');requestId.current=null;}}/>
        <span><b>Pedido directo</b><small>Confirma el pedido y separa unidades pendientes de entrega.</small></span>
       </label>
      </div>
@@ -511,16 +520,16 @@ export default function HomePage(){
  }
  async function addModel(values){
   return mutation(async()=>{
-   const req=uuid(),path=values.photo?await uploadPhoto(values.photo):null;
+   const req=values.requestId||uuid(),path=values.photo?await uploadPhoto(values.photo):null;
    await createModel({...values,imagePath:path,requestId:req});
   },'El modelo y su stock se registraron en Supabase.');
  }
  const addColor=(name,hex)=>mutation(()=>createColor(name,hex),'Color registrado.');
  const addClient=(name,phone)=>mutation(()=>createCustomer(name,phone),'Cliente registrado.');
- const updateStock=(modelId,operation,units,version)=>
-  mutation(()=>adjustStock({modelId,operation,units,version,requestId:uuid()}),'Stock actualizado.');
- const reserve=(customerId,lines)=>mutation(()=>createReservation(customerId,lines,uuid()),'Reserva guardada y cupo comprometido.');
- const order=(customerId,lines)=>mutation(()=>createOrder(customerId,lines,uuid()),'Pedido confirmado con precios congelados.');
+ const updateStock=(modelId,operation,units,version,requestId)=>
+  mutation(()=>adjustStock({modelId,operation,units,version,requestId:requestId||uuid()}),'Stock actualizado.');
+ const reserve=(customerId,lines,requestId)=>mutation(()=>createReservation(customerId,lines,requestId||uuid()),'Reserva guardada y cupo comprometido.');
+ const order=(customerId,lines,requestId)=>mutation(()=>createOrder(customerId,lines,requestId||uuid()),'Pedido confirmado con precios congelados.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Reserva convertida en pedido sin doble descuento de stock.');
  if(!configured)return <main className="setup-screen"><section className="setup-card">
   <span className="brand-icon">E</span><h1>Configuración de EVALIA</h1>
