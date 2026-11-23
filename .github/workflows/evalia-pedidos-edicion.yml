@@ -1,0 +1,41 @@
+name: EVALIA | UX y edición de pedidos candidata
+on:
+  push:
+    branches:
+      - feature/evalia-pedidos-ux-edicion
+permissions:
+  contents: read
+concurrency:
+  group: evalia-ui-edition-pgtap-local
+  cancel-in-progress: false
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm run check
+  next:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - run: supabase start
+      - run: supabase test db
+      - if: always()
+        run: supabase stop --no-backup || true

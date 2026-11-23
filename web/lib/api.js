@@ -50,6 +50,10 @@ export async function loadWorkspace(){
    payments=unwrap(paymentData,'Avisos de pago'),paymentReviews=unwrap(paymentReviewData,'Historial de pagos'),
    deliveries=unwrap(deliveryData,'Recogidas'),deliveryLines=unwrap(deliveryLineData,'Prendas recogidas'),
    links=unwrap(linkData,'Enlaces de cliente'),qrSettings=unwrap(qrData,'QR administrativo')?.[0]||null;
+  // La nueva RPC de edición se habilita solo cuando existe la migración 015.
+  // En una Preview anterior no romper las lecturas del catálogo ni los pedidos.
+  const revisionResponse=await db.from('orders').select('id,revision').limit(200);
+  const revisionMap=new Map((revisionResponse.error?[]:revisionResponse.data??[]).map(o=>[o.id,o.revision]));
   // Cada consulta usa RLS. Refrescar después de toda escritura, sin calcular cupos desde datos del cliente.
   const [stocks,images,financeEntries,deliveryEntries]=await Promise.all([
     Promise.all(models.map(async model=>{
@@ -69,7 +73,7 @@ export async function loadWorkspace(){
    deliveries,deliveryLines,links,qrSettings,finances:Object.fromEntries(financeEntries),deliveryStats:Object.fromEntries(deliveryEntries),
    reservations:reservations.map(r=>({...r,lines:reservationLines.filter(x=>x.reservation_id===r.id).map(l=>({...l,
       extraColorIds:reservationColors.filter(c=>c.reservation_line_id===l.id).map(c=>c.color_id)}))})),
-   orders:orders.map(o=>({...o,lines:orderLines.filter(x=>x.order_id===o.id).map(l=>({...l,
+   orders:orders.map(o=>({...o,revision:revisionMap.get(o.id)??null,lines:orderLines.filter(x=>x.order_id===o.id).map(l=>({...l,
       extraColorIds:orderColors.filter(c=>c.order_line_id===l.id).map(c=>c.color_id)}))}))};
 }
 export async function createColor(name,hex){
@@ -124,6 +128,12 @@ export async function createOrder(customerId,lines,requestId,delivery){
   p_customer_id:customerId,p_lines:lines,p_request_id:requestId,
   p_method:delivery.method,p_destination:delivery.destination
  }),'Confirmar pedido');
+}
+/** Edición idempotente y auditada: solo pedido activo sin pagos/entregas/enlace. */
+export async function reviseOrder({orderId,lines,expectedRevision,requestId}){
+ return unwrap(await client().rpc('revise_evalia_order',{
+  p_order_id:orderId,p_lines:lines,p_expected_revision:expectedRevision,p_request_id:requestId
+ }),'Modificar pedido');
 }
 export async function updateOrderDelivery({orderId,method,destination,requestId}){
  return unwrap(await client().rpc('update_evalia_order_delivery',{
