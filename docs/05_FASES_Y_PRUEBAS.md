@@ -119,3 +119,16 @@ Sin código/test ejecutable todavía: estos son escenarios de aceptación para e
 - **Empate exacto aún pendiente:** modelo P=381, n=6 → Bs 190,50. El usuario eligió «entero más cercano», pero no eligió qué entero en empate; mantener este caso como **no resuelto** (no forzar redondeo al alza/par).
 - **Historial:** precio confirmado se guarda por modelo con la política de redondeo; no recalcular tras editar precio sugerido o modelo.
 Se preserva **sin descuentos E1**; no se aplica precio >12 por inferencia. La nota antigua sobre redondeo pendiente queda **superada**, excepto desempates exactos. [Política comercial](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## Pruebas nuevas: RND-02 conserva Bs 0,50 y mezcla de modelos
+**Decisión recibida:** subtotal de modelo cuya parte fraccionaria sea **exactamente 0,50** queda sin redondear; resto, entero más cercano. QA candidato **sin aplicación ejecutable todavía**:
+- P_docena=381, n=6 → resultado exacto Bs 190,50, **final Bs 190,50**; no 190 ni 191.
+- P_docena=383, n=6 → Bs 191,50 final; caso de otro empate para evitar redondeo escondido.
+- P_docena=380, n=7 → Bs 221,666… ⇒ final Bs 222; n=8 → 253,333… ⇒ 253.
+- Carrito mayorista: **modelo A 12 unidades, docena Bs 420** + **modelo B 6 unidades, docena Bs 380** ⇒ Bs 420 + Bs 190 = **Bs 610**; ambos cumplen el mínimo individual.
+- Carrito: **modelo A 12 a Bs 420** + **modelo B 6, docena Bs 381** ⇒ Bs 420 + Bs 190,50 = **Bs 610,50**; **no redondear pedido completo**.
+- Dos modelos P=381, n=6 cada uno ⇒ Bs 190,50 + Bs 190,50 = **Bs 381**, sin transformación artificial de subtotales.
+- **Agrupar colores por modelo** antes de calcular; A P=380, 2 negras+5 rosas → 7 y Bs 222, no dos redondeos. Una reserva surtida con colores aún pendientes conserva el precio de su modelo.
+- **No extrapolar** el ejemplo de 18 prendas del pedido a 18 unidades de **un solo modelo**: MAY-12 pendiente de política.
+- **No descuentos en E1**, tampoco para 6–11 cuando se agregue módulo futuro. Snapshot G04-08 guarda subtotal final por modelo, incluido x,50 si corresponde.
+**RND-01 y RND-02 resueltos.** Los escenarios anteriores marcados «empate pendiente» son antecedentes históricos superados por esta decisión. [Contrato de precios](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

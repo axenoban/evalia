@@ -62,3 +62,6 @@ El administrador da de alta el modelo con **precio mayorista de docena**, usando
 
 ## Precio guardado y redondeo en E1
 Al dar de alta modelo se registra **precio de docena mayorista propio**, con base sugerida por talla editable. En pedidos de 6–11, calcular `precio_docena×n/12` y **redondear importe total del modelo al entero Bs más cercano**, no redondear precio unitario o color. P=380 n=7 → Bs 222; P=420 n=7 → Bs 245. No añadir descuentos ni copiar reglas de precio del cliente en E1. **Desempate exacto .50 pendiente**, sin implementación hasta ratificar. [Contrato](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## Regla monetaria posterior: conservar exactamente 50 centavos
+El precio de docena mayorista se configura individualmente al crear el modelo. Para 6–11 unidades aplicar proporción y entero cercano, **pero si subtotal del modelo termina exactamente en Bs 0,50 conservarlo sin redondear**. Se permiten varios modelos dentro del pedido (12 de A y 6 de B) con importes independientes y **suma directa de subtotales finales**; no copiar precios ni stock desde modelos anteriores. P_B=381 n_B=6 ⇒ **Bs 190,50**; P_A=420 n_A=12 ⇒ **Bs 420**; total Bs 610,50. 13+ del mismo modelo aún sin regla. [Precios](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

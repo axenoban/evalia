@@ -100,3 +100,6 @@ El cálculo de **6–11 unidades por modelo** ya fue determinado: `P_docena × n
 
 ## RND-01 — resultado de política monetaria
 El propietario seleccionó **redondear el precio final de cada modelo al boliviano entero más cercano** después de `P_docena×n/12`. Ejemplo docena Bs 380, siete unidades → **Bs 222**. Sumar las líneas de colores del modelo antes del cálculo, y sumar los modelos ya redondeados al final. Se mantiene que E1 no incluye descuentos. La duda histórica sobre redondeo a entero ya está resuelta, con única excepción matemática **.50 exacto** (criterio de empate aún pendiente). [Contrato](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## Aclaración RND-02 — medio boliviano y cantidades por modelo
+**Respuesta expresa:** conservar **Bs 0,50 exactos** en el importe de cada modelo, sin redondear; el resto se redondea a entero más cercano. Ejemplo P=381, 6 unidades ⇒ **Bs 190,50**. Puede haber **una docena de un modelo y media docena de otro en la misma reserva/pedido**; los importes se suman después del cálculo individual, sin otro redondeo. Ejemplo P_A=420 n_A=12 y P_B=381 n_B=6 ⇒ **Bs 610,50**. La pregunta anterior de empate monetario queda cerrada; 13+ unidades **del mismo modelo** y G04-01 nominal permanecen pendientes. [Precio](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

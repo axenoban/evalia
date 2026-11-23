@@ -63,3 +63,6 @@ Para reservas **solo mayoristas**, el importe del modelo con `n=6..11` será `pr
 
 ## P-06 / RND-01: política de redondeo seleccionada
 **Decisión confirmada por el propietario:** después de aplicar `P_docena×n/12`, **redondear el total del MODELO al boliviano entero más cercano** (no cada prenda ni cada color), **antes de sumar los distintos modelos** del pedido. Ejemplo P=380, n=7 → **Bs 222**; P=420, n=7 → **Bs 245**. **Único caso matemático aún abierto:** empate exacto en x,50 (ej. docena Bs 381 y 6 unidades → 190,50). No aplicar un desempate no aprobado. [Contrato y QA](docs/18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## RND-02 resuelta y combinación de modelos permitida (2026-11-22)
+**Nueva decisión expresa:** si el subtotal exacto de un modelo termina en **Bs 0,50**, **se mantiene sin redondear**; de lo contrario se redondea al boliviano entero más cercano. P_docena=381, n=6 → **Bs 190,50**; P=380, n=7 → **Bs 222**. **Pedido multímodelo:** puede contener 12 unidades del modelo A y 6 del modelo B (mínimo 6 por modelo); P_A=420 y P_B=380 → **Bs 610**, o P_B=381 → **Bs 610,50**. Sumar subtotales ya calculados **sin un segundo redondeo global**. **No extrapolar a 13+ de un mismo modelo**, que continúa pendiente. [Contrato](docs/18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

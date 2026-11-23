@@ -80,3 +80,6 @@ Cada modelo de talla única tiene precio mayorista propio **por docena**; para 6
 
 ## Precio por modelo entero — regla RND-01 posterior
 Con talla única y colores variables, calcular `P_docena_modelo×n_total_modelo/12`, **redondear una sola vez al entero Bs más cercano por modelo**, sin redondear cada color o unidad; sumar subtotales de modelos diferentes después. P=380 n=7 → 222; asignar los colores de surtido diferido **no modifica precio ni consume dos veces stock**. No descuentos E1. Empate exacto .50 sin política aún (RND-02), importes >12 pendientes. [Regla](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## Cierre monetario: fracción exacta de 0,50 no se redondea
+Cada modelo conserva talla única, colores propios y precio docena particular. Cotizar 6–11 por proporción y 12 como docena, aplicar redondeo entero al **total del modelo** excepto **x,50 exacto que se mantiene**. Se permiten diferentes modelos con diferentes cantidades en un pedido, p. ej. A docena y B media docena; precios y mínimos por modelo siguen independientes. Sumar precios de modelos sin redondear el total global. A P=420 n=12, B P=381 n=6 ⇒ **Bs 610,50**. Reserva surtida no necesita colores iniciales para calcular el subtotal. No descuentos E1; MAY-12 (más de doce del mismo modelo) sigue abierto. [Precio](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
