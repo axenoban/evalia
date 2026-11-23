@@ -39,3 +39,15 @@ No inventar cuentas bancarias ni reutilizar códigos QR no comprobados. La gesti
 - El usuario aprueba la prueba física. Solo después considerar integración a baseline y una versión publicable.
 
 **Bloqueador actual:** autorización Vercel para el equipo asociado a la conexión. La publicación de GitHub Pages aprobada permanece intacta.
+
+## Bloqueo verificado del conector Vercel (23-11-2026)
+
+La autorización del equipo `galaxian131-9858` ya funciona. Sin embargo, Vercel respondió al intentar crear el proyecto vinculado a `axenoban/evalia`:
+
+> Failed to link axenoban/evalia. You need to add a Login Connection to your GitHub account first.
+
+No se creó proyecto ni despliegue Vercel; la lista de proyectos `evalia` del equipo sigue vacía. El requisito es **conectar GitHub como Login Connection en la cuenta Vercel del propietario**, distinto de autorizar acceso al equipo a través del conector ChatGPT.
+
+Pasos: Vercel Dashboard → avatar → Settings → Authentication → Login Connections → conectar GitHub `axenoban`. Confirmar que Vercel GitHub App tiene acceso al repositorio `axenoban/evalia` (cuenta GitHub → Settings → Applications → Installed GitHub Apps → Vercel). Después volver a intentar la vinculación desde el conector. No crear manualmente otro proyecto ni pasar tokens, contraseña o secretos por el chat.
+
+Documentación oficial: https://vercel.com/docs/accounts y https://vercel.com/docs/git/vercel-for-github.
