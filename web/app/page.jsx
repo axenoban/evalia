@@ -8,6 +8,7 @@ import {
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
+import AdminAccounts from './admin-accounts.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
 import { formatAvailableDozens, formatModelDozenPrice } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
@@ -909,7 +910,7 @@ function PaymentHistory({items=[],compact=false}){
   </div>)}
  </div>:<p className="small-note">Todavía no hay pagos informados.</p>;
 }
-function QrAdmin({settings,onSave,busy}){
+function QrAdmin({settings,onSave,busy,canManage=true}){
  const [file,setFile]=useState(null),[verified,setVerified]=useState(false);
  const [hint,setHint]=useState('');
  const req=useRef(null);
@@ -934,7 +935,7 @@ function QrAdmin({settings,onSave,busy}){
     <span className="pay-state pay-approved">QR verificado para reutilización</span>
     <button type="button" className="button button-outline" onClick={show}>Ver QR vigente</button>
    </div>:<p className="small-note">Todavía no hay un QR bancario vigente publicado.</p>}
-  <form onSubmit={submit} className="money-form">
+  {canManage?<form onSubmit={submit} className="money-form">
    <Field title="Imagen bancaria JPG, PNG o WebP (máx. 5 MB)">
     <input type="file" accept="image/jpeg,image/png,image/webp"
      onChange={e=>{setFile(e.target.files?.[0]||null);req.current=null;}} required/></Field>
@@ -943,7 +944,7 @@ function QrAdmin({settings,onSave,busy}){
      He comprobado que esta imagen es un QR real, vigente y reutilizable para recibir pagos.</label>
    <button className="button button-primary" type="submit" disabled={busy||!file||!verified}>
     {busy?'Guardando…':'Publicar QR para clientes'}</button>
-  </form>
+  </form>:<p className="small-note">Solo el propietario puede modificar el QR bancario.</p>}
   {hint&&<p role="status" className="small-note">{hint}</p>}
  </section>;
 }
@@ -1001,14 +1002,14 @@ function OrderLinkPanel({order,data,onIssue,onRevoke,busy}){
   {hint&&<p role="status" className="small-note">{hint}</p>}
  </div>;
 }
-function PaymentReview({data,onReview,onSaveQr,busy}){
+function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
  const [notes,setNotes]=useState({});
  const [filter,setFilter]=useState('pending');
  const pending=['pending','observed'];
  const list=data.payments.filter(p=>filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter));
  return <><SectionHead eyebrow="CONCILIACIÓN MANUAL" title="Verifica los pagos recibidos."
   description="Un aviso o comprobante NO confirma dinero ingresado. Comprueba la recepción fuera del sistema antes de aprobar."/>
-  <QrAdmin settings={data.qrSettings} onSave={onSaveQr} busy={busy}/>
+  <QrAdmin settings={data.qrSettings} onSave={onSaveQr} busy={busy} canManage={canManageQr}/>
   <div className="toolbar"><label className="field"><span className="field-label">Filtrar estado</span>
    <select value={filter} onChange={e=>setFilter(e.target.value)}>
     <option value="pending">Pendientes y en observación</option>
@@ -1419,6 +1420,7 @@ function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
    <button className="button button-primary full" disabled={busy||logoutPending} type="submit">{busy?'Verificando…':'Entrar al panel'}</button>
    {logoutPending&&<button className="button button-outline full" type="button" disabled={busy} onClick={onRetryLogout}>Reintentar cierre de sesión</button>}
   </form>
+  <p className="small-note"><a href="/cuenta">¿Olvidaste tu contraseña?</a></p>
   <p className="small-note">En tu dispositivo personal puedes guardar la contraseña con el gestor del navegador. Cierra sesión al usar un dispositivo compartido. No existe registro público de cuentas.</p>
  </section></main>;
 }
@@ -1427,6 +1429,8 @@ export default function HomePage(){
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [logoutPending,setLogoutPending]=useState(false);
+ const [owner,setOwner]=useState(false);
+ const menu=owner?[...MENU,['security','Usuarios','⚙']]:MENU;
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
  const db=useMemo(()=>getSupabase(),[]);
  const configured=Boolean(db);
@@ -1434,6 +1438,7 @@ export default function HomePage(){
   authGeneration.current++;
   refreshGeneration.current++;
   authorizedUser.current=null;
+  setOwner(false);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
  },[]);
  const refresh=useCallback(async()=>{
@@ -1447,6 +1452,9 @@ export default function HomePage(){
    if(!permitted){
     clearAccess();setError('Tu acceso ya no está autorizado. Inicia sesión nuevamente.');return;
    }
+   const role=await db.rpc('is_evalia_owner');
+   if(generation!==refreshGeneration.current)return;
+   setOwner(!role.error&&role.data===true);
    const snapshot=await loadWorkspace();
    if(generation===refreshGeneration.current)setData(snapshot);
   }catch(e){
@@ -1454,7 +1462,7 @@ export default function HomePage(){
    setData(null);
    throw e;
   }
- },[clearAccess]);
+ },[clearAccess,db]);
  useEffect(()=>{
   let active=true;
   if(!db){setReady(true);return;}
@@ -1591,14 +1599,14 @@ export default function HomePage(){
   <aside className="sidebar"><div className="brand"><span className="brand-icon">E</span>
    <div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
    <p className="sidebar-label">ESPACIO DE TRABAJO</p>
-   <nav className="sidebar-nav" aria-label="Navegación principal">{MENU.map(([id,label,symbol])=>
+   <nav className="sidebar-nav" aria-label="Navegación principal">{menu.map(([id,label,symbol])=>
     <button key={id} onClick={()=>setTab(id)} aria-current={tab===id?'page':undefined}
       className={tab===id?'active':''}><span className="nav-icon">{symbol}</span>{label}</button>)}</nav>
    <div className="sidebar-bottom"><span className="connected-dot"/><div><strong>Base de datos conectada</strong><small>Sesión administrativa</small></div></div>
   </aside>
   <div className="workspace">
    <header className="topbar"><div className="breadcrumb">EVALIA <span>/</span>
-    <strong>{MENU.find(x=>x[0]===tab)?.[1]}</strong></div>
+    <strong>{menu.find(x=>x[0]===tab)?.[1]}</strong></div>
     <div className="top-actions"><span className="live-label"><span className="connected-dot"/> Supabase</span>
      <button className="button button-ghost" onClick={()=>mutation(async()=>refresh(),'Datos actualizados.')} disabled={busy}>↻ Actualizar</button>
      <button className="button button-ghost" onClick={logout} disabled={busy}>Salir</button></div>
@@ -1612,12 +1620,13 @@ export default function HomePage(){
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
       tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} busy={busy}/>:  
-      tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy}/>:  
+      tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
+      tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
    </main>
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
   </div>
-  <nav className="mobile-nav" aria-label="Navegación móvil">{MENU.map(([id,label,sign])=>
+  <nav className={'mobile-nav'+(owner?' mobile-nav-owner':'')} aria-label="Navegación móvil">{menu.map(([id,label,sign])=>
    <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)} className={tab===id?'active':''}>
     <span>{sign}</span><small>{id==='booking'?'Nuevo':label}</small></button>)}</nav>
  </div>;
