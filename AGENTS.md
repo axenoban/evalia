@@ -110,3 +110,6 @@ D0-C1 PREVALENTE: la V1 debe aceptar **alta rápida agregada por modelo surtido*
 
 ## D0-F aprobado y D1-A (2026-11-23)
 El propietario aprobó D0-F. Ver [D1-A](docs/35_D1_A_SUPABASE_PRIMER_BLOQUE.md): 14 tablas base con RLS, colores solo descriptivos, inventario por modelo, operaciones administrativas idempotentes y ajuste bajo lock. Reservas, pedidos y entregas estructurales SIN permisos de escritura hasta RPC de D1-B con locks en model_inventory. No habilitar acceso público, ni main, ni despliegue. PR #1 permanece DRAFT y pruebas aún no ejecutadas.
+
+## Skills de desarrollo (2026-11-23)
+Las skills especializadas están catalogadas en docs/37_SKILLS_DESARROLLO_FORMULARIOS.md. Antes de cambios en formularios, leer .agents/skills/evalia-formularios/SKILL.md y la skill de funcionalidad (catálogo o reservas/pedidos); sumar evalia-ux-visual y evalia-pruebas-e2e en revisión de UX/QA. Para SQL consultar evalia-seguridad-supabase y supabase-postgres-best-practices. Claude Code usa entradas compartidas en .claude/skills/. Son instrucciones técnicas, no autorización para modificar reglas aprobadas, sustituir el stack ni habilitar pedidos reales en la demo.
