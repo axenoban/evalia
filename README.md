@@ -1,5 +1,7 @@
 # EVALIA — Catálogo, reservas y pedidos
 
+> **Estado actual (23-11-2026):** EVALIA **sí cuenta con un proyecto Supabase remoto activo** y las **cinco migraciones SQL (001–005) ya están aplicadas y auditadas**. Existe una aplicación Next.js operativa en `web/`, todavía **sin hosting, sin usuario administrador creado y pendiente de prueba visual**. El desarrollo más reciente permanece aislado en `feature/evalia-captura-docenas-colores` (PR #4 draft, sin merge). Guía actualizada: [integración real y arranque](docs/40_INTEGRACION_SUPABASE_REAL.md); reglas nuevas de selección de colores: [contrato de captura](docs/39_CAPTURA_DOCENAS_COLORES_INDIVIDUALES.md). **Los pasajes antiguos de este README son historia documental, no el estado actual del proyecto.**
+
 **Estado:** descubrimiento y documentación v0.2, 22-11-2026. Las selecciones D01–D18 están **registradas, pendientes de ratificación y revisión del PR #1**. No existe aún sistema funcional, base de datos creada ni hosting productivo.
 
 El primer módulo es **administración** de catálogo, reservas de stock disponible y pedidos; se preparará una arquitectura ampliable a personal y clientes sin implementar prematuramente sus accesos.

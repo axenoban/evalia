@@ -47,6 +47,9 @@ Por ello, **NO volver a ejecutar estas migraciones en la misma base**. Un futuro
 
 ### Auditoría Supabase
 
+El pipeline GitHub Actions presenta un fallo de infraestructura identificado (no de SQL): dos ejecuciones simultáneas de `supabase start` compitieron por el puerto Docker `54324`. En la rama feature se añadió un grupo de **concurrencia sin cancelación**, para serializar el workflow. Verificar en el siguiente run que los tres jobs terminen correctamente antes de fusionar.
+
+
 El asesor de seguridad comunica **9 advertencias \`authenticated_security_definer_function_executable\`**. Son RPC de inventario/reservas/modelos diseñadas para atender usuarios autenticados, **con verificación adicional de \`admin_profiles\` dentro de cada función**, y el linter es conservador. No desactivar advertencias, no abrir acceso a \`anon\`, ni convertir ciegamente a \`SECURITY INVOKER\` porque rompería las escrituras controladas por RPC. Reauditar tras cada cambio; considerar a futuro una API interna no expuesta si el diseño de permisos lo requiere.
 
 El asesor de rendimiento informó **11 índices de claves externas sin cobertura** y **11 índices sin uso** en una base sin datos. Los índices sin uso no deben eliminarse automáticamente; los de claves externas son deuda de optimización para un bloque futuro y no impiden la prueba funcional inicial.
