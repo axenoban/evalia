@@ -31,7 +31,7 @@
 | --- | --- | --- | --- |
 | C01 | P0 | Modelo S=6, E=0, G=0; dos admins intentan reservar exactamente 6 al mismo tiempo | Solo una transacción triunfa; `A=0`, nunca E=12 |
 | C02 | P0 | Modelo S=12, E=0, G=0; reserva G=6 concurre con reserva exacta E=8 | Solo la combinación legal cabe; no prometer 14 |
-| C03 | P0 | Modelo S=12, E_negras=3, G=6; dos reservas exactas de colores diferentes simultáneas | Límite **global A=3** se respeta; aislamiento entre colores no permite 6 extras |
+| C03 | P0 | Modelo S=12, E_negras=3, G=6; dos admins intentan **reservar 2 unidades exactas cada uno** en colores diferentes, disponibles por variante | **Solo una** reserva de 2 puede prosperar (A inicial=3); la otra se rechaza al recalcular A=1, sin exceder cupo global |
 | C04 | P0 | S_negras=3, E_negras=2; S_rosas=9; petición exacta 2 negras | Rechazar por `F_negras=1`, aunque A global alcance |
 | C05 | P0 | G=6; asignar 4 negras+2 rosas con stock suficiente | G baja 6, E sube 6, S igual, **A invariable** |
 | C06 | P0 | Asignación G→E y vencimiento F disputan misma reserva | Una transición válida; no convertir G en E y después volver a liberar unidades inexistentes |
@@ -87,3 +87,6 @@
 6. **D0-F:** QR válido, retención y política de privacidad de comprobantes, host/cron y backups.
 
 **Resultado:** matriz QA y controles técnicos **documentados**; permisos, transacciones y tests aún **no implementados ni validados contra PostgreSQL**. El siguiente paso recomendado es revisar D0-A/D0-C como decisiones que afectan las transiciones esenciales, antes de diseñar SQL.
+
+## Corrección de precisión en D0-02
+En el caso C03, el límite global **A=3** exige especificar cantidades concretas de solicitudes concurrentes. Dos solicitudes exactas simultáneas de **2 unidades cada una** no deben reservar las cuatro, aunque cada color separado muestre margen físico: el servidor admite solo una y la otra falla tras serialización por modelo. El mínimo mayorista de seis **se valida en la operación comercial por modelo**, por lo que este escenario es una prueba aislada de **función interna de asignación**, no de creación válida de una reserva mayorista de 2 prendas. Para una prueba end-to-end comercial, preparar un carrito por modelo de 6 o más unidades que incluya esa asignación de color, o configurar solicitudes concurrentes válidas de 6+ en otro fixture.

@@ -1,4 +1,4 @@
-# EVALIA — ADR-D0-01: modelo lógico transaccional de inventario, reservas y pedidos (PROUESTA, sin SQL)
+# EVALIA — ADR-D0-01: modelo lógico transaccional de inventario, reservas y pedidos (PROPUESTA, sin SQL)
 
 **Corte:** 2026-11-22. **Naturaleza:** documento de diseño técnico para revisión, NO aprobación de arquitectura ejecutable, migraciones, entidades SQL definitivas, cambios de reglas comerciales o merge. Base observada: `feature/fundamentos-reservas-pedidos @ 416eaaad`, `main @ b3168aeb`; PR #1 DRAFT.
 
