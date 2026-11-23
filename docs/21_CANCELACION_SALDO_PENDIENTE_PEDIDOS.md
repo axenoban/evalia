@@ -79,3 +79,6 @@ Se aprobó que depósito y pagos parciales se acumulen como abonos al pedido y q
 
 ## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
 Con cancelación G03-B, conservar declaraciones **PENDIENTES** y abonos **APROBADOS**. Solo aprobados cuentan para saldo del pedido; la liberación de unidades pendientes no cambia automáticamente pagos ni devuelve dinero. Aprobación siempre administrativa, sin portal cliente inferido. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).
+
+## D13-E1: enlace cliente y cancelación parcial
+Si pedido 12 tiene **5 entregadas y 7 pendientes**, la cancelación administrativa de 7 deja el historial íntegro, pero **no equivale automáticamente a marcar TERMINADO/COMPLETADO por recogida**. El enlace del cliente permanece activo mientras el pedido siga activo salvo revocación admin; el criterio de cierre especial de un pedido con resto cancelado o cancelación total aún exige política. Al marcar COMPLETADO tras la recogida, el enlace deja de dar acceso, sin borrar pagos ni volver a liberar G/E. [Ciclo de vida](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md).

@@ -18,7 +18,7 @@
 1. **URL no predecible:** generar un token aleatorio criptográficamente seguro y de suficiente entropía, **único para ese pedido**. No usar ID secuencial, teléfono, WhatsApp, nombre o código de pedido como credencial. Se puede mantener el código comercial visible **separado** de la credencial.
 2. **Validación en servidor:** **cada** solicitud de consulta, declaración y carga se valida en backend y se vincula **exclusivamente al pedido asociado al token**. Nunca confiar en un `order_id` suministrado por el navegador para cambiar de pedido. Rechazar token inválido/revocado y acceso cruzado. Separar endpoints de administrador, protegidos por autenticación y rol, del acceso mínimo del enlace de cliente.
 3. **Token secreto:** no guardar token en claro en logs/analítica ni exponerlo en capturas o consultas externas; considerar almacenar **solo digest/verificador** del token en servidor. Evitar filtraciones por referrer a servicios terceros, previsualizaciones, trackers, historial o redirecciones. HTTPS obligatorio. Recomendación técnica: canjear el token por una sesión de alcance estrecho en cookie segura/httpOnly, sin transmitir credenciales a proveedores terceros.
-4. **Revocación y renovación:** el administrador debe poder **revocar un enlace comprometido y emitir otro** sin cambiar el número ni los datos del pedido. Los enlaces revocados dejan de dar acceso. **Aún por definir** la expiración comercial por defecto (fecha exacta, cierre de pedido o manual), reemisión y recuperación; **no convertir esta indefinición en enlaces permanentemente válidos al publicar**.
+4. **Vigencia por estado y revocación (DECISIÓN POSTERIOR):** el enlace privado continúa activo **solo mientras el pedido siga activo y el administrador no lo haya marcado TERMINADO/COMPLETADO tras su recogida**. La entrega parcial no equivale a cierre; tener saldo pagado tampoco completa automáticamente el pedido. Tras la transición administrativa a TERMINADO/COMPLETADO, **rechazar acceso y nuevas cargas con ese enlace**. Además, el administrador puede **revocar el enlace en cualquier momento** y **emitir uno nuevo para el mismo pedido mientras permanezca activo**, sin alterar pedido ni historial. Un token revocado nunca recupera acceso. No es necesaria una fecha fija arbitraria: se usa el ciclo de vida del pedido. La recuperación de un enlace y la gestión de cierres especiales siguen sujetos a reglas específicas.
 5. **Privacidad:** mostrar solo lo necesario para el pago del pedido; no listar cliente global, inventario interno, notas administrativas, otros pagos/cuentas, documentos internos ni información de otros compradores. No exponer URLs públicas permanentes de comprobantes; acceso a ficheros siempre autorizado y privado.
 6. **Cargas seguras:** límite de cantidad/tamaño y tipos de archivo, comprobación real del formato, rate limiting y controles antiautomación, nombres generados por servidor, almacenamiento privado y enlaces de acceso de corta duración. El límite exacto de MB y la política de retención/escaneo requieren validación técnica antes de implementación; no aceptar archivos ejecutables ni SVG.
 7. **No usar privilegios de administrador en el cliente:** las operaciones de la vista no pueden invocar endpoints administrativos ni exponer claves privilegiadas de Supabase. Aplicar separación de permisos, RLS cuando corresponda y controles de servidor; nunca usar solo filtros del frontend como protección.
@@ -59,14 +59,51 @@ El depósito puede abonarse **durante una reserva** según G01 incluso antes de 
 | Pide comprobante de B con token de A | **Acceso rechazado** y fichero B permanece privado |
 | Token llega a registros/terceros o archivo público | **Falla de seguridad**: no aprobar despliegue mientras exista filtración |
 | Reserva sin pedido confirmado | No generar enlace de pedido inexistente; depósito puede seguir flujo manual G01 |
-| Pedido cancelado/cerrado y enlace aún accesible | **Política de revocación/solo lectura por definir**; no permitir acciones no aprobadas |
+| Pedido marcado **TERMINADO/COMPLETADO tras recogida**, enlace antes vigente | **Acceso DENEGADO**, incluso consulta, descarga QR y carga de comprobante; mantener historial interno |
+| Pedido entregado parcialmente, sin marcar completado | Enlace **ACTIVO** y restringido al mismo pedido |
+| Pedido totalmente recogido pero todavía activo/no marcado completado | Enlace **ACTIVO** hasta acción administrativa que cierre el pedido; no autocerrar por entrega o pago aislado |
+| Administrador revoca token con pedido activo | **Acceso DENEGADO inmediatamente**; si emite uno nuevo, el antiguo sigue inválido |
+| Pedido cancelado o terminado por flujo distinto de recogida | **Política específica pendiente**; no suponer que es un pedido completado con entrega íntegra |
 
 ## Decisiones pendientes que NO deben inventarse
 
-- **Vigencia exacta de la credencial** de enlace, regeneración al cerrar pedido y reglas de recuperación; la **capacidad de revocarlo** es requisito de seguridad.
+- **Vigencia ordinaria ya RESUELTA:** enlace activo mientras el pedido siga activo y **NO** se marque TERMINADO/COMPLETADO tras recogida; al completarse, negar acceso, y el administrador puede revocarlo antes y sustituirlo por otro mientras esté activo. **Pendientes:** recuperación del acceso tras pérdida, cierre excepcional/cancelación sin recogida íntegra, reglas de reapertura y efecto de pago pendiente al cerrar; no inventar caducidad en días.
 - **Visibilidad de datos personales** y detalles sensibles de pago en la pantalla, nivel mínimo final de resumen de pedido.
 - **Política de límites/retención** de archivos, evidencias, tamaños, respuestas a intentos repetidos y soporte de rechazo; requisitos técnicos razonables deben validarse antes de publicar.
 - **Depósito en reserva antes de confirmación**, si más adelante requiere también un enlace temporal de autoservicio, aún no autorizado.
 - **Reembolsos, cancelaciones económicas, método de comprobación bancaria y pagos excesivos** permanecen en G06/G03-B.
 
 **Próximo desarrollo documental:** flujo de QR como imagen + captura obligatoria de comprobante + estados de revisión en [docs/25_QR_Y_COMPROBANTES_CLIENTE.md](25_QR_Y_COMPROBANTES_CLIENTE.md). Sin implementación, SQL ni merge.
+
+## ÚLTIMA DECISIÓN D13-E1 — el enlace dura hasta COMPLETADO tras recogida, con revocación (2026-11-22)
+
+**Declaración literal del propietario:** «esta bien el enlace tiene que durar lo que el pedido este activo y por lo menos se marque en terminado o completado, cuando el cliente ya recoja dicho pedido, y como dices en tu recomendacion, el enlace puede ser revocado si se requiere».
+
+**Regla comercial aprobada:** el acceso privado de **UN pedido** funciona **mientras el pedido esté activo**, salvo revocación administrativa. Cuando el administrador verifica la recogida y **marca el pedido como TERMINADO/COMPLETADO**, el enlace **deja de dar acceso**. Esta decisión **reemplaza la anterior incertidumbre sobre la duración del enlace**; **NO** fijar TTL comercial arbitrario de X días ni expirarlo por la fecha de feria G01 (que rige reservas sin pedido, no pedidos confirmados).
+
+**No confundir cuatro hechos distintos:**
+- **Pago completo:** reduce el saldo financiero a cero, **pero no marca automáticamente el pedido como terminado** si no se ha recogido toda la mercancía.
+- **Entrega parcial:** conserva pendientes y compromisos, **no marca COMPLETADO** ni expira el enlace.
+- **Recogida total:** se registra físicamente; el **administrador marca TERMINADO/COMPLETADO** para cerrar el pedido y su acceso. No inventar que un cliente pueda marcarlo cerrado desde su enlace.
+- **Revocación del enlace:** puede ejecutarse **en cualquier estado activo**, incluso ante filtración o reenvío de la URL; invalida el token, **no cancela el pedido, no libera inventario ni devuelve pagos**. El administrador puede emitir un **nuevo token único** para el mismo pedido activo sin reactivar el antiguo.
+
+**Garantía de seguridad:** la comprobación de `pedido_activo && !enlace_revocado && !pedido_completado` debe realizarse **en servidor en cada lectura y cada escritura/carga**, no solo al abrir el enlace. Después de completar/revocar, tampoco se deben permitir nuevos comprobantes, accesos a los anteriores, consultas de saldo ni descarga del QR por ese token. Archivos e historial siguen conservados de forma privada para el administrador; invalidar el enlace **no borra ni modifica pagos aprobados o pendientes**. No reutilizar tokens. Si una carga coincide con el instante de cierre/revocación, validar estado al confirmar la operación para no aceptar declaraciones una vez desactivado.
+
+### QA de vigencia por ciclo de vida — documental
+
+| Estado/evento | Enlace | Datos/inventario |
+| --- | --- | --- |
+| Pedido confirmado con 12 prendas, ninguna entregada | **ACTIVO** | Cliente consulta solo su pedido y reporta pagos pendientes |
+| Pedido de 12, entregadas 5, quedan 7 | **ACTIVO** | Las siete siguen comprometidas; no confundir entrega parcial con cierre |
+| Pago total aprobado, aún quedan prendas por retirar | **ACTIVO** | Saldo 0 no implica recogida/completado |
+| Las 12 recogidas pero administrador todavía no marca TERMINADO | **ACTIVO** | No autocerrar solo por evento de entrega |
+| Administrador verifica recogida y marca **TERMINADO/COMPLETADO** | **DESACTIVADO** | Ninguna consulta/carga adicional; historial privado intacto |
+| Admin revoca enlace de pedido aún activo | **DESACTIVADO** | Pedido continúa activo, pagos/stock sin cambios |
+| Admin emite enlace nuevo para pedido aún activo | **Solo nuevo ACTIVO** | Token antiguo sigue inválido y ambos son exclusivos del mismo pedido |
+| Solicitud antigua o carga tardía llega tras completar/revocar | **RECHAZADA en servidor** | No crear declaración ni acceso a imagen privada |
+| Pedido parcialmente cancelado pero con entregas restantes pendientes | **ACTIVO mientras no se complete/cierre**, salvo revocación | G03-B controla cantidad pendiente; no inferir TERMINADO |
+| Pedido totalmente cancelado sin recogida o con deuda al cierre | **Criterio de cierre especial PENDIENTE** | No inventar devolución ni permitir cierre financiero silencioso |
+
+**Pendiente de negocio separado:** si el administrador puede marcar COMPLETADO con saldo monetario pendiente y cómo se gestiona un pedido cancelado completamente sin retiro. No imponer en esta decisión «saldo=0» como condición obligatoria ni permitir que una deuda se pierda al cerrar el enlace: el pago/deuda persiste en sistema administrativo. Los códigos técnicos concretos de estados son candidatos, no enum SQL aprobada.
+
+**Estado:** vigencia ordinaria y revocación **RESUELTAS**; excepciones de cierre/cancelación/recuperación y reglas monetarias de cierre pendientes. Este bloque es exclusivamente documental; PR #1 DRAFT, sin SQL ni merge.

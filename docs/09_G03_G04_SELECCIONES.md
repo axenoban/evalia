@@ -114,3 +114,6 @@ Cliente reporta pago ⇒ pendiente; solo administración lo **aprueba tras compr
 
 ## E1 posterior — consulta limitada de pedido, QR y comprobante por cliente
 El propietario aprobó acceso a una vista de **su pedido mediante URL privada única**, sin login, para ver importe/saldo/QR imagen descargable y subir comprobante con monto. **No es checkout público, confirmación automática ni cancelación de pedido por cliente**. Pago inicia pendiente; admin verifica y aprueba/rechaza/observa. No alterar snapshot G04-08, regla G03 de confirmación admin ni cancelaciones G03-B. Contratos [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md), [G06](25_QR_Y_COMPROBANTES_CLIENTE.md).
+
+## D13-E1 — enlace por ciclo de vida del pedido
+El enlace único de cada pedido se mantiene **activo hasta que el administrador, tras la recogida, marque TERMINADO/COMPLETADO**, salvo revocación previa. Recogida parcial y pagos totalmente recibidos **no** terminan automáticamente el acceso. Revocación invalida la credencial sin cancelar pedido ni cambiar G/E/S o dinero; administrador puede emitir reemplazo para pedido activo. El cierre especial tras cancelación de pendientes y saldo económico al terminar siguen pendientes. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md).

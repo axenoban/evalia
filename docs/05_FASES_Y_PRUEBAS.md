@@ -242,3 +242,15 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - Acceso por enlace perdido/reenvío: debe ser **revocable** sin cambiar pedido, vigencia específica aún pendiente.
 - Reserva aún no convertida en pedido: depósito por canal admin/WhatsApp G01; no inventar URL cliente para reserva.
 **QA bloqueante antes de producción:** pruebas reales de token, ACL/RLS/servidor y almacenamiento privado, límites y sanitización de archivos, duplicados/concurrencia, filtración del enlace y revocación. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md) · [G06](25_QR_Y_COMPROBANTES_CLIENTE.md).
+
+## QA D13-E1 — enlace hasta TERMINADO/COMPLETADO y revocación
+**Aceptación documental, aún no ejecutable en software:**
+- Pedido confirmado activo con 12 unidades sin entregar: enlace permite lectura de ese pedido y reporte de pago PENDIENTE.
+- Retiro parcial de 5, 7 pendientes: enlace sigue activo. Pagar saldo completo con prendas pendientes: sigue activo, **no** completar solo por dinero.
+- Retiro físico de las 12 sin estado TERMINADO administrativo: enlace continúa activo hasta cierre explícito (regla aprobada).
+- Admin marca TERMINADO/COMPLETADO **después de recogida**: enlace anterior DENEGADO para GET vista/saldo/QR y POST carga; registro de pedido y pagos intacto.
+- Admin revoca enlace de pedido activo: se invalida de inmediato; nueva emisión produce token diferente, revocado permanece inválido; pedido/stock/dinero no cambian por revocación.
+- Intentos de cargar comprobante en carrera con cierre/revocación: backend revalida el estado de enlace/pedido al aplicar escritura y rechaza carga tardía.
+- URL del pedido A nunca abre B; token filtrado/revocado no permite acceder a documentos anteriores ni a otros clientes.
+- Pedido con cancelación parcial: no inferir TERMINADO automáticamente; criterio de cierre sin recogida total y deuda al cierre pendientes.
+**No prueba ejecutable**, sin aplicación SQL; verificar al desarrollar con autenticación admin real y archivos privados. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md).
