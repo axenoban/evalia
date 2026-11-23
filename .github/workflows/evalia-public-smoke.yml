@@ -1,0 +1,44 @@
+name: EVALIA | Prueba pública sin cuenta Vercel
+on:
+  push:
+    branches:
+      - feature/evalia-release-candidate
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  anonymous-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar accesibilidad sin cookies ni credenciales
+        shell: bash
+        env:
+          BASE: https://evalia-git-feature-evalia-release-candidate-galaxian131-9858.vercel.app
+        run: |
+          set -euo pipefail
+          BODY="$(mktemp)"
+          trap 'rm -f "$BODY"' EXIT
+
+          STATUS="$(curl --silent --show-error --location --output "$BODY" --write-out '%{http_code}' "$BASE/")"
+          echo "Panel anónimo: HTTP $STATUS"
+          test "$STATUS" = "200"
+          grep -q 'EVALIA' "$BODY"
+          if grep -qi 'Authentication Required.*Vercel' "$BODY"; then
+            echo "::error::La página pública está bloqueada por Vercel Authentication"
+            exit 1
+          fi
+
+          STATUS="$(curl --silent --show-error --output "$BODY" --write-out '%{http_code}' "$BASE/api/portal-estado")"
+          echo "Backend: HTTP $STATUS"
+          test "$STATUS" = "200"
+          grep -q '"ready":true' "$BODY"
+
+          STATUS="$(curl --silent --show-error --output "$BODY" --write-out '%{http_code}' "$BASE/p/no-es-un-token")"
+          echo "Token inválido: HTTP $STATUS"
+          test "$STATUS" = "404"
+
+          STATUS="$(curl --silent --show-error --output "$BODY" --write-out '%{http_code}' "$BASE/api/cliente-qr")"
+          echo "QR sin sesión: HTTP $STATUS"
+          test "$STATUS" = "404"
