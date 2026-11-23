@@ -143,3 +143,18 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - **Sin descuentos E1** aunque n=24, 36 u otra cantidad mayor. Guardar snapshot al confirmar; color surtido pendiente no cambia precio.
 - No aceptar reserva de 5 unidades de un modelo aunque otro tenga 19: mínimo aplica por modelo. Validar cupo apto/garantía de surtidos con las cantidades altas sin sobreventa.
 **MAY-12 cerrado:** las advertencias históricas «13+ pendiente» de secciones anteriores son antecedentes superados. [Contrato canónico](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## QA G01 — vencimientos por feria y depósitos registrables después
+**Criterios de aceptación documentados, NO pruebas ejecutadas contra una aplicación.** Operación local propuesta `America/La_Paz`:
+- **Martes 2026-11-24** o **miércoles 2026-11-25** guardado sin depósito → vence **sábado 2026-11-28 a las 12:00**.
+- **Viernes 2026-11-27** o **sábado 2026-11-28** guardado sin depósito → vence **miércoles 2026-12-02 a las 12:00**.
+- **Cruce anual:** martes 2026-12-29 → sábado 2027-01-02 12:00.
+- **Reserva con depósito registrado posteriormente y recibido a tiempo:** viernes 2026-11-27, depósito registrado martes 2026-12-01 → no liberar el miércoles 2026-12-02 por reloj ordinario. Fecha final con depósito **sin definir**.
+- **Reserva de surtido G=6 expirada sin depósito ni confirmación:** G−6, disponible +6, stock físico idéntico; reintento no duplica liberación. También probar reserva exacta por color E.
+- **Pedido confirmado antes de vencer:** al miércoles/sábado no se libera el stock del pedido; el compromiso ya fue transferido sin descontar doble.
+- **Borrador:** no bloquea existencias ni libera nada al vencer.
+- **Registro de depósito después de caducidad efectiva:** no revive compromiso ni reserva automáticamente; incidencia requiere revisión de inventario.
+- **Lunes/jueves/domingo:** ningún vencimiento autogenerado porque no se aprobó calendario de esos días.
+- **Media docena vs docena:** ambas con mismo día de guardado vencen al mismo momento si no hay depósito; sin trato especial por volumen.
+- **Concurrencia en 12:00:** operación depósito/expiración no puede liberar simultáneamente cupo protegido ni asignar dos veces mismas prendas; mantener auditoría.
+**G01 parcial:** faltan fechas de otros días y fin de vigencia con depósito; depósitos externos sin pasarela; G03-B cancelaciones/parciales sigue abierto. [Regla](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
