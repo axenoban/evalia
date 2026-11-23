@@ -71,3 +71,6 @@ La notación es conceptual: no aprobar nombres de tablas, campos ni relaciones S
 - G07/G08 roles, protección de clientes; D16 arquitectura final.
 
 **No crear SQL, desplegar, modificar main ni fusionar PR #1 hasta cerrar reglas y ratificación.**
+
+## Precios y captura visual coherentes con talla única
+El precio mayorista efectivo se **define individualmente para cada modelo**, aunque existan recomendaciones base por talla. Los ejemplos XL Bs 380 y Bs 420 muestran por qué no debe imponerse una tarifa única de XL. La **fotografía, los colores y la talla fija** son datos de la ficha de modelo; recuperar plantilla de colores del anterior o por talla no cambia modelos previos. Una reserva utiliza **solo tarifa mayorista**, con beneficios especiales configurados en el cliente cuando son aplicables; la conversión a pedido conserva compromiso de unidades y el snapshot monetario se fija al confirmar. [Precios](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md), [alta rápida](19_ALTA_RAPIDA_MODELOS_FERIA.md).

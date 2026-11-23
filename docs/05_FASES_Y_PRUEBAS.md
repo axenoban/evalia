@@ -89,3 +89,14 @@ Sin código/test ejecutable todavía: estos son escenarios de aceptación para e
 - Un modelo con colores agotados puede tener stock total cero pese a tener colores asignados. Un modelo diferente no presta stock a A.
 - Probar que cambiar talla de un modelo con historial **no reetiqueta** reservas/pedidos antiguos; política de cambio pendiente.
 **No se han ejecutado tests funcionales**: estos son escenarios de aceptación. [Modelo con talla única](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).
+
+## Criterios QA candidatos — precios mayoristas y alta de modelos
+- Talla XL con precio sugerido cualquiera; crear modelos XL-A y XL-B con precios mayoristas individuales ficticios **380 y 420**; el segundo no modifica al primero ni convierte la sugerencia en precio obligatorio.
+- Modelo M con precio propio diferente de otro M; solo **una talla por modelo** y colores seleccionados del maestro, con foto del modelo antes de publicación (momento de obligatoriedad pendiente).
+- Crear 6+ modelos de prueba para una feria, usar colores del último modelo y una plantilla por talla; editar selección para el nuevo modelo **sin mutar otro modelo o la plantilla**.
+- Registrar foto A, foto B con identificadores de almacenamiento independientes; no copiar stock, movimientos ni historial al sugerir ajustes desde modelo anterior. No subir imágenes reales al repositorio.
+- Cliente con regla especial explícita **−10 Bs por docena elegible**: docena completa a Bs 380 → Bs 370, desglosando ajuste y guardando snapshot al confirmar. Para 7 piezas **no calcular** automáticamente descuento ni precio sin política G04.
+- Reserva de modelo solo tarifa mayorista; venta minorista directa no requiere habilitar reserva minorista. Variar tarifa sugerida por talla no cambia reservas confirmadas ni precios históricos.
+- Una reserva abierta muestra tarifas vigentes sin snapshot de compromiso hasta confirmación según G04-08; los pedidos ya confirmados conservan importe aunque se edite la ficha del cliente.
+- Excepciones manuales de precio solo administrador con motivo/bitácora; comprobar no duplicación de reglas especiales y políticas RLS.
+**Bloqueantes** P-01/P-02 (6–11 unidades y beneficio), G04-01 presentaciones, P-03 acumulación, políticas de foto/plantilla. [Precios](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md), [alta](19_ALTA_RAPIDA_MODELOS_FERIA.md).

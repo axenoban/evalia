@@ -52,3 +52,8 @@ Los estados previstos distinguen **producción planificada, prendas revisadas ap
 
 ## Aclaración final de tallas por modelo
 **Un modelo = una talla fija (ejemplos M, XL o 2XL), conjunto de colores propio y estructura de precios del modelo.** Dos modelos pueden tener tallas y tarifas distintas. En surtido se conoce el modelo y por tanto la talla; se registra la **cantidad antes de guardar/bloquear cupo** y se completan sus colores después. Esta aclaración corrige interpretaciones anteriores de mezcla de tallas dentro del mismo modelo. [Modelo con talla única](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).
+
+## Nueva definición: precios mayoristas y alta rápida para la feria
+- [Tarifas mayoristas por modelo y clientes especiales](docs/18_PRECIOS_MAYORISTAS_Y_CLIENTES.md)
+- [Alta rápida de modelos: foto, colores recordados y plantillas por talla](docs/19_ALTA_RAPIDA_MODELOS_FERIA.md)
+**Reservas exclusivamente a precio mayorista**; sugerencia configurable **por talla** para facilitar el alta, pero **precio efectivo propio de cada modelo** (incluso dentro de una talla). Beneficio especial configurable en ficha de cliente, ejemplo **−Bs 10 por docena**. **No extenderlo automáticamente a 6–11 unidades ni sumar descuentos entre modelos sin decisión.** Se prevé registrar **seis o más modelos por feria**, con fotografía y selección reutilizable de colores; no se copiará inventario del anterior.

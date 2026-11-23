@@ -91,3 +91,6 @@ La cancelación/falta de retiro **no distingue comercialmente** media docena y d
 
 ## Aclaración final sobre tallas y registro de cantidad (2026-11-22)
 Cada **modelo** comercial tiene una **sola talla** (ejemplos M, XL o 2XL); distintos modelos pueden tener distintas tallas, colores y precios. No sumar M y XL **dentro del mismo modelo**. Al crear surtido se conoce modelo y por tanto talla; la **cantidad debe registrarse antes de Guardar** para poder garantizar cupo de stock apto. Solo la distribución por colores se completará después. Esta precisión prevalece sobre inferencias previas R05/G04, sin alterar respuestas literales R01–R12. [Contrato](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).
+
+## Nueva observación sobre precios y registro de modelos
+El propietario desea **reservas únicamente mayoristas**, **precio propio por modelo** con **sugerencia editable por talla**, foto de cada modelo, colores reutilizados del anterior y preferencias por talla para acelerar **seis o más modelos por feria**. Cliente especial puede tener **descuento por docena** en su ficha; ejemplo **−Bs 10 por docena**, propuesto/calculado al capturar un pedido. No hay autorización para calcular descuentos fragmentarios ni mezclar tallas en un modelo. [Precios y conflictos P](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md), [alta rápida](19_ALTA_RAPIDA_MODELOS_FERIA.md).
