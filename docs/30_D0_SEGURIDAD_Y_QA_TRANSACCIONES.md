@@ -96,3 +96,6 @@ En el caso C03, el límite global **A=3** exige especificar cantidades concretas
 
 ## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
 D0-C1 añade QA QC01–QC12 al D0: validación de stock publicado prudente, margen no comprometido, ninguna prenda dañada entregada ni ficha QC obligatoria. C15 antiguo pasa a déficit agregado cuando se descubre que las buenas no cubren reservas, con incidencia y sin promesas falsas. **Riesgo D0-C2:** un conteo S_modelo no demuestra existencia de color específico, QA adicional antes de SQL. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).
+
+## Addendum 2026-11-23 — casos superados por D0-C2/D/E
+Los casos sobre stock por color E/F_c y transferencia G→E (p. ej. C02–C06 con colores exactos, C04, C05) son **históricos**, no requisitos de la V1 simplificada. Sustituirlos por los QA de [D0-C2/D/E](33_D0_C2_D_E_INVENTARIO_SIMPLE_APROBADO.md) y [D0-F](34_D0_F_MODELO_LOGICO_SIMPLIFICADO_PROPUESTA.md). Mantener pruebas de concurrencia, conversión sin duplicación, caducidad, pago, entrega, token, RLS y evidencia. No levantar SQL hasta ratificar el nuevo modelo.

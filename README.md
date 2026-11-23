@@ -118,3 +118,9 @@ El propietario aprobó **confirmar un pedido con cantidad surtida G ya garantiza
 
 ## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
 D0-C1 APROBADO: alta conservadora de **stock surtido por modelo**, sin fichas de manchas. Ej.: producir 78, cargar 72 aptas comprometibles y mantener seis fuera de catálogo para fallas o venta física si libres; no es resta obligatoria por lote. Si solo quedan 68 buenas, no registrar 72. **D0-C2**: falta definir cómo garantizar colores exactos con alta sin S_c. [Contrato](docs/32_D0_C1_STOCK_CONSERVADOR.md).
+
+## Decisiones más recientes (2026-11-23)
+- [D0-C2/D0-D/D0-E — inventario surtido por modelo y ajustes simples, APROBADO](docs/33_D0_C2_D_E_INVENTARIO_SIMPLE_APROBADO.md).
+- [D0-F — reconciliación de entidades/operaciones Supabase, PROPUESTA sin SQL](docs/34_D0_F_MODELO_LOGICO_SIMPLIFICADO_PROPUESTA.md).
+
+Estas decisiones posteriores prevalecen sobre cualquier exigencia histórica de stock/compromisos por color para la V1. El PR sigue en borrador y **no hay aplicación ni migraciones**.

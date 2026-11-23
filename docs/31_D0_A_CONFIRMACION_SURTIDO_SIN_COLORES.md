@@ -82,3 +82,6 @@ Modelo `S=10,E=2,G=0,A=8`. Confirmar pedido surtido **6** sin reserva anterior: 
 
 ## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
 D0-C1 posterior: G de surtido confirmado puede respaldarse con **stock agregado conservador registrado por modelo**, sin desglose inicial de colores. Ejemplo 78 producidas, 72 aptas declaradas, seis fuera de cupo. No cambia D0-A (colores antes de entregar), y no permite prometer tonalidades exactas sin D0-C2. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).
+
+## Addendum 2026-11-23 — colores de entrega fuera del sistema (V1)
+La aprobación D0-A de confirmar surtido **sin colores** permanece. La exigencia histórica de registrar G→E por variantes antes de entregar queda **sustituida para V1** por [D0-C2/D/E](33_D0_C2_D_E_INVENTARIO_SIMPLE_APROBADO.md): físicamente se prepara surtido apto del modelo, pero EVALIA solo registra **cantidad entregada por modelo**, sin desglose/garantía por color. Se preservan el cupo global y la ausencia de doble descuento. [Nuevo modelo lógico propuesto](34_D0_F_MODELO_LOGICO_SIMPLIFICADO_PROPUESTA.md).

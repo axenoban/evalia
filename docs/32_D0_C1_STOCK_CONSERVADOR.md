@@ -53,3 +53,6 @@ Las decisiones anteriores R04, [14](14_CATALOGO_COLORES_Y_VARIANTES.md), [11](11
 **Siguiente decisión D0-C2:** ¿para un pedido que exige colores exactos, prefieres verificarlos físicamente solo cuando se soliciten o seguir registrando el stock por color? No resolver por inferencia.
 
 **Estado de Git:** solo Markdown en rama feature, PR #1 DRAFT. No SQL ni aplicación.
+
+## D0-C2 resuelto posteriormente (2026-11-23)
+El propietario eligió solo cantidad total en docenas por modelo y selección de colores ofertados **sin cantidades por color**. Pedidos surtidos sin composición garantizada, solicitudes especiales gestionadas fuera del sistema en V1. Aprobó además ajustes agregados para ventas físicas, reposiciones y correcciones del total con protección de reservas, sin fichas individuales de defectos. Ver contrato [D0-C2/D/E](33_D0_C2_D_E_INVENTARIO_SIMPLE_APROBADO.md) y [D0-F propuesta](34_D0_F_MODELO_LOGICO_SIMPLIFICADO_PROPUESTA.md). La pregunta D0-C2 arriba queda superada por esta decisión.

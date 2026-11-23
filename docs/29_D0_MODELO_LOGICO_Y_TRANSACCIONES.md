@@ -126,3 +126,6 @@ La aprobación posterior del propietario **autoriza confirmar un pedido surtido 
 
 ## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
 D0-C1: nueva carga **S_registrada apta comprometible agregada** puede ser menor a producción física; 78→72, con seis no publicadas. El ADR anterior `S_m=ΣS_c` presupone detalle por variante que el negocio ya no quiere ingresar en surtidos. Sin S_c, la fórmula `F_c=S_c−E_c` de exactos es desconocida: no prometer colores concretos ni duplicar conteos genéricos y específicos. D0-C2 debe cerrar modelo unificado antes de SQL. D0-A y entrega real sin doble descuento siguen aplicando. No diseñar QC por pieza. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).
+
+## Addendum 2026-11-23 — PRECEDENCIA de D0-C2/D/E
+Este ADR es el diseño **histórico anterior** a [D0-C2/D/E APROBADOS](33_D0_C2_D_E_INVENTARIO_SIMPLE_APROBADO.md): la V1 ya **no cuenta stock S_c por color**, ni obliga a asignar G→E para entregar. Los compromisos de V1 son por modelo surtido; las existencias se registran agregadas por modelo y se ajustan manualmente. La formulación reemplazante A=S−R−P y propuesta de tablas/transacciones están en [D0-F](34_D0_F_MODELO_LOGICO_SIMPLIFICADO_PROPUESTA.md), que sigue pendiente de ratificación antes de SQL. Conservar este ADR como histórico, no ejecutarlo literalmente.
