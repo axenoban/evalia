@@ -56,3 +56,14 @@ No habilitar implementaciones/migraciones definitivas de G03/G04 sin cerrar [pre
 - Sin acceso a solicitudes públicas/clientes de autoservicio en E1.
 
 Bloqueantes: [casos CR-01–CR-07](13_CUESTIONARIO_CAPTURA.md), presentaciones G04, cancelaciones parciales G03-B, caducidad G01.
+
+## Ampliación EVALIA: lotes, control de calidad y surtidos pospuestos (QA candidato)
+- Registro de lote planificado de 72 unidades (6 docenas) **no** incrementa stock vendible automáticamente. Cantidad final real debe ingresarse y aprobarse tras revisión.
+- Una prenda con mancha o fallo de costura queda registrada como no apta, sin contar en stock ofertable; ninguna merma se pierde del historial. Devolución de esa unidad a apta solo mediante proceso de revisión autorizado pendiente.
+- Modelo con 11 colores y negro adicional **no garantiza** exactamente esos colores si la fabricación tiene pérdidas; no autorizar reparto forzado ni prometer un negro doble.
+- El surtido sin colores concretos se captura como demanda pendiente de asignación; **hasta aprobar modalidad**, no simular compromiso/garantía. Al asignar colores, validar existencias reales por talla+color.
+- Si se aprueba futuro **cupo agregado** de surtido: para cada modelo+talla, `disponible_agregado = suma(aptas - asignaciones_específicas) - cupo_surtido`; impedir dos reservas simultáneas que superen el total. Un pedido de color específico debe respetar tanto el saldo de ese color como la capacidad global restante. Al asignar surtido, transferir cupo a variantes sin descontar doble. Si una merma inesperada deja déficit, generar incidente y no ocultarlo.
+- Si se elige solicitud sin bloqueo: registro no altera disponible ni promete cumplimiento; al asignar colores realizar transacción real.
+- Entregas parciales y G03-B siguen abiertos; en ninguno de los dos modos se puede afirmar colores/stock asegurados sin reglas aplicables y stock apto.
+
+Ver [plan especializado](15_PRODUCCION_CALIDAD_SURTIDO.md) y [decisión pendiente](16_DECISION_BLOQUEO_SURTIDO.md).

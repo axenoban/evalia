@@ -80,3 +80,7 @@ No se ordenó guardar capturas en la BD, extraer datos con OCR, leer automática
 Ver [flujo operacional](12_FLUJO_CAPTURA_RESERVAS_PROPUESTA.md), [modelo conceptual](06_MODELO_CONCEPTUAL_DATOS.md), [colores](14_CATALOGO_COLORES_Y_VARIANTES.md) y [consistencia](07_REVISION_CONSISTENCIA.md).
 
 **No ejecutar migraciones comerciales, fusionar el PR ni marcar estas respuestas como aprobadas sin ratificación.**
+
+## Nueva respuesta posterior: CR-01 cambia (2026-11-22)
+**Expresamente decidido:** elegir los colores del «surtido» **después del registro inicial**, no antes, debido a variaciones reales de producción y mermas de prendas por manchas y costuras. La recomendación previa en esta página de asignar antes de guardar **queda superada respecto al momento de captura**. **Por definir:** si ese registro representa una solicitud sin bloqueo o reserva con **cupo agregado** bloqueado a nivel modelo/talla, sin garantizar colores concretos; ver [comparativa](16_DECISION_BLOQUEO_SURTIDO.md).
+También se solicita un sistema propio de EVALIA que registre fabricación y control de calidad, con producción habitual **aproximada de 6–6,5 docenas por modelo**, **once colores con negro repetido**, y composición real que puede verse afectada por defectos. Ver [producción especializada](15_PRODUCCION_CALIDAD_SURTIDO.md). Las respuestas R01–R12 permanecen intactas.

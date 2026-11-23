@@ -60,3 +60,6 @@ Cliente puede pedir «surtido» para cantidades inferiores a una docena y dejar 
 - Datos de fotografía por modelo y si existe foto específica de un color: no asumir imágenes existentes.
 
 **No autorizado todavía:** implementar la base de datos, fijar reglas de color por importe, convertir una solicitud de surtido en reserva bloqueante sin variantes asignadas, fusionar a main.
+
+## Actualización de surtido: colores después
+La decisión posterior del propietario **descarta elegir obligatoriamente los colores antes del registro inicial de surtido**. La lista maestra de colores y la asignación de colores disponibles a cada modelo permanecen vigentes, pero **los colores efectivamente asignados a una solicitud de surtido podrán completarse después**, según stock apto tras calidad. La recomendación histórica de esta página queda reemplazada **para el momento de captura**, sin decidir si la solicitud inicial bloquea un cupo del modelo/talla. No forzar un «negro doble» si el stock real no lo permite. Ver [detalle de producción](15_PRODUCCION_CALIDAD_SURTIDO.md) y [decisión pendiente](16_DECISION_BLOQUEO_SURTIDO.md).

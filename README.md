@@ -40,3 +40,9 @@ La **aclaración C-G03-A quedó resuelta a nivel conceptual**, pero no se aprob�
 - [Flujo operativo revisado](docs/12_FLUJO_CAPTURA_RESERVAS_PROPUESTA.md)
 - [Catálogo maestro de colores y asignación por modelo](docs/14_CATALOGO_COLORES_Y_VARIANTES.md)
 **R04: solo stock inicial manual por variante** (no importar Excel/CSV en la primera fase). Registro de colores **antes de crear modelos**, con colores específicos asignados a cada modelo. El caso «surtido» sigue necesitando definición de asignación concreta antes de bloquear stock; presentaciones G04 siguen abiertas.
+
+## EVALIA no es un sistema genérico: producción, calidad y surtido posterior
+El propietario confirmó que **los colores de los surtidos se asignan después de recibir/registrar la solicitud**, ya que la producción real puede sufrir mermas por manchas o defectos de costura. Se documentó la operación de referencia de **6 a 6,5 docenas por modelo** (orientativamente 72–78 prendas), **11 colores con negro repetido** en la docena habitual, **sin garantía de composición exacta** después de control de calidad. No elevar estos datos a cuotas o fórmulas obligatorias.
+- [Producción, calidad, mermas y surtido diferido](docs/15_PRODUCCION_CALIDAD_SURTIDO.md)
+- [Decisión pendiente: solicitudes versus cupos de surtido](docs/16_DECISION_BLOQUEO_SURTIDO.md)
+Los estados previstos distinguen **producción planificada, prendas revisadas aptas, defectos, reservas de variantes concretas, solicitudes de surtido sin asignar y pedidos pendientes**. La posibilidad de bloquear **cupo agregado** de modelo/talla con surtido pendiente se presenta como alternativa técnica **aún no aprobada**.
