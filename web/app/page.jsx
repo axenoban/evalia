@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
   createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock,
-  createOrder, confirmReservation, reportPayment, reviewPayment, recordDelivery, completeOrder,
+  createOrder, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
@@ -882,7 +882,62 @@ function LegacyCommitments({data,onConvert,busy}){
   </div>
  </details>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onIssueLink,onRevokeLink,onConvertLegacy,busy}){
+function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
+ const [note,setNote]=useState('');
+ const attempt=useRef(null);
+ const balance=amountCents(finance.pending??0);
+ const excess=amountCents(finance.excess??0);
+ const remaining=Number(delivery.remaining??0);
+ const pendingEvidence=payments.some(p=>p.status==='pending'||p.status==='observed');
+ const canPay=balance>0n&&excess===0n&&!pendingEvidence;
+ const canDeliver=balance===0n&&excess===0n&&remaining>0;
+ async function run(action){
+  const money=action!=='deliver',goods=action!=='pay';
+  const details=action==='pay'
+   ?'¿Confirmas que recibiste '+formatBs(balance)+' y verificaste el ingreso? El pedido quedará pagado, pero sin retirar.'
+   :action==='deliver'
+   ?'¿Confirmas que entregaste físicamente las '+remaining+' prendas restantes? El pedido se cerrará como COMPLETADO.'
+   :'¿Confirmas que recibiste '+formatBs(balance)+' y entregaste físicamente las '+remaining+' prendas restantes? Se cerrará el pedido COMPLETADO.';
+  if(!window.confirm(details+'\n\nEsta operación se registrará en el historial y no puede deshacerse desde el panel.'))return;
+  if(!attempt.current||attempt.current.action!==action||attempt.current.note!==note)
+   attempt.current={id:uuid(),action,note};
+  const ok=await onQuick({orderId:order.id,action,requestId:attempt.current.id,
+   note:note.trim()||null,moneyReceived:money,goodsDelivered:goods});
+  if(ok){attempt.current=null;setNote('');}
+ }
+ if(order.status!=='active')return null;
+ return <section className="express-checkout" aria-label="Acciones rápidas del pedido">
+  <div className="express-checkout-heading">
+   <span className="express-icon" aria-hidden="true">✓</span>
+   <div><h3>Finalizar pedido rápidamente</h3>
+    <p>Registra los hechos reales en una operación. Los abonos y las entregas parciales siguen disponibles más abajo.</p></div>
+  </div>
+  <div className="express-status" role="status">
+   <div className={balance===0n?'complete':'pending'}><span>Pago</span><b>{balance===0n?'Total recibido':'Restan '+formatBs(balance)}</b></div>
+   <div className={remaining===0?'complete':'pending'}><span>Entrega</span><b>{remaining===0?'Todo entregado':remaining+' prendas por retirar'}</b></div>
+  </div>
+  {pendingEvidence&&<p className="express-warning" role="alert">
+    Hay un comprobante o aviso de pago sin resolver. Revísalo en Pagos antes de registrar un cobro total para evitar duplicarlo.
+   </p>}
+  {excess>0n&&<p className="express-warning" role="alert">Existe un exceso de dinero aprobado. Concílialo antes de usar el cierre rápido.</p>}
+  {(canPay||canDeliver)&&<div className="express-actions">
+   {canPay&&remaining>0&&<button type="button" className="button express-primary" disabled={busy}
+      onClick={()=>run('pay_deliver')}>
+      ✓ Cobrar saldo y entregar todo</button>}
+   {canPay&&<button type="button" className="button express-secondary" disabled={busy}
+      onClick={()=>run('pay')}>Registrar pago total recibido</button>}
+   {canDeliver&&<button type="button" className="button express-primary" disabled={busy}
+      onClick={()=>run('deliver')}>✓ Entregar todo y completar</button>}
+  </div>}
+  {(canPay||canDeliver)&&<label className="express-note">
+   <span>Referencia o medio de pago (opcional)</span>
+   <input type="text" maxLength={1000} value={note} placeholder="Ej. efectivo, QR verificado…"
+    onChange={e=>{setNote(e.target.value);attempt.current=null;}}/>
+   </label>}
+  <p className="express-disclaimer">Las acciones de cobro exigen que el dinero haya sido recibido y comprobado. Las de entrega exigen que las prendas hayan sido entregadas físicamente. Se guardan con auditoría e impiden duplicados.</p>
+ </section>;
+}
+function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,busy}){
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Cada modelo conserva docenas, prendas individuales con sus colores y el importe histórico confirmado."/>
   <LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>
@@ -909,13 +964,21 @@ function Orders({data,onReport,onDeliver,onComplete,onIssueLink,onRevokeLink,onC
        <div><small>Retiradas</small><strong>{delivery.delivered} / {delivery.ordered}</strong></div>
       </div>
       {Number(finance.excess)>0&&<Notice type="error">Existe exceso de pago para conciliación: {formatBs(amountCents(finance.excess))}. No se puede cerrar automáticamente.</Notice>}
-      <h3>Avisos y abonos</h3>
-      <PaymentHistory items={data.payments.filter(p=>p.order_id===o.id || (o.origin_reservation_id && p.reservation_id===o.origin_reservation_id))}/>
-      {o.status==='active'&&<PaymentForm targetId={o.id} onSubmit={onReport} busy={busy}/>}
-      <h3>Recogidas físicas</h3>
-      {o.status==='active'&&Number(finance.pending)===0&&Number(finance.excess)===0?
-       <DeliveryForm key={o.id+'-'+delivery.delivered} order={o} data={data} onSave={onDeliver} busy={busy}/>:
-       o.status==='active'?<p className="small-note">Las entregas ordinarias requieren saldo cero aprobado. Los avisos pendientes no son dinero recibido.</p>:null}
+      {o.status==='active'&&<OrderQuickActions order={o} finance={finance} delivery={delivery}
+       payments={data.payments.filter(p=>p.order_id===o.id || (o.origin_reservation_id && p.reservation_id===o.origin_reservation_id))}
+       onQuick={onQuick} busy={busy}/>}
+      <details className="order-advanced" aria-label="Abonos y entregas parciales">
+       <summary>Abonos, comprobantes y entregas parciales <span>Opciones adicionales</span></summary>
+       <div className="order-advanced-body">
+        <h3>Historial de pagos</h3>
+        <PaymentHistory items={data.payments.filter(p=>p.order_id===o.id || (o.origin_reservation_id && p.reservation_id===o.origin_reservation_id))}/>
+        {o.status==='active'&&Number(finance.pending)>0&&<PaymentForm targetId={o.id} onSubmit={onReport} busy={busy}/>}
+        <h3>Retiradas físicas</h3>
+        {o.status==='active'&&Number(finance.pending)===0&&Number(finance.excess)===0?
+         <DeliveryForm key={o.id+'-'+delivery.delivered} order={o} data={data} onSave={onDeliver} busy={busy}/>:
+         o.status==='active'?<p className="small-note">Las entregas requieren pago aprobado completo. Los avisos pendientes no son dinero recibido.</p>:null}
+       </div>
+      </details>
       {o.status==='active'&&<button className="button button-primary" type="button" disabled={busy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
        onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
       {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
@@ -1014,6 +1077,11 @@ export default function HomePage(){
  const order=(customerId,lines,requestId)=>mutation(()=>createOrder(customerId,lines,requestId||uuid()),'Pedido confirmado con precios congelados.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Registro anterior convertido en pedido, sin descontar inventario dos veces.');
  const report=(v)=>mutation(()=>reportPayment(v),'Aviso de pago guardado; pendiente de aprobación.');
+ const checkoutFast=(details)=>mutation(()=>quickCheckout(details),
+  details.action==='pay'
+   ?'Saldo total aprobado. El pedido permanece pendiente de recogida.'
+   :'Pago y retirada registrados correctamente; pedido COMPLETADO.');
+
  const approve=(id,action,note)=>mutation(()=>reviewPayment({reportId:id,action,requestId:uuid(),note}),
   action==='approve'?'Pago aprobado después de verificar su recepción.':'Revisión registrada sin mover dinero.');
  const deliver=(orderId,lines,requestId)=>mutation(()=>recordDelivery({orderId,lines,requestId}),
@@ -1066,7 +1134,7 @@ export default function HomePage(){
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} busy={busy}/>:  
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy}/>:  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
    </main>

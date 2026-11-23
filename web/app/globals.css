@@ -617,3 +617,44 @@ button.button:active:not(:disabled){transform:translateY(0)}
  .order-step-card>.form-section-title{margin:0 -11px 14px;padding:13px}
  .order-step-badge{font-size:9px}
  .picker-add{flex-wrap:wrap}.picker-add-action{width:100%}}
+
+/* D7 — Acciones comerciales más frecuentes resaltadas frente al registro parcial */
+.express-checkout{margin:16px 0 22px;border:2px solid #60977a;background:#f4fbf7;
+ border-radius:15px;padding:18px;box-shadow:0 5px 20px #25734916}
+.express-checkout-heading{display:flex;gap:12px;align-items:flex-start;margin-bottom:13px}
+.express-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;
+ background:#286e4e;color:#fff;border-radius:11px;font-weight:900;font-size:18px}
+.express-checkout-heading h3{color:#174e35;font-size:16px;margin:0 0 5px}
+.express-checkout-heading p{color:#315b46;font-size:11px;line-height:1.6;margin:0}
+.express-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.express-status>div{padding:11px 12px;background:#fff;border-radius:9px;border:1px solid #c2dbc9}
+.express-status span,.express-status b{display:block}
+.express-status span{font-size:10px;color:#476553;margin-bottom:4px}
+.express-status b{font-size:12px}
+.express-status .complete b{color:#186941}
+.express-status .pending b{color:#86532c}
+.express-warning{background:#fff1db;color:#6f4218;font-size:11px;line-height:1.55;
+ padding:12px;border:1px solid #e7bd7a;border-radius:10px;font-weight:700}
+.express-actions{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}
+.express-actions button{flex:1;min-width:190px;min-height:50px;font-size:12px}
+button.express-primary{background:#226e4a;border-color:#226e4a;color:#fff;
+ box-shadow:0 4px 12px #226e4a27}
+button.express-primary:hover:not(:disabled){background:#155a3b}
+button.express-secondary{background:#fff;border-color:#648c76;color:#1c6141}
+button.express-secondary:hover:not(:disabled){background:#e5f3ea}
+.express-note{display:block;font-size:11px;color:#345c46;font-weight:700}
+.express-note span{display:block;margin:8px 0 5px}
+.express-note input{width:100%;padding:11px;border-radius:9px;background:#fff;
+ border:1px solid #b1cbbc}
+.express-disclaimer{font-size:10px;line-height:1.55;color:#3b654d;margin:12px 0 0}
+.order-advanced{margin:16px 0;border:1px solid #d4c4cf;border-radius:12px;background:#fff}
+.order-advanced summary{cursor:pointer;padding:14px 16px;font-size:12px;font-weight:800;
+ color:#50344b;display:flex;justify-content:space-between;gap:10px}
+.order-advanced summary span{font-size:10px;color:#736874;font-weight:500}
+.order-advanced[open] summary{border-bottom:1px solid #e7dce5;background:#f9f3f6}
+.order-advanced-body{padding:15px}
+.order-advanced-body>h3{font-size:13px;margin:14px 0 8px}
+@media(max-width:620px){.express-status{grid-template-columns:1fr}
+ .express-checkout{padding:13px}
+ .express-actions button{width:100%}
+ .order-advanced summary{flex-direction:column}}

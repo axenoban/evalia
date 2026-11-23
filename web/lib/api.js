@@ -140,6 +140,13 @@ export async function reviewPayment({reportId,action,requestId,note=null}){
   p_report_id:reportId,p_action:action,p_request_id:requestId,p_note:note||null
  }),'Verificar pago');
 }
+/** Pago y/o entrega total confirmados por administrador, operación única e idempotente. */
+export async function quickCheckout({orderId,action,requestId,note=null,moneyReceived=false,goodsDelivered=false}){
+ return unwrap(await client().rpc('quick_evalia_checkout',{
+  p_order_id:orderId,p_action:action,p_request_id:requestId,p_note:note||null,
+  p_money_received:moneyReceived,p_goods_delivered:goodsDelivered
+ }),'Registrar cobro/entrega express');
+}
 export async function recordDelivery({orderId,lines,requestId}){
  return unwrap(await client().rpc('record_evalia_delivery',{
   p_order_id:orderId,p_lines:lines,p_request_id:requestId
