@@ -486,9 +486,13 @@ export default function HomePage(){
  const [tab,setTab]=useState('home'),[data,setData]=useState(null),[ready,setReady]=useState(false);
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const refreshGeneration=useRef(0);
  const db=useMemo(()=>getSupabase(),[]);
  const configured=Boolean(db);
- const refresh=useCallback(async()=>{const snapshot=await loadWorkspace();setData(snapshot);},[]);
+ const refresh=useCallback(async()=>{const generation=++refreshGeneration.current;
+  const snapshot=await loadWorkspace();
+  if(generation===refreshGeneration.current)setData(snapshot);
+ },[]);
  useEffect(()=>{
   let active=true;
   if(!db){setReady(true);return;}
@@ -505,6 +509,13 @@ export default function HomePage(){
   });
   return ()=>{active=false;listener.subscription.unsubscribe();};
  },[db,refresh]);
+ useEffect(()=>{
+  if(!authenticated)return;
+  const timer=setInterval(()=>{
+   if(document.visibilityState==='visible')refresh().catch(err=>setError(err.message));
+  },60000);
+  return ()=>clearInterval(timer);
+ },[authenticated,refresh]);
  async function login(email,password){
   setBusy(true);setError('');
   try{await signIn(email,password);if(!await adminAllowed()){

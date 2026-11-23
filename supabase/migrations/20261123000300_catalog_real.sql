@@ -23,6 +23,7 @@ begin
  if pg_catalog.length(pg_catalog.btrim(coalesce(p_name,'')))=0
     or pg_catalog.length(pg_catalog.btrim(coalesce(p_size,'')))=0
     or p_price is null or p_price<=0 or p_price>9999999999.99
+    or p_price<>pg_catalog.round(p_price,2)
     or p_initial_units is null or p_initial_units<0
     or p_color_ids is null or pg_catalog.cardinality(p_color_ids)=0 then
   raise exception 'Datos de modelo inválidos' using errcode='22023';
