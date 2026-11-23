@@ -21,7 +21,7 @@ jobs:
           BASE_RELEASE: https://evalia-git-feature-evalia-release-candidate-galaxian131-9858.vercel.app
           BASE_ORDERS: https://evalia-git-feature-evalia-solo-pedidos-galaxian131-9858.vercel.app
           BASE_UX: https://evalia-git-feature-evalia-ux-cierre-y-whatsapp-galaxian131-9858.vercel.app
-          BASE_EXPRESS: https://evalia-git-feature-evalia-selector-cobro-express-galaxian131-9858.vercel.app
+          BASE_EXPRESS: https://evalia-git-feature-evalia-selector-cobr-bf9af7-galaxian131-9858.vercel.app
         run: |
           set -euo pipefail
           if [ "$GITHUB_REF_NAME" = "feature/evalia-selector-cobro-express" ]; then
