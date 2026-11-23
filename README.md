@@ -91,3 +91,6 @@ El propietario eligió **contar 7 días naturales desde el vencimiento original 
 
 ## G06-PAGOS — depósitos y abonos múltiples aprobados
 Un depósito registrado manualmente, incluso durante la reserva, se **descuenta del total del pedido** cuando se confirma y se vincula a él **sin registrar el cobro dos veces**. Pueden registrarse múltiples abonos sucesivos; el saldo deriva de **total confirmado − suma de pagos recibidos**. Ej.: pedido **Bs 840**, depósito **Bs 200**, segundo abono **Bs 300** ⇒ total abonado **Bs 500** y pendiente **Bs 340**. Conservar historial de cada pago y evitar ajustes automáticos por cancelación o devoluciones. **Recepción vs pago solo informado**, excedentes, reversos y reembolsos siguen pendientes de política. [G06](docs/22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+Pago agregado/informado por el cliente = **PENDIENTE DE VERIFICACIÓN**. Solo **administrador** que confirma recepción lo cambia a **APROBADO/RECIBIDO**; recién entonces aumenta abonado, reduce saldo y puede proteger una reserva G01. Ejemplo pedido Bs 840, aviso Bs 200 pendiente ⇒ saldo 840; aprobación admin ⇒ saldo 640. **No autoriza portal de clientes E1**, solo reportes que pueden capturarse manualmente. [Contrato](docs/23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

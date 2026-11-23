@@ -76,3 +76,6 @@ Para cada línea de pedido por modelo (y, cuando esté asignado, por color) cons
 
 ## Aclaración G06 posterior — abonos no se ajustan al cancelar saldo no entregado
 Se aprobó que depósito y pagos parciales se acumulen como abonos al pedido y que su historial no se duplique al confirmar. En cancelación de `q` pendientes, la decisión G03-B **solo libera compromisos de inventario**. Los abonos recibidos **siguen registrados en su totalidad** y el precio histórico confirmado tampoco se recalcula por deducción. Se identifica **conciliación económica pendiente** (posible exceso, pago parcial, devolución o ajuste sujeto a aprobación ulterior). No compensar dinero ni cambiar tarifa de las cinco prendas ya entregadas por inferencia. [Contrato financiero G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+Con cancelación G03-B, conservar declaraciones **PENDIENTES** y abonos **APROBADOS**. Solo aprobados cuentan para saldo del pedido; la liberación de unidades pendientes no cambia automáticamente pagos ni devuelve dinero. Aprobación siempre administrativa, sin portal cliente inferido. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

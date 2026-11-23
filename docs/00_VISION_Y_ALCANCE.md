@@ -54,3 +54,6 @@ Si el cliente ya ha realizado un depósito registrado y recibido a tiempo, EVALI
 
 ## G06 — pagos parciales y depósito aplicable al pedido (decisión posterior)
 EVALIA registra manualmente abonos externos y permite **varios pagos por pedido**. El depósito efectuado durante una reserva se considera **parte pagada del pedido**, sin duplicar el evento al confirmarse. Ejemplo total Bs 840, depósito Bs 200 y pago Bs 300: **500 abonados, 340 por pagar**. Eventos con historial y saldo derivados; **sin automatizar reembolsos, descuentos o retenciones** al cancelar productos pendientes. Verificación de recepción, compensaciones y pagos en exceso requieren decisión. [Contrato G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+Cliente puede **informar/agregar una declaración de pago**, pero solo **administrador** puede aprobarla; hasta entonces **PENDIENTE**, sin efecto en saldo o vencimiento G01. E1 conserva capturas administrativas y WhatsApp manual, no implementa cuenta de cliente o formulario público sin autorización D13/G02. [G06-VALIDACIÓN](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

@@ -104,3 +104,6 @@ Tras convertir reserva en pedido, las unidades quedan comprometidas y pueden ent
 
 ## G06 — depósito abonado al importe del pedido sin cobro duplicado
 Al guardar reserva y luego registrar depósito externo, conservar referencia/historial del abono. Al pulsar Confirmar pedido, **mantener ese mismo abono asociado** al importe histórico (sin crear segundo ingreso). Después, permitir nuevos **pagos parciales**. Saldo `total_confirmado − Σ pagos recibidos`, evitando sobregiros automáticos. Ejemplo 840−200−300=340. Registrar pago no equivale a entregar mercancía ni confirmar que una transferencia meramente anunciada se recibió. Cancelación de prendas pendientes G03-B registra la parte física y solicita conciliación del dinero por separado, sin devolución/retención automática. [G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+Aviso de depósito recibido por WhatsApp/manual tras guardar reserva se registra **PENDIENTE**. El administrador comprueba y **APRUEBA**; solo entonces el mismo evento cuenta como abono y puede proteger ante F conforme a G01. Si cuando se aprueba la reserva ya fue liberada, **no reactivar stock automáticamente**; revisar fecha de recepción/stock. Captura directa por cliente como función pública no aprobada en E1. [Contrato](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

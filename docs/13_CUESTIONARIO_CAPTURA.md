@@ -128,3 +128,6 @@ El propietario aprobó la recomendación: **cancelar únicamente unidades pendie
 
 ## G06 — respuesta comercial sobre pagos parciales
 El propietario respondió «si, esta bien, continuemos» y **aprobó** que el depósito **cuente como abono al total del pedido** y se puedan registrar **varios pagos parciales** hasta liquidar el saldo. Ej.: pedido Bs 840, depósito 200, otro pago 300 ⇒ abonado 500 y pendiente 340. Guardar historial de cada cobro, sin duplicarlo al transferir reserva→pedido. No se aprobó reembolso por cancelación, retención de anticipo, crédito por exceso ni forma exacta de validar comprobantes/recepción. [G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+**G06-VALIDACIÓN, respuesta del propietario:** «esta bien, el administrdor debe aprobar el pago si el cliente agrega un pago». Declaración agregada por cliente inicia pendiente; **admin aprueba** para contabilizar y proteger reserva. Cómo entra directamente ese aviso desde una interfaz de cliente aún pendiente D13/G02; WhatsApp y captura administrativa siguen compatibles con E1. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

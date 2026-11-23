@@ -67,3 +67,6 @@
 **Siguiente definición prioritaria G06-VALIDACIÓN:** determinar cuándo una operación se considera **efectivamente recibida**: ¿se permite que el administrador registre pago **informado** pero todavía no verificado, o todo pago ingresado equivale a **recepción comprobada por el administrador**? Esta elección afecta tanto el saldo de caja como la protección de las reservas por depósito G01. No implementar una convención sin elección.
 
 **Otros pendientes**: devolución/cancelación con depósito, pagos a destiempo, créditos/excesos, métodos/soportes, gastos de envío, devoluciones físicas G03-B, y esquemas SQL. **PR #1 continúa en borrador sin merge**.
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+**DECISIÓN POSTERIOR G06-VALIDACIÓN:** «esta bien, el administrdor debe aprobar el pago si el cliente agrega un pago». El pago **informado/agregado por cliente** inicia **PENDIENTE DE VERIFICACIÓN**, sin contar en abonado o saldo ni proteger G01; solo **administrador** comprueba recepción y **APRUEBA** como **APROBADO/RECIBIDO**, y recién entonces imputa una vez. Se preservan pagos múltiples, historia, snapshot y devolución/cancelación por conciliar. No aprobar portal de cuentas cliente E1 por deducción (D13/G02 pendiente). Ver [contrato específico](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

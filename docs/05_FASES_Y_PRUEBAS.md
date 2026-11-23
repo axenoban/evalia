@@ -225,3 +225,6 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - Tras editar precio sugerido del modelo no se recalculan pedidos confirmados ni cobros anteriores.
 - Corrección/doble registro de pago exige trazabilidad; reglas de reversión exacta pendientes.
 **Test de consistencia:** `diferencia = total_confirmado − total_recibido`, sin confundir depósito con descuento. [G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+**QA G06-VALIDACIÓN:** pedido 840, cliente informa 200 pendiente ⇒ abonado 0/saldo 840; admin aprueba 200 ⇒ abonado 200/saldo 640; cliente informa otros 300 pendiente ⇒ abonado 200/saldo 640; admin aprueba ⇒ abonado 500/saldo 340. Aprobación repetida 10 veces ⇒ contar una sola vez. Cliente no puede autoaprobar ni consultar pagos ajenos. Aviso de depósito pendiente al llegar F no protege la reserva; si se acredita tarde, no revivir stock liberado automáticamente. Un pago .50 se conserva exacto al aprobarlo. **Casos documentales, sin tests de app**. [Contrato](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

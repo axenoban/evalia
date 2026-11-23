@@ -78,3 +78,6 @@ Mostrar por modelo/color: **confirmadas**, **entregadas históricas**, **pendien
 
 ## Panel financiero G06 propuesto — pagos, abonos y saldo
 En la ficha de reserva/pedido, mostrar **total confirmado histórico**, depósito recibido y asociado, registros de pagos parciales, **total abonado acumulado** y **saldo por pagar** (o incidencia por exceso). Permitir alta manual de sucesivos abonos con historial y responsable; no presentar transferencia avisada como ingreso recibido por defecto. Ej.: Bs 840, depósito Bs 200 y otro pago Bs 300 → **Bs 340 por cobrar**. En cancelación G03-B, mostrar **conciliación económica pendiente**, sin opción automática de reembolso/retención no aprobada. La validación y evidencia exactas aún deben definirse antes de UI final. [G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+**UI admin candidata:** bandeja «Pagos pendientes» con cliente, reserva/pedido, importe informado, soporte si se autoriza, estado y acción exclusiva de **Aprobar** tras comprobación real. Hasta aprobar: saldo y protección sin cambios; tras aprobar: imputar solo una vez y auditar. No exponer cuentas de clientes ni formularios públicos por deducción; validar D13/G02. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

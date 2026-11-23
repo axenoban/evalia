@@ -96,3 +96,6 @@ Nueva decisión expresa: si un cliente confirmó 12 prendas, retiró 5 y solicit
 
 ## G06 — registrar varios abonos y saldo del pedido
 **Decisión aprobada:** una reserva puede tener depósito externo registrado manualmente (al alta o después); cuando se confirma como pedido, el depósito **se imputa a su importe, no se vuelve a cobrar ni registrar por duplicado**. El pedido confirmado conserva su precio histórico y admite **múltiples pagos parciales**; calcular `pendiente = total_confirmado − pagos efectivamente recibidos`. Ejemplo 840−200−300=340 Bs restantes. Al completar el pago, el saldo es cero, sin afirmar despacho automático. Ante cancelación G03-B, conservar los pagos/depósitos y **marcar necesidad de conciliación administrativa**; no descontar/reembolsar dinero automáticamente. [G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+Flujo de pago aprobado: cliente informa pago → **PENDIENTE** → administrador comprueba recepción y **APRUEBA** → **APROBADO/RECIBIDO** se suma una vez al abonado; cualquier aviso sin aprobación no descuenta saldo ni amplía reserva. En E1 el informe puede recibirse por WhatsApp y registrarse manualmente; no se habilita autoaprobación ni portal público por deducción. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).

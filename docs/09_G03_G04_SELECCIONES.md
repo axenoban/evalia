@@ -108,3 +108,6 @@ La decisión de **entrada en revisión en L** está aprobada; no confundir con a
 
 ## G06-PAGOS posterior — el depósito forma parte del total pagado
 El propietario aprobó descontar depósitos del **saldo a pagar** del pedido (no del **precio** del modelo) y registrar **múltiples abonos posteriores**. Total confirmado se mantiene histórico según G04-08. Ejemplo P=Bs 840, depósito 200 y pago 300 ⇒ **500 pagados, saldo 340**. El depósito recibido en reserva se **vincula al pedido una sola vez**, sin duplicación contable. **Cancelación G03-B** libera exclusivamente prendas pendientes; depósito/abonos quedan en su historial y cualquier compensación económica es **conciliación administrativa aún no definida**. [G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
+
+## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
+Cliente reporta pago ⇒ pendiente; solo administración lo **aprueba tras comprobarlo** y recién suma a abonos confirmados. G03-B cancelaciones no reembolsan ni retienen depósitos automáticamente. Un aviso no extiende G01. No habilitar interfaz de cliente D13/G02 ni API de pago por inferencia. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).
