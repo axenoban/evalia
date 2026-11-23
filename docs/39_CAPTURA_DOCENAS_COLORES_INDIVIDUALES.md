@@ -78,6 +78,9 @@ No implementar cancelaciones/devoluciones del cliente en E1, ni inventar QR, tar
 
 ## 6. QA y verificación
 
+**Validación automatizada confirmada:** GitHub Actions ejecutó `npm run check` (**70/70 pruebas Node**), compilación de Next.js 16 (**correcta**) y Supabase CLI v3 con PostgreSQL local (**migraciones 001–005 aplicadas, 4 archivos pgTAP, 83/83 comprobaciones superadas**). Incluye transacciones efectivas de reserva, edición auditada, pedido directo, reintento, transferencia reserva→pedido, stock e intentos inválidos como admin/no admin. Esto **no sustituye la prueba de navegador ni la infraestructura real**.
+
+
 - \`npm run check\`: regresiones Node, incluidas 20 pruebas nuevas de docenas, colores únicos, rechazo 5/12 adicionales, varios modelos, stock agotado y redondeo.
 - \`cd web && npm install && npm run build\`: compilación Next.js.
 - \`supabase start && supabase test db\`: aplicar todas las migraciones y pgTAP. La nueva validación y la revisión concurrente requieren además pruebas funcionales con credenciales de admin real en entorno aislado.
