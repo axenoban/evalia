@@ -5,6 +5,7 @@ on:
       - feature/evalia-release-candidate
       - feature/evalia-solo-pedidos
       - feature/evalia-ux-cierre-y-whatsapp
+      - feature/evalia-selector-cobro-express
   workflow_dispatch:
 
 permissions:
@@ -20,9 +21,12 @@ jobs:
           BASE_RELEASE: https://evalia-git-feature-evalia-release-candidate-galaxian131-9858.vercel.app
           BASE_ORDERS: https://evalia-git-feature-evalia-solo-pedidos-galaxian131-9858.vercel.app
           BASE_UX: https://evalia-git-feature-evalia-ux-cierre-y-whatsapp-galaxian131-9858.vercel.app
+          BASE_EXPRESS: https://evalia-git-feature-evalia-selector-cobro-express-galaxian131-9858.vercel.app
         run: |
           set -euo pipefail
-          if [ "$GITHUB_REF_NAME" = "feature/evalia-ux-cierre-y-whatsapp" ]; then
+          if [ "$GITHUB_REF_NAME" = "feature/evalia-selector-cobro-express" ]; then
+            BASE="$BASE_EXPRESS"
+          elif [ "$GITHUB_REF_NAME" = "feature/evalia-ux-cierre-y-whatsapp" ]; then
             BASE="$BASE_UX"
           elif [ "$GITHUB_REF_NAME" = "feature/evalia-solo-pedidos" ]; then
             BASE="$BASE_ORDERS"
