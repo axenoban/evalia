@@ -6,3 +6,7 @@ enable_signup = false
 minimum_password_length = 15
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/cuenta"]
+
+# Frecuencia reducida exclusivamente en stack local aislado para regresión Auth.
+[auth.email]
+max_frequency = "1s"
