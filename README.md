@@ -109,3 +109,6 @@ Pago agregado/informado por el cliente = **PENDIENTE DE VERIFICACIÓN**. Solo **
 
 ## Baseline consolidado de EVALIA V1 (2026-11-22)
 El índice vigente de **14 módulos**, decisiones prioritarias, exclusiones G03-B, dependencias B01–B09, secuencia D0–D5 y **20 QA documentales NO ejecutados** está en [docs/28_BASELINE_V1_MODULOS_Y_READINESS.md](docs/28_BASELINE_V1_MODULOS_Y_READINESS.md). La auditoría identifica que el repositorio **aún no contiene aplicación ni SQL**. Las notas iniciales de dudas superadas son históricas y no prevalecen sobre el contrato de cada dominio. PR #1 continúa DRAFT.
+
+## D0 — propuesta de arquitectura y pruebas transaccionales (2026-11-22)
+Se documentaron [ADR-D0-01: modelo lógico/transacciones](docs/29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [D0-02: seguridad/QA](docs/30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md). **Solo diseño**, sin SQL, aplicación, infraestructura ni merge. Prioriza bloqueo por modelo para disponibilidad `A=S−E−G`, registro real de entrega/cobros, scheduler F/L idempotente, token cliente privado y evidencias protegidas. **Pendiente explícito** cómo confirmar pedido con surtido G sin color y tratamiento de mermas con cupos prometidos. No crear reglas arbitrarias.

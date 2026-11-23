@@ -274,3 +274,6 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 
 ## QA priorizado de lanzamiento según baseline E1
 [28](28_BASELINE_V1_MODULOS_Y_READINESS.md) contiene **T01–T19** para la V1 (stock, concurrencia E/G, precio, F/L, depósitos, acceso cliente, pago aprobado, seguridad y cierre) y **T20 G03-B histórico, FUERA del gate V1**. Estos casos son únicamente documentales, **sin aplicación o tests ejecutados**. No convertir preguntas superadas en blockers.
+
+## D0 — nueva matriz técnica de concurrencia y seguridad (2026-11-22)
+[30: D0-02](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md) define escenarios **C01–C29 futuros para E1** (concurrencia por modelo, G→E, expiraciones, pagos y tokens, Storage, calendario y centavos exactos); **C30 G03-B permanece FUERA de V1**. [29: D0-01](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) especifica precondiciones y límites de transacción. **Todas son pruebas documentales no ejecutadas**: no existe código o BD; no afirmar QA verde.

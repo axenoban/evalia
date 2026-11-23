@@ -123,3 +123,6 @@ Nueva invariante: **estado COMPLETADO solo si saldo exigible=0 con pagos APROBAD
 
 ## Contrato de datos para diseño D0
 El [baseline E1](28_BASELINE_V1_MODULOS_Y_READINESS.md) prioriza modelo+talla fija+color, stock apto S, E exacto, G surtido, F/L reservas, pedidos/entregas, abonos aprobados, enlace de un pedido y comprobantes privados. G03-B y reembolsos son futuro. **No se aprueban SQL, migraciones ni definiciones finales de permisos por este índice.**
+
+## D0: modelo lógico de trece agrupados y cerrojo por modelo (PROPUESTA)
+[29](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) agrupa A01–A13 con identidad de modelo/talla/colores, stock físico apto S, compromisos E exactos y G surtido, reservas F/L, pedidos, entrega real, abonos aprobados, enlaces de un pedido y auditoría. Cambios de stock requieren **transacción DB con bloqueo consistente por modelo**, nunca varias llamadas cliente sin atomicidad. [30](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md) registra seguridad/QA y decisiones D0-A–D0-F abiertas; **NO crear migraciones o estados SQL desde esta propuesta sin ratificación**.

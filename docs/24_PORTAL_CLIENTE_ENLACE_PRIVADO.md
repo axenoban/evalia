@@ -115,3 +115,6 @@ El pedido **normalmente se entrega solo después de completar el pago**. Para qu
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 La URL cliente E1 solo permite ver pedido/QR/saldo y reportar comprobantes, **sin solicitar devoluciones ni cancelaciones**. El cierre normal pagado+retirado desactiva enlace; un cierre excepcional externo con discrepancias no implica borrar deuda, stock o acceso sin decisión segura posterior. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## D0 seguridad de acceso por capacidad limitada (PROPUESTA)
+[D0-02](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md) precisa que un enlace bearer autentica **posesión**, no identidad personal; validar en servidor token+pedido activo+no revocado en cada operación y no confiar en `order_id` del cliente. **Storage privado**: las URL firmadas ya emitidas pueden continuar accesibles hasta vencer; para denegación inmediata tras revocación, proponer proxy que revalida cada solicitud (copias ya descargadas no se borran). Auditar acceso cruzado, uploads, secretos y service_role; no publicar sin pruebas. [D0-01](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md).

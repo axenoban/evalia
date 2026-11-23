@@ -117,3 +117,6 @@
 - [ ] Autorización explícita separada antes de crear SQL/app, merge o despliegue.
 
 **Conclusión:** comercialmente E1 puede pasar a **diseño técnico D0 propuesto**. **No está listo para publicar ni crear SQL/infraestructura** sin aprobación y contratos de seguridad/datos. El siguiente bloque lógico es una propuesta de arquitectura/modelo lógico, no un cambio ejecutable.
+
+## D0 documental en curso — diseño lógico y matriz de amenazas
+[29: ADR-D0-01](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [30: D0-02](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md) desarrollan **modelo lógico propuesto** (13 agrupados), límites atómicos S/E/G, bloqueo por modelo, máquinas de estado candidatas, contrato cron/admin y seguridad/30 QA. **No se ejecutó código ni SQL; no aprobar DDL por este índice.** Prioridad de negocio por decidir D0-A: si se puede CONFIRMAR pedido con G surtido sin colores ya fijados; D0-C: déficit por mermas; D0-D: acreditación tardía. Mantener G03-B FUERA de V1.

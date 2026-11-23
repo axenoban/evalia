@@ -212,3 +212,6 @@ El propietario aprobó que un depósito **efectivamente recibido** para una rese
 
 ## G06-CLIENTE posterior — comprobante del pedido por enlace, reserva anterior sigue manual
 La vista autorizada por enlace privado corresponde **a pedido registrado/confirmado**, con QR e imagen de comprobante para declarar pago pendiente. **No autoriza todavía un enlace público para una reserva sin pedido**. Un depósito en fase de reserva sigue pudiendo informarse por WhatsApp y registrarse por administrador, aprobándose solo cuando se constató ingreso. Un comprobante no aprobado no protege F ni altera L; si después se confirma pedido, trasladar el mismo depósito aprobado sin duplicación. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md) · [G06](25_QR_Y_COMPROBANTES_CLIENTE.md).
+
+## D0 — implementación temporal sin abrir políticas comerciales (PROPUESTA)
+[29](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [30](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md) proponen scheduler transaccional idempotente que revalida pago y estado de reserva bajo el mismo bloqueo antes de liberar en F o marcar EN REVISIÓN en L; **no liberar E/G por revisión**, sin WhatsApp automático y sin resurrección tras expiración. `America/La_Paz` continúa propuesta técnica de zona comercial, no hecho operativo ratificado. Aprobación tardía de depósito con recepción previa a F mantiene incidencia pendiente D0-D.

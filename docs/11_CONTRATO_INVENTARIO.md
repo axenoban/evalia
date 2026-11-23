@@ -89,3 +89,6 @@ Nueva decisión **aprobada** para pedidos confirmados/parcialmente entregados: m
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 El algoritmo G03-B de cancelar q pendiente y liberar E/G se conserva **como diseño FUTURO**, no función de E1. Las caducidades de reserva G01 sí aplican en E1. Terminar/completar pedido por una incidencia atendida externamente NO puede aumentar S, liberar E/G ni simular entrega: sin ajuste auditado no hay modificación de inventario. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## ADR-D0-01 posterior — barrera transaccional para exacto E y surtido G
+**Diseño técnico candidato, sin SQL:** usar exclusión por modelo para todas las operaciones que alteran S/E/G, incluso compras exactas de diferentes colores; comprobar en el mismo lock `F_c=S_c−E_c≥q` y `A_m=ΣS_c−ΣE_c−G_m≥q`. Asignar surtido `G→E` conserva A, sin duplicar reserva/pedido. Entrega física reduce **S y E simultáneamente**, no al confirmar. Merma real registra déficit y alerta, no borra promesa. Ver [D0-01](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [D0 QA](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md). **Confirmación con G sin color y regularización por merma siguen sin decisión.**

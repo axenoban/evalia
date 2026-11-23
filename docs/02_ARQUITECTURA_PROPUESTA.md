@@ -40,3 +40,6 @@ La talla es **atributo único del modelo**; no modelar tallas como un catálogo 
 
 ## D0 sugerido — arquitectura desde baseline V1
 Según [28](28_BASELINE_V1_MODULOS_Y_READINESS.md), antes de SQL definir modelo lógico, transacciones stock exacto/surtido E/G, estados y cron F/L 12:00 zona local, auth admin y token cliente revocable, RLS/ACL servidor y Storage privado, idempotencia de abonos y cierre. Stack Next.js/Supabase indicado, hosting/infraestructura sin elegir. **Solo diseño documental, SQL no aprobado**.
+
+## ADR-D0-01 y D0-02: diseño propuesto para revisión
+[29](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) formaliza candidatos de 13 agregados lógicos, frontera atómica de E/G y entregas, cerrojo por modelo, idempotencia y estados sin fijar SQL. [30](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md) traza amenazas de tokens/clientes/Storage y 30 tests candidatos, C30 G03-B fuera de V1. **Esta documentación NO ratifica SSR, proveedor de hosting, DDL ni funciones RPC**; el siguiente paso es validar reglas abiertas y diseñar soluciones concretas sin inventar canon.

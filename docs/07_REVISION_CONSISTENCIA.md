@@ -127,3 +127,6 @@ El propietario **descarta como flujo habitual** la entrega con deuda: cliente no
 
 ## AUDITORÍA POSTERIOR — los pendientes de G01–G09 iniciales son históricos
 [28 — baseline E1](28_BASELINE_V1_MODULOS_Y_READINESS.md) identifica decisiones **resueltas** (modelo talla fija, E/G, n≥6 con .50, F/L, revisión WhatsApp, abonos admin, cliente por enlace, cierre real) y separa **bloqueos técnicos** B01–B09. G03-B quedó DIFERIDO de V1 y sus QA NO bloquean lanzamiento. **No interpretar el listado de dudas del inicio de este documento como estado actualizado**; tampoco crear SQL antes de D0/autorización.
+
+## Auditoría D0 — núcleos comercialmente resueltos frente a transiciones abiertas
+Se proponen [29](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [30](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md). Reglas comerciales aprobadas incluyen A=S−E−G, confirmar sin salida física, G→E sin doble bloqueo, F/L, pagos admin y cierre real. **D0-A (pedido confirmado con surtido G aún sin asignar), D0-C (mermas cuando hay compromisos) y D0-D (pago recibido antes F pero aprobado después)** siguen **PENDIENTES**: no poner reglas arbitrarias. El cuello técnico prioritario es modelo lógico con transacciones y seguridad real; no SQL ni ejecución autorizada.
