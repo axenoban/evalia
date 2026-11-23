@@ -6,7 +6,9 @@ function unwrap(result,action) {
 }
 const client=()=>{const db=getSupabase();if(!db)throw new Error('Configura las variables públicas de Supabase.');return db;};
 export async function authUser(){
-  return unwrap(await client().auth.getUser(),'Sesión')?.user??null;
+  const result=await client().auth.getUser();
+  if(result.error?.name==='AuthSessionMissingError')return null;
+  return unwrap(result,'Sesión')?.user??null;
 }
 export async function adminAllowed(){
   return Boolean(unwrap(await client().rpc('is_evalia_admin'),'Autorización'));
