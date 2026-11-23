@@ -189,3 +189,10 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - Una semana transcurrida sin completar saldo/recogida → **no afirmar que existe caducidad automática** sin confirmar el **ancla** y la **acción final**; dejar prueba bloqueada por política.
 - QA de calendario sin depósito **7/7 días y 12:00** sigue vigente; liberación idempotente E/G solo bajo condición aprobada.
 **Pendiente de negocio para tests de fecha exacta:** (1) fecha base de los 7 días, (2) liberación manual/automática y devolución/cancelación con depósito. [Contrato](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
+
+## QA G01 — depósito: F + 7 días naturales (decisión final del ancla)
+**Comprobaciones documentales:** martes 2026-11-24 → F sábado 2026-11-28 12:00 → L sábado 2026-12-05 12:00. Viernes 2026-11-27 → F miércoles 2026-12-02 12:00 → L miércoles 2026-12-09 12:00. Domingo 2026-11-22 → F miércoles 2026-11-25 12:00 → L miércoles 2026-12-02 12:00. Jueves 2026-12-31 → F sábado 2027-01-02 12:00 → L sábado 2027-01-09 12:00.
+- Recibir depósito miércoles 25 o viernes 27 para la misma reserva del martes 24 **no cambia L**: siempre 05/12 al mediodía; **nunca `deposit_at+7d`**.
+- Depósito oportuno evita liberar en F, sin duplicar stock reservado G/E. La fecha L es visible; a las 11:59:59 de L no ha concluido y a las 12:00 sí, pero **no hay liberación automática aprobada para depósitos**.
+- Reserva convertida a pedido no se libera por G01. Depósito recibido tras liberación previa no revive stock. QA de concurrencia/idempotencia e historial siguen pertinentes.
+**La nota anterior «ancla pendiente» está superada; solo la operación al llegar L sigue bloqueada por decisión.** No son tests de app. [Contrato](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).

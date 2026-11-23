@@ -1,6 +1,6 @@
-# EVALIA — G01/R09: calendario de ferias y tolerancia adicional por depósito
+# EVALIA — G01/R09: calendario de ferias y plazo ampliado con depósito
 
-**Fecha de selección:** 2026-11-22. **Estado:** calendario de siete días cerrado, registro posterior de depósito permitido y **tolerancia comercial usual de hasta una semana adicional** expresada por el propietario. **Todavía no está fijada la fecha exacta de comienzo de esa semana ni su liberación automática**. PR #1 en borrador. **Sin SQL, aplicación o pagos implementados.**
+**Fecha de selección:** 2026-11-22. **Estado:** calendario de siete días cerrado, registro posterior de depósito permitido y **tolerancia comercial usual de hasta una semana adicional** expresada por el propietario. **La fecha de inicio de la semana ya está fijada por decisión posterior: se cuentan 7 días naturales desde el vencimiento ordinario F de la feria, con hora límite 12:00. La acción de liberación automática al concluir sigue sin estar aprobada**. PR #1 en borrador. **Sin SQL, aplicación o pagos implementados.**
 
 ## Declaración literal del propietario
 
@@ -49,7 +49,7 @@ La fecha/hora debe mostrarse en el administrador **explícitamente** y en el men
 1. **No es requisito inicial** efectuar depósito para guardar reserva: R06 guarda y aparta cantidad, con vencimiento ordinario calculado según la matriz.
 2. Puede registrarse **un depósito de manera posterior a la creación de reserva**, desde el administrador, vinculado a **esa reserva y al cliente**. No exigirlo solo en el alta.
 3. La excepción comercial «**a menos que se haya dejado un depósito**» implica que, **si el depósito consta como efectivamente recibido antes de vencer**, la reserva **no debe liberarse automáticamente** por el vencimiento ordinario de esa feria.
-4. **Nueva aclaración posterior del propietario:** con depósito se puede esperar **hasta una semana adicional** para que el cliente **complete el saldo y retire el pedido**; es la tolerancia comercial habitual, y el propietario indica que normalmente no ha sido necesario esperar más. **Se conoce la duración orientativa/máxima de siete días adicionales**, pero **no se ha elegido el momento inicial del cómputo** (p. ej. vencimiento ordinario vs fecha/hora de depósito), ni si la terminación conduce a revisión manual o liberación automática. No imponer protección indefinida ni un plazo computable fingido, ni inventar porcentaje mínimo, penalización o devolución.
+4. **Nueva aclaración posterior del propietario:** con depósito se puede esperar **hasta una semana adicional** para que el cliente **complete el saldo y retire el pedido**; es la tolerancia comercial habitual, y el propietario indica que normalmente no ha sido necesario esperar más. **La duración y su inicio quedan aprobados por decisión posterior:** el límite de tolerancia es **7 días naturales contados desde la fecha/hora de vencimiento original de feria**, a las **12:00**; no se cuenta desde la fecha del depósito. El mecanismo de liberación al concluir sigue pendiente. No imponer protección indefinida ni un plazo computable fingido, ni inventar porcentaje mínimo, penalización o devolución.
 5. Registrar el depósito **no equivale a entregar mercancía ni a convertir automáticamente una reserva en pedido confirmado**. G03 mantiene «Confirmar pedido» como acción de administrador; el cupo sigue contándose una sola vez.
 6. El registro es **manual para pagos externos** (D11), no supone cobro por pasarela, tarjeta, transferencia automática, OCR ni acceso bancario. El estado técnico «informado» vs «constatado» es recomendación de control, **no** un requisito que permita declarar dinero recibido sin comprobación.
 7. Depositar **después de vencida** la reserva o registrar una transferencia con fecha anterior pero comunicada tarde: **no resucitar automáticamente una reserva ya vencida ni volver a bloquear stock que pudo venderse**. Son incidencias que requieren criterio del propietario/administrador y validación de disponibilidad, nunca reactivación silenciosa.
@@ -57,7 +57,7 @@ La fecha/hora debe mostrarse en el administrador **explícitamente** y en el men
 ### Invariantes para arquitectura futura (candidatos, sin SQL)
 
 - **Reserva no confirmada sin depósito aplicable y vencida:** con la matriz aprobada para los **siete días**, pasarla a vencida y liberar el **saldo pendiente de stock aún reservado** en forma **atómica, auditable e idempotente**, incluyendo cupos surtidos G y asignaciones exactas E. La liberación aumenta disponible, pero **no cambia stock físico apto**.
-- **Reserva con depósito efectivamente recibido a tiempo:** queda **protegida de la liberación automática ordinaria**, con **tolerancia comercial de hasta una semana adicional** para completar pago y retiro. El **ancla de esos siete días** y el disparador de liberación después de la tolerancia **siguen pendientes**: no asignar una nueva marca temporal ejecutable por deducción. El registro del depósito debe reevaluar la elegibilidad de vencimiento sin eliminar el rastro original.
+- **Reserva con depósito efectivamente recibido a tiempo:** queda **protegida de la liberación automática ordinaria**, con **tolerancia comercial de hasta una semana adicional** para completar pago y retiro. El **ancla de esos siete días está definida**: vencimiento ordinario F **+ siete días naturales**, a las **12:00 locales**; el disparador de liberación después de la tolerancia **sigue pendiente**. Se puede calcular y mostrar el límite, pero no programar la cancelación/liberación automática sin la decisión faltante. El registro del depósito debe reevaluar la elegibilidad de vencimiento sin eliminar el rastro original.
 - **Reserva convertida a pedido confirmado:** el vencimiento de la reserva **no libera asignaciones del pedido**; transición de reserva a pedido transfiere compromiso sin duplicación. G03-B rige pedidos parcial o totalmente pendientes de entrega.
 - **Borrador:** no aparta stock y no debe «liberar» unidades al vencer; vencimiento G01 está definido para reservas **guardadas**.
 - **Depósito registrado después del alta, antes del vencimiento:** asociarlo a la reserva existente, preservando código y sin crear una reserva nueva; mantener historial de importe, fecha efectiva declarada, fecha/hora de registro, observaciones, autor y soporte comprobante **solo si se aprueba capturarlo**.
@@ -77,7 +77,8 @@ La fecha/hora debe mostrarse en el administrador **explícitamente** y en el men
 | G01: hora de vencimiento | **RESUELTO** | 12:00 local del día calculado |
 | G01: depósito posterior a crear reserva | **RESUELTO** | Registro posterior permitido |
 | G01: depósito protege frente a vencimiento de feria | **RESUELTO como excepción** | No liberar automáticamente ese día si se recibió a tiempo |
-| G01: tolerancia con depósito | **PARCIALMENTE RESUELTO** | Se puede esperar hasta una semana adicional para saldo y retiro; **ancla temporal no elegida** |
+| G01: plazo con depósito | **RESUELTO EN DURACIÓN Y ANCLA** | Vencimiento original de feria F **+7 días naturales, 12:00** |
+| G01: liberación al final del plazo ampliado | **PENDIENTE** | No se eligió automática vs revisión ni destino del depósito |
 | G01: salida final después de tolerancia | **PENDIENTE** | No se eligió liberación automática vs revisión manual, ni tratamiento de dinero |
 | G06: importe mínimo, prueba/validación y múltiples depósitos | **PENDIENTE** | Solo se confirmó posibilidad de registrar depósito |
 | G03-B: pedido confirmado/parcial o cancelaciones | **PENDIENTE** | No aplicar vencimiento de reserva a pedido |
@@ -109,7 +110,7 @@ La fecha/hora debe mostrarse en el administrador **explícitamente** y en el men
 
 ## Pendientes para la siguiente pregunta al propietario
 
-1. **Desde dónde contar los siete días adicionales:** desde el vencimiento ordinario de feria, desde el registro/recepción del depósito u otra fecha acordada. No fijar cronómetro sin respuesta.
+1. **Cómo actuar al llegar al límite ampliado L:** liberación automática vs revisión del administrador, aviso y destino del depósito. El cómputo L=F+7 días ya está resuelto.
 2. **Qué pasa al concluir la semana adicional:** vencimiento automático, revisión manual, aviso, plazo extra excepcional u otra condición; no liberar ni reembolsar sin regla aprobada.
 3. **Definir depósito** para protección: importe mínimo, confirmado vs solamente notificado, cuándo se acredita y cómo se registra uno recibido tarde.
 4. **G03-B:** cancelación con depósito, pedidos ya confirmados y entrega parcial, destino de pago si se cancela.
@@ -144,3 +145,29 @@ La fecha/hora debe mostrarse en el administrador **explícitamente** y en el men
 | No completa pago ni retira tras la tolerancia | La protección no se presume indefinida | Revisión/manual/auto y destino del depósito |
 
 **No modificar política de 12:00 de vencimiento de feria sin depósito; no asumir que ese horario rige también el nuevo límite con depósito** hasta precisar el ancla y la operación de salida. [Decisiones G03-B](09_G03_G04_SELECCIONES.md).
+
+## ÚLTIMA DECISIÓN PREVALENTE — ancla de la semana con depósito CERRADA (2026-11-22)
+
+**Respuesta literal del propietario:** «la primera opcion esta bien», aceptando la alternativa de **contar desde el vencimiento original de feria** frente a contar desde la recepción del depósito.
+
+### Contrato temporal
+
+Para una reserva guardada, aún vigente y sin convertir a pedido, sea **F** su vencimiento **ordinario por feria**, determinado por el calendario de siete días, siempre a las **12:00 locales**.
+
+- **Sin depósito aplicable:** el vencimiento de reserva continúa en **F**.
+- **Con depósito efectivamente recibido antes de F:** límite ampliado **L = F + 7 días naturales**, siempre **12:00 locales**, aunque el depósito se registre días después de guardar la reserva. La fecha del depósito **no recalcula F ni L**.
+- **Al llegar a L:** termina la tolerancia comercial, pero la **acción sobre el inventario y el dinero no está aprobada**. **No liberar automáticamente cupos G/E, cancelar ni confiscar/devolver depósitos** hasta resolver G03-B/G06. Mostrar que se alcanzó L y que requiere política/gestión administrativa. No prometer vigencia indefinida.
+- **Reserva ya vencida y con stock liberado:** un depósito posterior no la reactiva ni reaparta unidades automáticamente.
+- **Pedido confirmado o parcialmente entregado:** no se libera por reloj de reserva. Conserva los compromisos según flujo propio G03-B aún pendiente.
+- Mantener F original y L calculado como marcas distintas; las notas anteriores «ancla pendiente» son histórico **expresamente superado** por esta decisión.
+
+| Día de reserva | Feria original F | Límite L con depósito oportuno |
+| --- | --- | --- |
+| Martes 2026-11-24 | Sábado 2026-11-28, 12:00 | **Sábado 2026-12-05, 12:00** |
+| Viernes 2026-11-27 | Miércoles 2026-12-02, 12:00 | **Miércoles 2026-12-09, 12:00** |
+| Domingo 2026-11-22 | Miércoles 2026-11-25, 12:00 | **Miércoles 2026-12-02, 12:00** |
+| Jueves 2026-12-31 | Sábado 2027-01-02, 12:00 | **Sábado 2027-01-09, 12:00** |
+
+**Prueba de invariancia del depósito:** para una reserva del martes 24/11 con F=28/11 a las 12:00, recibir depósito el miércoles 25/11 o viernes 27/11 produce **el mismo L: sábado 05/12 a las 12:00**. No usar `deposit_at+7d`. A las 11:59:59 de L permanece dentro de tolerancia; a las 12:00 se cumple L sin que eso autorice por sí mismo una liberación de stock.
+
+**Estado:** calendario G01 (7 días) RESUELTO; tolerancia (7 días naturales desde F, 12:00) RESUELTA; **acción final al alcanzar L, dinero, depósitos tardíos, feriados y pedidos parciales** PENDIENTES. Solo documentos, sin SQL ni merge.

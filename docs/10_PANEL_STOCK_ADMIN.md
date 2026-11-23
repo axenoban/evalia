@@ -65,3 +65,6 @@ Cada reserva **guardada y no convertida** puede mostrar su vencimiento sin dejar
 
 ## UI pendiente — depósito con semana de tolerancia
 Mostrar reserva con depósito recibido como **protegida del vencimiento ordinario de feria** y con nota **«hasta una semana adicional para completar pago y retiro»**. **No mostrar una fecha definitiva de liberación** mientras no se resuelva si la cuenta inicia al depositar o al vencer la feria. El panel deberá permitir rastrear registro de depósito posterior al alta, evento de pago/recogida cuando se definan y cualquier liberación auditada. No confundir protección de reserva con pedido confirmado ni mover stock físico al registrar dinero. [G01](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
+
+## UI G01 — mostrar L de depósito aprobado
+Ficha de reserva: F (vencimiento ordinario de feria) y L (si depósito recibido a tiempo, **F+7 días naturales a las 12:00**). No calcular `deposit_at+7d`. Ejemplo F 28/11/2026 12:00 → L 05/12/2026 12:00. En L la UI puede indicar **plazo de tolerancia concluido**, pero **no debe liberar cupo ni cancelar dinero automáticamente** sin regla comercial. La fecha L ya puede presentarse; anotaciones anteriores «fecha sin definir» quedan superadas. [G01](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).

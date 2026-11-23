@@ -115,3 +115,6 @@ El propietario completó las fechas de **lunes/jueves/domingo** por la próxima 
 
 ## CR-05/G01 — tolerancia tras depósito (nueva aclaración)
 Con depósito recibido, el propietario indica que **puede esperar hasta una semana adicional** para completar pago y retiro; normalmente no ha necesitado más tiempo. La regla de protección del vencimiento de feria continúa, y los 7 días semanales de calendario ordinario siguen resueltos. **CR-05 solo parcialmente abierto en su variante con depósito:** ancla de los 7 días (fecha de depósito vs vencimiento de feria), modalidad de liberación posterior, validación del dinero y cancelaciones. No inferir penalización, devolución ni extensión ilimitada. [G01](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
+
+## G01/R09 — vencimiento ampliado tras depósito: ancla definida
+El propietario confirmó la primera opción para una semana adicional: **desde el vencimiento original de feria F**, no desde el depósito. **L=F+7 días naturales, 12:00**; ejemplo F sábado 2026-11-28, L sábado 2026-12-05. La fecha final está resuelta, pero **sigue pendiente autorización de liberación automática/revisión manual al llegar L y tratamiento de dinero/G03-B**. Respuestas históricas intactas; PR #1 borrador. [G01](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).

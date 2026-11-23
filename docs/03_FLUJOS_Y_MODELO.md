@@ -83,3 +83,6 @@ Flujo: **Guardar reserva** bloquea cupo de stock apto; determinar fecha de venci
 
 ## Depósito: semana adicional como tolerancia comercial sin cronómetro inventado
 Después de Guardar reserva, puede constar un depósito recibido (incluso registrado posteriormente). La reserva se **exceptúa del vencimiento de feria ordinario** y EVALIA puede **esperar hasta siete días adicionales** para concluir saldo y retiro. **No se sabe si los siete días comienzan al depositar o al vencer la feria**; no calcular ni ejecutar vencimiento de depósito arbitrario. Tampoco se decidió si el final debe resolverse automáticamente o con el administrador. No liberar pedido confirmado ni stock físico por el mero transcurso del plazo; preservar eventos de pago y auditoría. [Contrato G01](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
+
+## G01 — ancla aprobada de extensión con depósito
+Con depósito recibido antes del vencimiento F de la reserva, calcular **L=F+7 días naturales, 12:00**. La fecha del pago no reinicia el plazo. Mostrar L y conservar el cupo al F. Si alcanza L, **el mecanismo de cierre de reserva depositada NO está aprobado**: no liberar automáticamente inventario ni confiscar/devolver pago sin decisión. Pedidos confirmados no quedan sujetos a reloj de reserva. [G01](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
