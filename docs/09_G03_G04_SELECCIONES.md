@@ -66,3 +66,13 @@
 | Pedido confirmado con 6 asignadas; se entregan 2 | Se permiten entregas parciales y quedan 4 por entregar | Saldo físico contable y reversión exacta requieren C-G03-A/B |
 
 **Siguiente paso:** resolver C-G03-A/B y C-G04-A/B/C antes de migraciones SQL. No dar por aprobado el registro ni cambiar el PR de borrador.
+
+## Nueva aclaración expresa posterior — C-G03-A (2026-11-22)
+El propietario confirma que «descontar» al confirmar se refiere a la **cantidad que permanece disponible para aceptar pedidos**, porque las existencias físicas son limitadas y necesita evitar cálculos manuales de reservas por modelo. Quiere un **panel de administración con cantidades reservadas y disponibles por modelo y talla** (y posibilidad de desglosar color para respetar D07). Las prendas asignadas al pedido pueden seguir físicamente en custodia y pendientes de entrega: **confirmado no es sinónimo de físicamente retirado**.
+
+Por tanto:
+- **C-G03-A resuelta semánticamente**, prevalece sobre el interrogante histórico anterior sobre qué es «descontar físicamente». La respuesta literal G03-02 «Al confirmar el pedido» se conserva como antecedente.
+- La confirmación debe **asignar y descontar de la disponibilidad** de nuevas compras, no duplicar la reserva al convertirla en pedido.
+- **C-G03-B queda abierto**: las reglas exactas de cancelación/reversión tras entrega parcial todavía necesitan aprobación.
+- **G04-01 y C-G04-A/B/C no cambian**; esta aclaración no define presentaciones, mezcla de tallas dentro de una presentación ni precios.
+- Ver [contrato conceptual](11_CONTRATO_INVENTARIO.md) y [panel administrativo](10_PANEL_STOCK_ADMIN.md).
