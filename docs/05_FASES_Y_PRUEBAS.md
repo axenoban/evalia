@@ -179,3 +179,13 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - En los siete días: sin depósito al vencimiento libera G/E pendiente una sola vez sin modificar físico S; con depósito recibido a tiempo mantiene cupo; reserva confirmada no se vence; borrador no bloquea inventario; reintentos idempotentes.
 - **No probar como funcionalidad aprobada** prórroga indefinida con depósito, restitución automática tras pago tardío, cambio por feriado, cancelación de entrega parcial o notificaciones WhatsApp automáticas.
 **La regla de días G01 ya no es bloqueante**. El plazo de protección del depósito, excepciones por feria suspendida y G03-B permanecen pendientes. [Contrato](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
+
+## QA candidato — depósito y tolerancia de hasta siete días
+**Solo escenarios documentales:** el propietario acepta **hasta una semana adicional** para completar saldo y retirar tras depósito; las fechas exactas y liberación al final siguen **sin aprobación**.
+- Guardar martes, vence sábado 12:00, depósito recibido jueves → **NO liberar el sábado** y conservar referencia al depósito; inicio de semana posterior queda **pendiente** (no asumir +7 desde sábado ni desde jueves).
+- Guardar viernes, vence miércoles 12:00, depósito recibido martes → **NO liberar el miércoles**, aun cuando el depósito se anotó después del alta. No escoger fecha final arbitraria.
+- Registrar depósito a una reserva **ya vencida** y con unidades liberadas → **NO reactivar automáticamente** ni adjudicar stock que pudo venderse; caso requiere revisión administrativa.
+- Registrar pago total/entrega posteriormente → no liberar por timeout una reserva convertida en pedido; entrega e historial dependen de G03.
+- Una semana transcurrida sin completar saldo/recogida → **no afirmar que existe caducidad automática** sin confirmar el **ancla** y la **acción final**; dejar prueba bloqueada por política.
+- QA de calendario sin depósito **7/7 días y 12:00** sigue vigente; liberación idempotente E/G solo bajo condición aprobada.
+**Pendiente de negocio para tests de fecha exacta:** (1) fecha base de los 7 días, (2) liberación manual/automática y devolución/cancelación con depósito. [Contrato](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
