@@ -60,3 +60,6 @@ Los estados previstos distinguen **producción planificada, prendas revisadas ap
 
 ## G04 — Precio de 6 a 11 prendas DEFINIDO (2026-11-22)
 Para reservas **solo mayoristas**, el importe del modelo con `n=6..11` será `precio_docena_modelo × n / 12`. Ejemplo docena Bs 420: media Bs 210; 7 Bs 245; unidad implícita Bs 35. El precio de la docena es **propio de cada modelo**, aunque pueda venir sugerido por talla. **No hay descuentos en la primera versión**, y no habrá descuentos para cantidades **inferiores a docena**. Regalos o rebajas por docenas negociadas con un cliente se estudiarán **después**. Falta precisar redondeo de tarifas como Bs 380 (7=Bs 221,666…), cantidades >12 y datos de cobro. [Contrato actualizado](docs/18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## P-06 / RND-01: política de redondeo seleccionada
+**Decisión confirmada por el propietario:** después de aplicar `P_docena×n/12`, **redondear el total del MODELO al boliviano entero más cercano** (no cada prenda ni cada color), **antes de sumar los distintos modelos** del pedido. Ejemplo P=380, n=7 → **Bs 222**; P=420, n=7 → **Bs 245**. **Único caso matemático aún abierto:** empate exacto en x,50 (ej. docena Bs 381 y 6 unidades → 190,50). No aplicar un desempate no aprobado. [Contrato y QA](docs/18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

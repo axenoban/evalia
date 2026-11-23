@@ -110,3 +110,12 @@ Sin código/test ejecutable todavía: estos son escenarios de aceptación para e
 - Reserva/cotización muestra tarifa vigente; pedido confirmado conserva snapshot de modelo, docena, unidades y total acordado tras definir redondeo (G04-08).
 - Mantener test futuro por >12 unidades (todavía sin fórmula autorizada), descuento negociado para docenas posteriores, y restricciones de edición de precios.
 **Estado:** escenarios de aceptación documentados, sin tests de código ni migraciones. [Precio canónico](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## QA RND-01 — redondeo entero por modelo (decisión expresa)
+**Casos documentados sin código ejecutable**, con precio de docena y cantidad `n` del mismo modelo: P=380, (n, importe exacto, importe cobrado) = (6,190,190), (7,221,666…,222), (8,253,333…,253), (9,285,285), (10,316,666…,317), (11,348,333…,348), (12,380,380). P=420 mantiene (6,210),(7,245),(8,280),(9,315),(10,350),(11,385),(12,420).
+- **Agrupación por colores:** modelo A P=380 con 2 prendas negras y 5 rosas → n_total_modelo=7, **Bs 222**. No redondear subtotal de cada color por separado (podría producir Bs 221).
+- **Dos modelos distintos:** A P=380 n=8 y B P=380 n=8 → **Bs 253+253=Bs 506**. Redondear el total matemático global (506,666…→507) daría **resultado incorrecto**.
+- **Surtido diferido:** bloquear cupo n=7 de un modelo P=380 → Bs 222; al asignar colores el importe permanece Bs 222 y stock no se descuenta dos veces.
+- **Empate exacto aún pendiente:** modelo P=381, n=6 → Bs 190,50. El usuario eligió «entero más cercano», pero no eligió qué entero en empate; mantener este caso como **no resuelto** (no forzar redondeo al alza/par).
+- **Historial:** precio confirmado se guarda por modelo con la política de redondeo; no recalcular tras editar precio sugerido o modelo.
+Se preserva **sin descuentos E1**; no se aplica precio >12 por inferencia. La nota antigua sobre redondeo pendiente queda **superada**, excepto desempates exactos. [Política comercial](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

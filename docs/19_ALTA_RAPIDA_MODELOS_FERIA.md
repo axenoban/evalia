@@ -59,3 +59,6 @@ Persistir en **datos de EVALIA** (no depender de historial del chat):
 
 ## Precio de docena como único dato base de mayorista (nueva decisión)
 El administrador da de alta el modelo con **precio mayorista de docena**, usando sugerencia por talla y pudiéndola corregir para ese modelo. Con **ese único dato**, el sistema cotiza automáticamente 6–11 unidades mediante `P_docena × n/12`, evitando tablas por cada cantidad, siempre que se ratifique la política de redondeo para precios no divisibles entre 12. Docena Bs 420 ⇒ precio implícito Bs 35/unidad ⇒ media 210 y 7=245. **No activar descuentos E1** al copiar una ficha o elegir cliente. Las plantillas de color/foto se manejan aparte. [Contrato de precios](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## Precio guardado y redondeo en E1
+Al dar de alta modelo se registra **precio de docena mayorista propio**, con base sugerida por talla editable. En pedidos de 6–11, calcular `precio_docena×n/12` y **redondear importe total del modelo al entero Bs más cercano**, no redondear precio unitario o color. P=380 n=7 → Bs 222; P=420 n=7 → Bs 245. No añadir descuentos ni copiar reglas de precio del cliente en E1. **Desempate exacto .50 pendiente**, sin implementación hasta ratificar. [Contrato](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

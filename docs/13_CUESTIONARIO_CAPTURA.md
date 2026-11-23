@@ -97,3 +97,6 @@ El propietario desea **reservas únicamente mayoristas**, **precio propio por mo
 
 ## Precio de cantidad mayorista y descuentos — aclaración posterior
 El cálculo de **6–11 unidades por modelo** ya fue determinado: `P_docena × n/12`, automático. Docena Bs 420 → media 210, siete 245. La anterior duda sobre siete unidades queda resuelta **en fórmula**; falta redondeo de ejemplo Bs 380, siete unidades. Se descarta **motor de descuentos para E1**, incluidos beneficios de cliente configurados o negociación; se prohíbe **cualquier descuento para menos de 12 unidades** al introducir una funcionalidad futura. Permanecen abiertas modalidades >12 y tarifas minoristas. [Precio canónico](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## RND-01 — resultado de política monetaria
+El propietario seleccionó **redondear el precio final de cada modelo al boliviano entero más cercano** después de `P_docena×n/12`. Ejemplo docena Bs 380, siete unidades → **Bs 222**. Sumar las líneas de colores del modelo antes del cálculo, y sumar los modelos ya redondeados al final. Se mantiene que E1 no incluye descuentos. La duda histórica sobre redondeo a entero ya está resuelta, con única excepción matemática **.50 exacto** (criterio de empate aún pendiente). [Contrato](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

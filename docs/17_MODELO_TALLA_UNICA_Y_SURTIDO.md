@@ -77,3 +77,6 @@ El precio mayorista efectivo se **define individualmente para cada modelo**, aun
 
 ## Proporción mayorista por docena (decisión posterior)
 Cada modelo de talla única tiene precio mayorista propio **por docena**; para 6–11 unidades de ese modelo, precio matemático `P_docena × n/12`, sin distinguir colores que se asignen después. Ejemplo Bs 420 → 6 Bs 210, 7 Bs 245. **E1 no tendrá descuentos** ni por cliente especial; no hay descuento inferior a docena, tampoco posteriormente. El precio base sugerido por talla sigue siendo editable para cada nuevo modelo y no cambia precios de modelos existentes. Falta política de redondeo para base Bs 380 y regla de cantidades >12. [Fuente](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## Precio por modelo entero — regla RND-01 posterior
+Con talla única y colores variables, calcular `P_docena_modelo×n_total_modelo/12`, **redondear una sola vez al entero Bs más cercano por modelo**, sin redondear cada color o unidad; sumar subtotales de modelos diferentes después. P=380 n=7 → 222; asignar los colores de surtido diferido **no modifica precio ni consume dos veces stock**. No descuentos E1. Empate exacto .50 sin política aún (RND-02), importes >12 pendientes. [Regla](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
