@@ -42,7 +42,7 @@ export default function Cuenta(){
  async function savePassword(e){
   e.preventDefault();if(busy)return;
   const form=e.currentTarget,values=new FormData(form),password=values.get('password');
-  if(!passwordValid(password)||password!==values.get('confirmation')){setError('Usa al menos 15 caracteres y confirma la misma contraseña.');return;}
+  if(!passwordValid(password)||password!==values.get('confirmation')){setError('Usa al menos 8 caracteres y confirma la misma contraseña.');return;}
   setBusy(true);setError('');
   try{
    const db=client.current;
@@ -66,9 +66,9 @@ export default function Cuenta(){
    <button className="button button-primary full" type="submit" disabled={busy}>Enviar enlace de recuperación</button>
   </form>}
   {mode==='password'&&<form method="post" onSubmit={savePassword}>
-   <p className="description">La contraseña es personal. Nadie en EVALIA puede consultarla. Utiliza al menos 15 caracteres.</p>
-   <label className="field"><span className="field-label">Nueva contraseña</span><input name="password" type="password" required minLength={15} maxLength={128} autoComplete="new-password"/></label>
-   <label className="field"><span className="field-label">Confirmar contraseña</span><input name="confirmation" type="password" required minLength={15} maxLength={128} autoComplete="new-password"/></label>
+   <p className="description">La contraseña es personal. Nadie en EVALIA puede consultarla. Utiliza al menos 8 caracteres.</p>
+   <label className="field"><span className="field-label">Nueva contraseña</span><input name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password"/></label>
+   <label className="field"><span className="field-label">Confirmar contraseña</span><input name="confirmation" type="password" required minLength={8} maxLength={128} autoComplete="new-password"/></label>
    <button className="button button-primary full" type="submit" disabled={busy}>Guardar mi contraseña</button>
   </form>}
   {error&&<p className="form-error" role="alert">{error}</p>}{message&&<p role="status" className="small-note">{message}</p>}
