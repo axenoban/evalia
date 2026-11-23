@@ -111,3 +111,6 @@ El propietario aprobó descontar depósitos del **saldo a pagar** del pedido (no
 
 ## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
 Cliente reporta pago ⇒ pendiente; solo administración lo **aprueba tras comprobarlo** y recién suma a abonos confirmados. G03-B cancelaciones no reembolsan ni retienen depósitos automáticamente. Un aviso no extiende G01. No habilitar interfaz de cliente D13/G02 ni API de pago por inferencia. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).
+
+## E1 posterior — consulta limitada de pedido, QR y comprobante por cliente
+El propietario aprobó acceso a una vista de **su pedido mediante URL privada única**, sin login, para ver importe/saldo/QR imagen descargable y subir comprobante con monto. **No es checkout público, confirmación automática ni cancelación de pedido por cliente**. Pago inicia pendiente; admin verifica y aprueba/rechaza/observa. No alterar snapshot G04-08, regla G03 de confirmación admin ni cancelaciones G03-B. Contratos [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md), [G06](25_QR_Y_COMPROBANTES_CLIENTE.md).

@@ -131,3 +131,6 @@ El propietario respondió «si, esta bien, continuemos» y **aprobó** que el de
 
 ## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
 **G06-VALIDACIÓN, respuesta del propietario:** «esta bien, el administrdor debe aprobar el pago si el cliente agrega un pago». Declaración agregada por cliente inicia pendiente; **admin aprueba** para contabilizar y proteger reserva. Cómo entra directamente ese aviso desde una interfaz de cliente aún pendiente D13/G02; WhatsApp y captura administrativa siguen compatibles con E1. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).
+
+## D13-E1/G06-CLIENTE — aprobación posterior de interfaz mínima por enlace
+El propietario aprobó las dos recomendaciones propuestas: **vista cliente de pedido/saldo/QR como imagen descargable/Agregar pago con captura/estados** y acceso mediante **enlace privado único por pedido sin cuentas** para V1. Es una excepción aprobada a «sin solicitudes públicas» **solo de consulta y declaración**, no para registrar/confimar pedidos por cliente. Admin conserva aprobación de pago tras constatar ingreso; en observación/rechazado no abona. Implementación segura de enlace, upload y QR sin pasarelas es requisito técnico; duración de enlace y QR bancario real se definirán antes de publicar. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md) · [G06](25_QR_Y_COMPROBANTES_CLIENTE.md).

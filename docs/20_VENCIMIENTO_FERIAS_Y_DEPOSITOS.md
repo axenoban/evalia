@@ -209,3 +209,6 @@ El propietario aprobó que un depósito **efectivamente recibido** para una rese
 
 ## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
 **Nueva regla G06-VALIDACIÓN:** un depósito **informado por cliente** permanece PENDIENTE hasta aprobación exclusiva del administrador tras constatar recepción. **No protege F** por mera captura o aviso. Aprobado oportunamente permite L=F+7 a las 12:00; si se aprueba después de que F venció y el cupo se liberó, **no reactivar automáticamente**, revisar cronología y disponibilidad. Sin cambios al calendario ni EN REVISIÓN/WhatsApp manual en L. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).
+
+## G06-CLIENTE posterior — comprobante del pedido por enlace, reserva anterior sigue manual
+La vista autorizada por enlace privado corresponde **a pedido registrado/confirmado**, con QR e imagen de comprobante para declarar pago pendiente. **No autoriza todavía un enlace público para una reserva sin pedido**. Un depósito en fase de reserva sigue pudiendo informarse por WhatsApp y registrarse por administrador, aprobándose solo cuando se constató ingreso. Un comprobante no aprobado no protege F ni altera L; si después se confirma pedido, trasladar el mismo depósito aprobado sin duplicación. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md) · [G06](25_QR_Y_COMPROBANTES_CLIENTE.md).

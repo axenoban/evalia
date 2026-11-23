@@ -228,3 +228,17 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 
 ## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
 **QA G06-VALIDACIÓN:** pedido 840, cliente informa 200 pendiente ⇒ abonado 0/saldo 840; admin aprueba 200 ⇒ abonado 200/saldo 640; cliente informa otros 300 pendiente ⇒ abonado 200/saldo 640; admin aprueba ⇒ abonado 500/saldo 340. Aprobación repetida 10 veces ⇒ contar una sola vez. Cliente no puede autoaprobar ni consultar pagos ajenos. Aviso de depósito pendiente al llegar F no protege la reserva; si se acredita tarde, no revivir stock liberado automáticamente. Un pago .50 se conserva exacto al aprobarlo. **Casos documentales, sin tests de app**. [Contrato](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).
+
+## QA E1 — enlace privado, QR de imagen, captura y aprobación manual
+**Criterios documentales no ejecutados en aplicación**:
+- Admin crea/confirma pedido A y comparte URL única: cliente consulta **solo A**, total, abonos aprobados, saldo e historial de declaraciones del propio pedido.
+- Cliente con URL de A cambia `order_id` a B, pide comprobante B, manipula estados/importes o intenta aprobar: **rechazo por backend**, no solo por UI; no revelar PII ni cuentas ajenas.
+- URL inválida o revocada: denegada; token secreto no aparece en logs, referrer o repositorio; ficheros privados sin URL pública permanente.
+- Cliente muestra y **descarga QR como imagen** suministrado por EVALIA, sin generar pago, pasarela, tarjeta ni confirmar cobro.
+- Cliente envía **monto + captura raster** (p. ej. PNG/JPEG) válida: **PENDIENTE**, saldo sin cambio; errores de archivo inválido, exceso de tamaño y carga fallida se gestionan sin crear cobros falsos.
+- Admin visualiza comprobante privado y tras constatar dinero **APRUEBA** una vez; si **RECHAZA/OBSERVA** no aumenta abonado. Con pedido 840, aviso 200 → saldo 840; aprobación → 640; aviso 300 pendiente → 640; aprobación → 340.
+- 10 reintentos de aprobación o declaración repetida no generan cobro doble; G06 centavos exactos conservados.
+- Token enviado manualmente por WhatsApp; no API de envío. No cuentas/login/checkout públicos ni reservas autogestionadas: excepción solo lectura y declaración de pago de UN pedido.
+- Acceso por enlace perdido/reenvío: debe ser **revocable** sin cambiar pedido, vigencia específica aún pendiente.
+- Reserva aún no convertida en pedido: depósito por canal admin/WhatsApp G01; no inventar URL cliente para reserva.
+**QA bloqueante antes de producción:** pruebas reales de token, ACL/RLS/servidor y almacenamiento privado, límites y sanitización de archivos, duplicados/concurrencia, filtración del enlace y revocación. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md) · [G06](25_QR_Y_COMPROBANTES_CLIENTE.md).

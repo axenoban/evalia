@@ -81,3 +81,6 @@ En la ficha de reserva/pedido, mostrar **total confirmado histórico**, depósit
 
 ## G06-VALIDACIÓN — aprobación administrativa de avisos de pago (2026-11-22)
 **UI admin candidata:** bandeja «Pagos pendientes» con cliente, reserva/pedido, importe informado, soporte si se autoriza, estado y acción exclusiva de **Aprobar** tras comprobación real. Hasta aprobar: saldo y protección sin cambios; tras aprobar: imputar solo una vez y auditar. No exponer cuentas de clientes ni formularios públicos por deducción; validar D13/G02. [G06](23_VALIDACION_ADMINISTRATIVA_PAGOS.md).
+
+## Vista admin y cliente para comprobantes en E1 (nuevo alcance)
+**Bandeja admin:** solicitudes de pago con código pedido, cliente, monto informado, vista segura del comprobante, estado, acción de **aprobar** tras constatar dinero, **rechazar u observar** sin abonar, y auditoría; solo aprobados afectan saldo. **Vista cliente por enlace privado de ese pedido**: resumen, saldo, QR imagen y descargar, captura de comprobante con monto y estado de sus pagos. No mostrar stock, notas internas, pedidos ajenos ni acciones de aprobación. El enlace secreto debe poder revocarse. Sin pasarela ni tarjeta; las decisiones de diseño/tamaño QR, política de archivo y vigencia del enlace todavía están abiertas. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md) · [G06](25_QR_Y_COMPROBANTES_CLIENTE.md).
