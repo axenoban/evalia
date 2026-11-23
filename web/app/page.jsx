@@ -9,6 +9,7 @@ import {
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
+import { formatAvailableDozens, formatModelDozenPrice } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
@@ -75,8 +76,10 @@ function Field({title,hint,children,wide=false}){return <label className={'field
 function Notice({type='info',children,onClose}){return <div className={'alert alert-'+type} role={type==='error'?'alert':'status'}>
  <span>{children}</span>{onClose&&<button aria-label="Cerrar mensaje" type="button" onClick={onClose}>×</button>}
  </div>;}
-function SummaryCard({label,value,sub,kind=''}){return <div className={'metric '+kind}>
- <span className="metric-label">{label}</span><strong>{value}</strong><small>{sub}</small>
+function SummaryCard({label,value,sub,kind='',symbol}){return <div className={'metric '+kind}>
+  <div className="ev-metric-heading">{symbol&&<span className="ev-metric-icon" aria-hidden="true">{symbol}</span>}
+   <span className="metric-label">{label}</span></div>
+  <strong>{value}</strong><small>{sub}</small>
  </div>;}
 function DeliveryPreferenceFields({method,setMethod,destination,setDestination,namePrefix='delivery'}) {
  return <div className="delivery-preference-fields">
@@ -122,46 +125,137 @@ function ClientForm({onCreate,busy,compact=false}){
   </button></div>
  </form>;
 }
+function DashboardProductCard({model,stock}){
+ const blocked=Boolean(stock?.blocked);
+ const available=Number(stock?.available??0);
+ const exhausted=!blocked&&available===0;
+ return <article className={'ev-model-card'+(blocked?' ev-model-blocked':exhausted?' ev-model-exhausted':'')}>
+  <div className="ev-model-photo">
+   <ProductImage model={model} large/>
+   {blocked&&<span className="ev-model-photo-status">En revisión</span>}
+   {exhausted&&<span className="ev-model-photo-status">Sin existencias</span>}
+  </div>
+  <div className="ev-model-details">
+   <h3 title={model.name}>{model.name}</h3>
+   <span className="ev-stock-caption">Stock disponible</span>
+   <strong className="ev-stock-count">{blocked?'En revisión':formatAvailableDozens(stock?.available??0)}</strong>
+   <span className="ev-model-price">{formatModelDozenPrice(model.price_dozen_bs)}</span>
+  </div>
+ </article>;
+}
 function Dashboard({data,setTab}){
+ const trackRef=useRef(null);
+ const [trackEdges,setTrackEdges]=useState({prev:false,next:false});
+ const updateTrackEdges=useCallback(()=>{
+  const el=trackRef.current;
+  if(!el)return;
+  setTrackEdges({prev:el.scrollLeft>2,next:el.scrollLeft+el.clientWidth<el.scrollWidth-2});
+ },[]);
+ useEffect(()=>{
+  updateTrackEdges();
+  window.addEventListener('resize',updateTrackEdges);
+  return ()=>window.removeEventListener('resize',updateTrackEdges);
+ },[updateTrackEdges,data.models.length]);
+ const shiftModels=direction=>{
+  const el=trackRef.current;
+  if(el)el.scrollBy({left:direction*Math.max(220,el.clientWidth*.72),behavior:'smooth'});
+ };
  const totals=inventoryTotals(data.stock);
- const activeOrders=data.orders.filter(o=>o.status==='active');
+ const activeOrders=data.orders.filter(o=>o.status==='active')
+  .sort((a,b)=>Date.parse(b.confirmed_at||0)-Date.parse(a.confirmed_at||0));
  const activeLegacy=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
  const pendingPayments=data.payments.filter(p=>p.status==='pending'||p.status==='observed');
  const blocked=data.models.filter(m=>data.stock[m.id]?.blocked);
- return <>
+ const customerById=new Map(data.customers.map(c=>[c.id,c]));
+ const ordersById=new Map(data.orders.map(o=>[o.id,o]));
+ const legacyById=new Map(data.reservations.map(r=>[r.id,r]));
+ return <div className="ev-dashboard">
   <SectionHead eyebrow="GESTIÓN COMERCIAL" title="Tu negocio, bajo control."
-   description="Registra únicamente compras confirmadas, gestiona cobros y controla el inventario disponible."
+   description="Registra compras confirmadas, gestiona cobros y controla la disponibilidad real de tus modelos."
    actions={<button className="button button-primary" onClick={()=>setTab('booking')}>＋ Nuevo pedido</button>}/>
-  <div className="metrics-grid">
-   <SummaryCard label="Unidades disponibles" value={rup(totals.available)} sub="Libres para pedidos o venta física" kind="primary"/>
-   <SummaryCard label="Prendas en pedidos" value={rup(totals.pending)} sub="Confirmadas y aún no retiradas"/>
-   <SummaryCard label="Pedidos activos" value={activeOrders.length} sub="Por cobrar o entregar"/>
-   <SummaryCard label="Pagos por verificar" value={pendingPayments.length} sub="Pendientes y en observación"/>
+  <div className="metrics-grid ev-overview">
+   <SummaryCard symbol="▧" label="Unidades disponibles" value={rup(totals.available)} sub="Libres para pedidos o venta física" kind="primary"/>
+   <SummaryCard symbol="▤" label="Prendas en pedidos" value={rup(totals.pending)} sub="Confirmadas y aún no retiradas"/>
+   <SummaryCard symbol="⌑" label="Pedidos activos" value={activeOrders.length} sub="Por cobrar o entregar"/>
+   <SummaryCard symbol="▣" label="Pagos por verificar" value={pendingPayments.length} sub="Pendientes y en observación"/>
   </div>
   {activeLegacy.length>0&&<div className="legacy-alert" role="status">
     <strong>Compromisos anteriores pendientes: {activeLegacy.length}</strong>
-    <span>{rup(totals.reserved)} prendas siguen apartadas por registros antiguos. No se crean más apartados. Puedes consultar esos casos en Pedidos; sus vencimientos anteriores siguen vigentes.</span>
+    <span>{rup(totals.reserved)} prendas siguen apartadas por registros antiguos. No se crean más apartados. Consulta esos casos en Pedidos.</span>
     <button className="button button-outline" onClick={()=>setTab('orders')}>Ver compromisos anteriores</button>
    </div>}
-  {blocked.length>0&&<Notice type="error">{blocked.length} modelo(s) tienen incidencias y no permiten nuevos compromisos.</Notice>}
-  <div className="two-columns">
-   <section className="surface">
-    <div className="surface-heading"><div><h2>Inventario por producto</h2><p>Existencia física menos pedidos y compromisos antiguos pendientes.</p></div>
-      <button className="link-button" onClick={()=>setTab('catalog')}>Administrar productos →</button></div>
-    <StockTable data={data} limit={6}/>
+  {blocked.length>0&&<Notice type="error">{blocked.length} modelo(s) están en revisión y no admiten nuevos pedidos.</Notice>}
+
+  <section className="ev-zone ev-zone-catalog" aria-labelledby="ev-models-heading">
+   <header className="ev-zone-header">
+    <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">♧</span>
+     <div><h2 id="ev-models-heading">Modelos y stock disponible</h2>
+      <p>Existencia libre por modelo, expresada en docenas y unidades.</p></div>
+    </div>
+    <div className="ev-zone-actions">
+     <button type="button" className="ev-section-link" onClick={()=>setTab('catalog')}>Administrar productos <span aria-hidden="true">→</span></button>
+     {data.models.length>0&&<div className="ev-carousel-buttons" aria-label="Desplazar modelos">
+      <button type="button" aria-label="Ver modelos anteriores" disabled={!trackEdges.prev} onClick={()=>shiftModels(-1)}>‹</button>
+      <button type="button" aria-label="Ver más modelos" disabled={!trackEdges.next} onClick={()=>shiftModels(1)}>›</button>
+     </div>}
+    </div>
+   </header>
+   {data.models.length?
+    <div ref={trackRef} className="ev-model-track" role="region" tabIndex={0}
+       aria-label="Carrusel de modelos y disponibilidad" onScroll={updateTrackEdges}>
+     {data.models.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]}/>)}
+    </div>:
+    <Empty title="Aún no hay modelos" detail="Registra un modelo y su inventario desde Productos."/>}
+  </section>
+
+  <div className="ev-support-grid">
+   <section className="ev-zone ev-zone-orders" aria-labelledby="ev-orders-heading">
+    <header className="ev-zone-header">
+     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">▤</span>
+      <div><h2 id="ev-orders-heading">Pedidos pendientes</h2>
+       <p>Compras confirmadas que aún requieren seguimiento.</p></div>
+     </div>
+     <button type="button" className="ev-section-link" onClick={()=>setTab('orders')}>Ver pedidos <span aria-hidden="true">→</span></button>
+    </header>
+    {activeOrders.length?<div className="ev-order-list">
+     {activeOrders.slice(0,5).map(o=>{
+      const customer=customerById.get(o.customer_id);
+      const total=Array.isArray(o.lines)?o.lines.reduce((sum,line)=>sum+Number(line.quantity||0),0):null;
+      return <div className="ev-order-row" key={o.id}>
+       <div className="ev-order-person"><strong>{customer?.name||'Cliente'}</strong>
+        <span>{displayDate(o.confirmed_at)}</span></div>
+       <span className="ev-delivery-type">{deliveryLabel(o.fulfillment_method)}</span>
+       <div className="ev-order-end">{total!==null&&<b>{rup(total)} prendas</b>}
+        <span className="ev-active-tag">Activo</span></div>
+      </div>;
+     })}
+    </div>:<Empty title="Sin pedidos pendientes" detail="Los pedidos confirmados activos aparecerán aquí."/>}
    </section>
-   <section className="surface">
-    <div className="surface-heading"><div><h2>Pedidos recientes</h2><p>Compras confirmadas de la base de datos.</p></div></div>
-    {data.orders.length?<div className="activity-list">
-     {data.orders.slice(0,6).map(o=><div className="activity-row" key={o.id}>
-       <span className="activity-symbol">▤</span><div>
-        <strong>Pedido · {data.customers.find(c=>c.id===o.customer_id)?.name||'Cliente'}</strong>
-        <small>{displayDate(o.confirmed_at)}</small></div><Status value={o.status}/>
-      </div>)}
-    </div>:<Empty title="Sin pedidos registrados" detail="Registra la primera compra confirmada desde Nuevo pedido."/>}
+   <section className="ev-zone ev-zone-payments" aria-labelledby="ev-payments-heading">
+    <header className="ev-zone-header">
+     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">▣</span>
+      <div><h2 id="ev-payments-heading">Pagos por verificar</h2>
+       <p>Declaraciones pendientes de validación administrativa.</p></div>
+     </div>
+     <button type="button" className="ev-section-link" onClick={()=>setTab('payments')}>Ver pagos <span aria-hidden="true">→</span></button>
+    </header>
+    {pendingPayments.length?<div className="ev-payment-list">
+     {pendingPayments.slice(0,4).map(p=>{
+      const order=ordersById.get(p.order_id);
+      const legacy=legacyById.get(p.reservation_id);
+      const customer=customerById.get(order?.customer_id||legacy?.customer_id);
+      const amount=Number(p.amount_bs);
+      const amountLabel=Number.isFinite(amount)&&amount>=0?'Bs '+new Intl.NumberFormat('es-BO',{maximumFractionDigits:2}).format(amount):'Importe pendiente';
+      return <div className="ev-payment-row" key={p.id}>
+       <span className="ev-payment-icon" aria-hidden="true">▣</span>
+       <div><strong>{customer?.name||'Pago informado'}</strong><small>{amountLabel}</small></div>
+       <span className={'ev-payment-tag '+(p.status==='observed'?'ev-payment-observed':'')}>{p.status==='observed'?'En observación':'Por verificar'}</span>
+      </div>;
+     })}
+    </div>:<Empty title="Sin pagos por verificar" detail="Los comprobantes informados que requieran revisión aparecerán aquí."/>}
    </section>
   </div>
- </>;
+ </div>;
 }
 function StockTable({data,limit=null}){
  const models=limit?data.models.slice(0,limit):data.models;
@@ -1257,8 +1351,8 @@ export default function HomePage(){
    </main>
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
   </div>
-  <nav className="mobile-nav" aria-label="Navegación móvil">{MENU.filter(x=>x[0]!=='home').map(([id,label,sign])=>
+  <nav className="mobile-nav" aria-label="Navegación móvil">{MENU.map(([id,label,sign])=>
    <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)} className={tab===id?'active':''}>
-    <span>{sign}</span><small>{label}</small></button>)}</nav>
+    <span>{sign}</span><small>{id==='booking'?'Nuevo':label}</small></button>)}</nav>
  </div>;
 }

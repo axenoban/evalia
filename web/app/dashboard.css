@@ -1,0 +1,166 @@
+/* EVALIA dashboard v2 — isolated presentation layer. No stock or order rules here. */
+.ev-dashboard{
+ --ev-deep:#402b3e;--ev-plum:#58394f;--ev-berry:#91516d;--ev-rose:#f5e6ee;
+ --ev-ink:#382638;--ev-soft:#6a5b69;--ev-line:#eadde6;
+ color:var(--ev-ink);font-size:14px;
+}
+.ev-dashboard .section-head{margin-bottom:24px;align-items:center}
+.ev-dashboard .section-head h1{font-size:clamp(27px,2.45vw,37px);letter-spacing:-.04em;color:var(--ev-deep);margin:5px 0 8px}
+.ev-dashboard .section-head .eyebrow{font-size:11px;color:#a45e80}
+.ev-dashboard .section-head .description{font-size:14px;max-width:690px;line-height:1.5;color:var(--ev-soft)}
+.ev-dashboard .section-head .button{font-size:13px;min-height:45px;padding:11px 18px}
+.ev-dashboard .metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:23px}
+.ev-dashboard .metric{position:relative;display:flex;flex-direction:column;min-width:0;min-height:152px;padding:20px 21px;border:1px solid #eee3e9;
+ background:linear-gradient(155deg,#fff,#fcf8fb);box-shadow:0 8px 26px #4933440a;border-radius:17px}
+.ev-dashboard .metric.primary{background:linear-gradient(142deg,#70435f,#4b3046);border-color:#70435f;color:#fff;box-shadow:0 10px 28px #4e2f471d}
+.ev-dashboard .metric:nth-child(2){background:linear-gradient(150deg,#fff,#faf0f5)}
+.ev-dashboard .metric:nth-child(3){background:linear-gradient(150deg,#fff,#f8f3fa)}
+.ev-dashboard .metric:nth-child(4){background:linear-gradient(150deg,#fff,#fff8f1)}
+.ev-metric-heading{display:flex;gap:9px;align-items:center;min-height:27px}
+.ev-dashboard .metric-label{font-size:12px;line-height:1.25;color:#725c70;font-weight:800}
+.ev-dashboard .metric.primary .metric-label{color:#fbe9f3}
+.ev-metric-icon{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:9px;
+ background:#f6e6ee;color:#8f4c6e;font-size:20px;line-height:1}
+.ev-dashboard .metric.primary .ev-metric-icon{background:#ffffff23;color:#fff}
+.ev-dashboard .metric strong{font-family:Manrope,'DM Sans',sans-serif;font-size:clamp(27px,3vw,36px);letter-spacing:-.05em;margin:12px 0 4px;color:var(--ev-ink)}
+.ev-dashboard .metric.primary strong{color:#fff}
+.ev-dashboard .metric small{font-size:11px;line-height:1.45;color:#786b78}
+.ev-dashboard .metric.primary small{color:#f2dce8}
+
+.ev-zone{border:1px solid #eadfe7;border-radius:18px;background:#fff;box-shadow:0 9px 30px #4b304609;min-width:0;overflow:hidden}
+.ev-zone-catalog{border-top:4px solid #8c4c6b;margin-bottom:17px}
+.ev-zone-header{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:18px 21px;border-bottom:1px solid #f0e4eb}
+.ev-zone-catalog>.ev-zone-header{background:linear-gradient(115deg,#f7eaf0,#fdf8fb 72%)}
+.ev-zone-heading{min-width:0;display:flex;align-items:center;gap:12px}
+.ev-zone-heading>div{min-width:0}
+.ev-zone-heading h2{margin:0 0 4px;font-family:Manrope,'DM Sans',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.025em;line-height:1.3;color:#422d40}
+.ev-zone-heading p{font-size:12px;line-height:1.45;color:#846d7e;margin:0}
+.ev-zone-icon{display:grid;place-items:center;width:39px;height:39px;border-radius:12px;background:#f1dce7;color:#7e3f60;font-size:22px;flex:none;font-weight:700}
+.ev-zone-actions{display:flex;gap:15px;align-items:center;flex-shrink:0}
+.ev-section-link{appearance:none;border:0;background:transparent;padding:8px 0;color:#8b4269;
+ font-weight:800;font-size:12px;text-align:right;white-space:nowrap;cursor:pointer}
+.ev-section-link:hover{text-decoration:underline}
+.ev-section-link:focus-visible,.ev-carousel-buttons button:focus-visible{outline:3px solid #b87b9a;outline-offset:2px}
+.ev-carousel-buttons{display:flex;gap:6px}
+.ev-carousel-buttons button{width:35px;height:35px;border:1px solid #e7d2df;border-radius:50%;color:#7c3d5c;
+ background:#fff;box-shadow:0 2px 7px #4a2b3e10;display:grid;place-items:center;font-size:26px;line-height:1}
+.ev-carousel-buttons button:hover:not(:disabled){background:#f8ecf3}
+.ev-carousel-buttons button:disabled{opacity:.38;cursor:default}
+
+.ev-model-track{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(190px,19vw,230px);align-items:stretch;
+ gap:13px;padding:18px 20px 21px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:20px;
+ scrollbar-width:thin;scrollbar-color:#c9a7b9 transparent}
+.ev-model-track:focus-visible{outline:3px solid #b87b9a;outline-offset:-4px}
+.ev-model-card{min-width:0;overflow:hidden;display:flex;flex-direction:column;scroll-snap-align:start;
+ background:#fff;border:1px solid #e9dce5;border-radius:14px;box-shadow:0 3px 13px #3a25340d;transition:box-shadow .2s,transform .2s}
+.ev-model-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px #3a25341a}
+.ev-model-photo{position:relative;width:100%;aspect-ratio:1.03/1;overflow:hidden;background:#f2e5eb;flex:none}
+.ev-model-photo .product-image.large{display:block;width:100%;height:100%;border-radius:0;object-fit:cover;object-position:center 22%}
+.ev-model-photo .product-fallback.large{display:flex}
+.ev-model-photo-status{position:absolute;top:9px;left:9px;right:9px;width:max-content;max-width:calc(100% - 18px);
+ background:#fff4f4;border:1px solid #f4cbcd;color:#9a394e;padding:6px 8px;border-radius:8px;font-weight:800;font-size:11px;box-shadow:0 3px 10px #4227381a}
+.ev-model-details{padding:12px 12px 14px;display:flex;flex-direction:column;flex:1}
+.ev-model-details h3{font-family:Manrope,'DM Sans',sans-serif;font-weight:800;font-size:14px;
+ line-height:1.35;letter-spacing:-.02em;margin:0 0 11px;min-height:38px;overflow-wrap:anywhere;
+ display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ev-stock-caption{font-size:10px;font-weight:800;color:#845f75;text-align:center;background:#f6eaf1;
+ padding:5px 6px;border-radius:7px}
+.ev-stock-count{display:grid;align-content:center;min-height:41px;background:#70425e;color:#fff;text-align:center;
+ border-radius:9px;padding:7px 6px;font-size:16px;font-weight:850;line-height:1.3;margin-top:5px;overflow-wrap:break-word}
+.ev-model-exhausted .ev-stock-count,.ev-model-blocked .ev-stock-count{background:#9b5966}
+.ev-model-price{display:block;color:#723951;text-align:center;font-size:12px;font-weight:850;line-height:1.35;margin-top:auto;padding-top:11px}
+.ev-model-card .product-fallback .fallback-mark{font-size:57px}
+.ev-model-card .product-fallback span:last-child{font-size:11px;letter-spacing:0}
+
+.ev-support-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(315px,1fr);gap:17px;align-items:start}
+.ev-zone-orders{border-top:4px solid #c68f7c;background:#fffdfb}
+.ev-zone-orders>.ev-zone-header{background:linear-gradient(115deg,#fdf0e9,#fffaf7 75%);border-color:#f3e6df}
+.ev-zone-orders .ev-zone-icon{background:#fae5d9;color:#9b6246}
+.ev-zone-payments{border-top:4px solid #8e78a5;background:#fdfbff}
+.ev-zone-payments>.ev-zone-header{background:linear-gradient(115deg,#f3eaf8,#fcf9ff 75%);border-color:#ece3f2}
+.ev-zone-payments .ev-zone-icon{background:#eae0f1;color:#725786}
+.ev-order-list{padding:2px 17px 13px}
+.ev-order-row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(110px,.9fr) auto;align-items:center;gap:10px;padding:13px 5px;border-bottom:1px solid #f1e8e4}
+.ev-order-row:last-child{border-bottom:0}
+.ev-order-person{min-width:0}
+.ev-order-person strong{display:block;font-size:13px;line-height:1.35;overflow-wrap:anywhere;color:#463442}
+.ev-order-person>span{font-size:11px;color:#9a8997;display:block;margin-top:4px;line-height:1.35}
+.ev-delivery-type{font-size:11px;color:#8a6558;line-height:1.4;overflow-wrap:anywhere}
+.ev-order-end{display:flex;flex-direction:column;align-items:flex-end;gap:5px;text-align:right;min-width:84px}
+.ev-order-end>b{font-size:12px;color:#4e394d;white-space:nowrap}
+.ev-active-tag{background:#f6ebdf;color:#906037;border-radius:100px;padding:6px 9px;font-size:10px;font-weight:850;white-space:nowrap}
+.ev-payment-list{padding:5px 16px 13px}
+.ev-payment-row{display:flex;align-items:center;gap:10px;padding:13px 2px;border-bottom:1px solid #eee8f1}
+.ev-payment-row:last-child{border-bottom:0}
+.ev-payment-icon{width:32px;height:32px;flex:none;border-radius:9px;background:#f0e5f5;color:#765189;
+ display:grid;place-items:center;font-size:19px}
+.ev-payment-row>div{min-width:0;flex:1}
+.ev-payment-row strong,.ev-payment-row small{display:block;overflow-wrap:anywhere}
+.ev-payment-row strong{font-size:12px;line-height:1.35;color:#48394c}
+.ev-payment-row small{margin-top:4px;font-size:12px;color:#7c6a7f;font-weight:750}
+.ev-payment-tag{font-size:10px;white-space:nowrap;background:#fff1df;color:#916031;border-radius:99px;padding:7px 9px;font-weight:800}
+.ev-payment-observed{background:#f3e9ee;color:#945570}
+.ev-zone .empty{padding:25px 16px 29px}
+.ev-zone .empty p{font-size:12px}
+
+/* Improve baseline navigation readability without changing flow semantics. */
+.sidebar-nav button{font-size:13px}
+.sidebar-label{font-size:10px}
+.breadcrumb{font-size:12px}
+.live-label{font-size:12px}
+.footer{font-size:11px}
+
+@media(max-width:1100px){
+ .ev-dashboard .metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ev-support-grid{grid-template-columns:1fr}
+ .ev-model-track{grid-auto-columns:clamp(182px,26vw,235px)}
+}
+@media(max-width:740px){
+ .ev-model-track{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-columns:auto;
+  gap:10px;overflow:visible;scroll-snap-type:none;padding:12px}
+ .ev-carousel-buttons{display:none}
+ .ev-model-card:hover{transform:none}
+ .ev-model-photo{aspect-ratio:1/1.08}
+ .ev-model-details{padding:10px 9px 12px}
+ .ev-model-details h3{font-size:13px;min-height:35px;margin-bottom:9px}
+ .ev-stock-count{font-size:13px;min-height:44px;padding:6px 4px}
+ .ev-stock-caption{font-size:10px;padding:4px}
+ .ev-model-price{font-size:11px;padding-top:9px}
+ .ev-zone-header{padding:14px 13px;gap:8px}
+ .ev-zone-heading{gap:8px}
+ .ev-zone-icon{width:33px;height:33px;font-size:19px}
+ .ev-zone-heading h2{font-size:15px}
+ .ev-zone-heading p{font-size:11px}
+ .ev-section-link{font-size:11px;white-space:normal}
+ .ev-dashboard .metric{min-height:130px;padding:15px}
+ .ev-dashboard .metric strong{font-size:28px;margin:10px 0 5px}
+ .ev-dashboard .metric-label{font-size:11px}
+ .ev-dashboard .metric small{font-size:10px}
+ .ev-metric-icon{width:27px;height:27px;font-size:18px}
+ .ev-dashboard .section-head .description{font-size:13px}
+ .ev-dashboard .section-head h1{font-size:26px}
+ .ev-order-row{grid-template-columns:minmax(0,1fr) auto;gap:6px}
+ .ev-delivery-type{grid-column:1;grid-row:2}
+ .ev-order-end{grid-column:2;grid-row:1/span 2}
+ .ev-order-person strong{font-size:12px}
+ .ev-dashboard .section-head .button{font-size:13px}
+ .mobile-nav{justify-content:space-around;gap:0}
+ .mobile-nav button{flex:1;min-width:0;padding:4px 2px}
+ .mobile-nav small{font-size:10px}
+}
+@media(max-width:390px){
+ .ev-dashboard .metrics-grid{gap:8px}
+ .ev-dashboard .metric{padding:12px}
+ .ev-dashboard .metric strong{font-size:25px}
+ .ev-dashboard .metric-label{font-size:10px}
+ .ev-model-track{gap:8px;padding:10px}
+ .ev-model-details{padding:9px 7px 11px}
+ .ev-stock-count{font-size:12px}
+ .ev-model-price{font-size:10.5px}
+ .ev-zone-heading h2{font-size:14px}
+ .ev-zone-heading p{font-size:10px}
+ .ev-section-link{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ .ev-model-card{transition:none}
+}
