@@ -1238,7 +1238,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
    })}</div>:<Empty title="Aún no hay pedidos" detail="Registra la primera compra confirmada desde Nuevo pedido."/>}
  </>;
 }
-function Login({onLogin,busy,error}){
+function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
  const [showPassword,setShowPassword]=useState(false);
  return <main className="login-screen"><section className="login-card">
   <div className="brand brand-large"><span className="brand-icon">E</span><div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
@@ -1258,7 +1258,8 @@ function Login({onLogin,busy,error}){
    <button className="button button-ghost" type="button" aria-controls="evalia-login-password" aria-pressed={showPassword}
     onClick={()=>setShowPassword(v=>!v)}>{showPassword?'Ocultar contraseña':'Mostrar contraseña'}</button>
    {error&&<p role="alert" className="form-error">{error}</p>}
-   <button className="button button-primary full" disabled={busy} type="submit">{busy?'Verificando…':'Entrar al panel'}</button>
+   <button className="button button-primary full" disabled={busy||logoutPending} type="submit">{busy?'Verificando…':'Entrar al panel'}</button>
+   {logoutPending&&<button className="button button-outline full" type="button" disabled={busy} onClick={onRetryLogout}>Reintentar cierre de sesión</button>}
   </form>
   <p className="small-note">En tu dispositivo personal puedes guardar la contraseña con el gestor del navegador. Cierra sesión al usar un dispositivo compartido. No existe registro público de cuentas.</p>
  </section></main>;
@@ -1267,6 +1268,7 @@ export default function HomePage(){
  const [tab,setTab]=useState('home'),[data,setData]=useState(null),[ready,setReady]=useState(false);
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const [logoutPending,setLogoutPending]=useState(false);
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
  const db=useMemo(()=>getSupabase(),[]);
  const configured=Boolean(db);
@@ -1326,7 +1328,7 @@ export default function HomePage(){
   return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',revalidate);};
  },[authenticated,refresh]);
  async function login(email,password){
-  if(busy)return;
+  if(busy||logoutPending)return;
   setBusy(true);setError('');setForbidden(false);
   const generation=++authGeneration.current;
   try{
@@ -1334,7 +1336,10 @@ export default function HomePage(){
    if(generation!==authGeneration.current)return;
    if(!session?.user||!await adminAllowed()){
     if(generation!==authGeneration.current)return;
-    clearAccess();await signOut();setError('No se pudo iniciar sesión. Verifica tus credenciales y autorización.');return;
+    clearAccess();
+    try{await signOut();setLogoutPending(false);setError('No se pudo iniciar sesión. Verifica tus credenciales y autorización.');}
+    catch{setLogoutPending(true);setError('No se pudo cerrar la sesión no autorizada. Reintenta el cierre.');}
+    return;
    }
    if(generation!==authGeneration.current)return;
    authorizedUser.current=session.user.id;setAuthenticated(true);
@@ -1346,8 +1351,8 @@ export default function HomePage(){
  async function logout(){
   if(busy)return;
   clearAccess();setError('');setBusy(true);
-  try{await signOut();}
-  catch{setError('No se pudo cerrar la sesión en el servidor. Reintenta antes de dejar el dispositivo.');}
+  try{await signOut();setLogoutPending(false);}
+  catch{setLogoutPending(true);setError('No se pudo cerrar la sesión en el servidor. Reintenta antes de dejar el dispositivo.');}
   finally{setBusy(false);}
  }
  async function mutation(fn,success){
@@ -1422,7 +1427,7 @@ export default function HomePage(){
  if(!authenticated)return forbidden?<main className="setup-screen"><section className="setup-card">
   <h1>Acceso restringido</h1><p>La cuenta no figura como administradora de EVALIA.</p>
   <button className="button button-outline" onClick={()=>{setForbidden(false);setError('');}}>Volver al acceso</button>
- </section></main>:<Login onLogin={login} busy={busy} error={error}/>;
+ </section></main>:<Login onLogin={login} onRetryLogout={logout} logoutPending={logoutPending} busy={busy} error={error}/>;
  return <div className="app-shell">
   <aside className="sidebar"><div className="brand"><span className="brand-icon">E</span>
    <div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
