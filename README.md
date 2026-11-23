@@ -129,3 +129,13 @@ Estas decisiones posteriores prevalecen sobre cualquier exigencia histórica de 
 - [Esquema, seguridad, operaciones y pasos de prueba](docs/35_D1_A_SUPABASE_PRIMER_BLOQUE.md).
 - Migraciones SQL en supabase/migrations/ y 20 tests de seguridad pgTAP en supabase/tests/database/.
 - Ejecutar localmente supabase start, supabase db reset, supabase test db. No se ha desplegado.
+
+## Aplicación operativa Next.js + Supabase (rama candidata)
+
+La aplicación con persistencia en PostgreSQL está en `web/`, separada de la demostración estática `site/`. Es un candidato sujeto a validación de migraciones, PostgreSQL/pgTAP, acceso administrativo y pruebas reales de navegador. Incluye catálogo con fotografías, colores visuales, fichas de clientes, formularios mayoristas de reservas/pedidos y monitoreo S/R/P/A. No activar datos comerciales reales antes de validación.
+
+- Guía de instalación, seguridad y límites: [docs/38_APP_OPERATIVA_NEXT_SUPABASE.md](docs/38_APP_OPERATIVA_NEXT_SUPABASE.md).
+- Configuración de ejemplo sin secretos: [web/.env.example](web/.env.example).
+- Ejecución local: `cd web && npm install && npm run dev` después de configurar un Supabase de pruebas y aplicar migraciones.
+- Validación de código: `npm run check` desde la raíz, luego `cd web && npm run build`.
+- Estado: PR #3 borrador, independiente de los PR #1/#2; sin autorización para fusionar `main`.
