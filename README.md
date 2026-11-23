@@ -39,10 +39,13 @@ La **aclaración C-G03-A quedó resuelta a nivel conceptual**, pero no se aprob�
 - [Respuestas registradas R01–R12 y flujo actual WhatsApp](docs/13_CUESTIONARIO_CAPTURA.md)
 - [Flujo operativo revisado](docs/12_FLUJO_CAPTURA_RESERVAS_PROPUESTA.md)
 - [Catálogo maestro de colores y asignación por modelo](docs/14_CATALOGO_COLORES_Y_VARIANTES.md)
-**R04: solo stock inicial manual por variante** (no importar Excel/CSV en la primera fase). Registro de colores **antes de crear modelos**, con colores específicos asignados a cada modelo. El caso «surtido» sigue necesitando definición de asignación concreta antes de bloquear stock; presentaciones G04 siguen abiertas.
+**R04: solo stock inicial manual por variante** (no importar Excel/CSV en la primera fase). Registro de colores **antes de crear modelos**, con colores específicos asignados a cada modelo. El surtido puede bloquear **cantidad agregada sin colores concretos**, según decisión posterior del propietario; la selección de variantes específicas ocurre después. Presentaciones G04 y alcance de talla siguen abiertos.
 
 ## EVALIA no es un sistema genérico: producción, calidad y surtido posterior
 El propietario confirmó que **los colores de los surtidos se asignan después de recibir/registrar la solicitud**, ya que la producción real puede sufrir mermas por manchas o defectos de costura. Se documentó la operación de referencia de **6 a 6,5 docenas por modelo** (orientativamente 72–78 prendas), **11 colores con negro repetido** en la docena habitual, **sin garantía de composición exacta** después de control de calidad. No elevar estos datos a cuotas o fórmulas obligatorias.
 - [Producción, calidad, mermas y surtido diferido](docs/15_PRODUCCION_CALIDAD_SURTIDO.md)
-- [Decisión pendiente: solicitudes versus cupos de surtido](docs/16_DECISION_BLOQUEO_SURTIDO.md)
-Los estados previstos distinguen **producción planificada, prendas revisadas aptas, defectos, reservas de variantes concretas, solicitudes de surtido sin asignar y pedidos pendientes**. La posibilidad de bloquear **cupo agregado** de modelo/talla con surtido pendiente se presenta como alternativa técnica **aún no aprobada**.
+- [Cupo garantizado para surtidos: decisión B seleccionada](docs/16_DECISION_BLOQUEO_SURTIDO.md)
+Los estados previstos distinguen **producción planificada, prendas revisadas aptas, defectos, reservas de variantes concretas, solicitudes de surtido sin asignar y pedidos pendientes**. **Nueva decisión:** el propietario eligió **garantizar la cantidad del surtido mediante cupo agregado bloqueado** al guardar la reserva, con colores asignables posteriormente. El esquema SQL sigue sin ratificarse; definir previamente talla o criterios de variantes elegibles.
+
+## Confirmación de cupo y cancelaciones de surtido (nueva ronda)
+**B seleccionada:** reservar cantidad mayorista de un modelo sin escoger todavía colores; la reserva consume cupo del inventario apto y protege la cantidad disponible. Cancelación o falta de retiro se gestionará sin distinguir la condición solo por ser media docena o docena. **No se definieron** vencimiento exacto, penalización, anticipo, devolución ni acciones automáticas por inasistencia. Consultar [decisión y contrato](docs/16_DECISION_BLOQUEO_SURTIDO.md).

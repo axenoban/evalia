@@ -54,3 +54,7 @@ El propietario indica que **los colores de los surtidos se deciden después**, p
 
 ## Entregables posteriores a decisión
 Modelo lógico específico para lotes, control de calidad, variantes aptas, asignaciones exactas o flexibles y seguimiento; matriz de roles, pruebas de integridad de stock y panel por modelo/talla/color. No SQL ni implementación en este bloque.
+
+## Resultado posterior: garantía de cantidades surtidas
+**La opción B ha sido seleccionada:** EVALIA apartará un cupo de unidades **aptas y disponibles** desde Guardar reserva surtida, aunque el reparto por color espere al control real de producción. El compromiso cuantitativo no equivale a garantizar los once colores con negro adicional ni a contar como apta la producción prevista. La asignación de colores debe transferir el compromiso sin restar stock dos veces.
+No retiro y cancelación no requieren regla distinta solo por ser media docena o docena; sí precisan condiciones generales de vencimiento/liberación. Pendiente determinar talla/mezcla y flujo ante defectos inesperados posteriores. [Documento elegido](16_DECISION_BLOQUEO_SURTIDO.md).

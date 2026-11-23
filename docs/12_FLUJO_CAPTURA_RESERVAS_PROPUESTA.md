@@ -60,3 +60,7 @@ RLS/validación servidor sobre datos de cliente y movimiento; operaciones de blo
 [Cuestionario y tensiones R01–R12](13_CUESTIONARIO_CAPTURA.md), **modalidad A/B del surtido sin colores** en [decisión pendiente](16_DECISION_BLOQUEO_SURTIDO.md), clasificación de calidad y pérdidas en [producción](15_PRODUCCION_CALIDAD_SURTIDO.md), G01, G03-B, G04-01/04-04 y precio por variante/presentación, G05/G07/G08. La composición por talla y precio sigue sin cerrarse.
 
 **No ejecutar código, migraciones o merge en esta fase.**
+
+## Resolución comercial posterior de la opción A/B (2026-11-22)
+**El propietario seleccionó B: garantizar cantidad de una reserva surtida desde que se GUARDA, sin exigir colores al registrar; EVALIA asigna los colores después.** El borrador previo sigue sin bloquear (R06). El sistema debe verificar que existe suficiente stock **apto y no comprometido** dentro del conjunto de variantes elegibles del modelo, y reservar el cupo agregado sin doble compromiso; colores concretos se elegirán en una transacción posterior. Esta aclaración **supera** los pasajes históricos que rotulan A/B como abiertos. La clasificación de talla/mezcla sigue pendiente; no prometer una talla que no se garantizó.
+La falta de retiro/cancelación no tendrá un tratamiento diferente solo por el volumen media docena versus docena. Siguen pendientes el plazo de vencimiento, reglas de liberación de pedido confirmado, entregas parciales, política de daños, precios y devoluciones. [Contrato B](16_DECISION_BLOQUEO_SURTIDO.md).

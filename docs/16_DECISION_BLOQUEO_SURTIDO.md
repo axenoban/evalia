@@ -1,15 +1,15 @@
-# EVALIA — Pendiente de aprobación: ¿cómo bloquear un surtido antes de elegir colores? (v0.1)
+# EVALIA — Decisión B seleccionada: cupo garantizado para surtidos (v0.2)
 
-**Estado: alternativas técnicas, no decisión comercial**. Fecha: 2026-11-22. El propietario **sí decidió asignar los colores después** de registrar surtidos. Todavía no definió si registrar inicialmente garantiza disponibilidad.
+**Estado: decisión comercial B seleccionada por el propietario; implementación y ratificación del PR pendientes.** Fecha: 2026-11-22. Los colores se asignan después y la **cantidad sí queda garantizada** al guardar una reserva surtida sobre existencias aptas y no comprometidas. R06: borrador no bloquea.
 
-## A. Solicitud surtida sin bloqueo (alternativa simple)
+## A. Solicitud surtida sin bloqueo (alternativa considerada, no elegida para reserva guardada)
 - Registrar cliente, modelo, cantidad, talla **si se conoce**, origen WhatsApp y etiqueta «surtido pendiente de asignar».
 - No descontar ningún stock ni prometer unidades al cliente hasta elegir variantes exactas; el cupo puede agotarse.
 - Al asignar colores más tarde, verificar inventario apto y guardar una **reserva efectiva** de variantes en transacción. Si no alcanza, avisar.
 - Ventaja: implementación sencilla y robusta para stock variable por calidad.
 - Riesgo: no protege al comprador que solicitó seis piezas mientras EVALIA atiende otros pedidos.
 
-## B. Reserva de cupo surtido sin colores (alternativa especializada recomendable para evaluar)
+## B. Reserva de cupo surtido sin colores — SELECCIONADA
 - Registrar **cliente + modelo + cantidad + talla conocida**, sin colores. Apartar una cantidad **agregada** de todas las variantes aptas elegibles del mismo modelo+talla; **no garantizar tonos específicos**.
 - Aparte de reservas exactas por color, mantener **cupo surtido pendiente de asignación (G)**; no confundirlo con prendas concretas ni con una simple solicitud.
 - Para un grupo modelo+talla:
@@ -44,6 +44,6 @@ Si luego se detectan dos prendas no aptas, el total apto baja de 12 a 10; en B l
 - Calidad e inspección no justifican asumir que un lote previsto ya contiene stock vendible.
 
 ## Recomendación técnica
-**B, cupo agregado por modelo+talla, es la alternativa que mejor satisface conjuntamente «colores después» y «no sobreventa» si EVALIA confirma que promete la cantidad aunque el tono sea flexible.** Requiere validar talla conocida y que cliente acepta cualquier combinación de colores aptos que EVALIA pueda entregar. Si no quiere garantizar cantidad antes de confirmar colores o tallas, usar **A: solicitud sin bloqueo**.
+**B ya fue elegida expresamente por el propietario.** La reserva surtida guardada debe apartar cantidad apta sin fijar los colores y la decisión de talla o conjunto elegible deberá ser resuelta antes de implementar. Es necesario distinguir el compromiso comercial garantizado de colores aún indeterminados: el sistema no puede prometer tonos específicos.
 
-**Decisión necesaria del propietario:** elegir A o B, o definir un tercero; no adoptar por defecto. No cambiar G03/R06 ni implementar SQL hasta acordarla.
+**Cancelación y no retiro:** el propietario no distingue el tratamiento por media docena o docena. Esto no fija plazo ni sanciones, y la liberación del cupo deberá depender de las condiciones generales aprobadas de G01/G03-B. No construir SQL definitivo ni cambiar estado draft del PR.

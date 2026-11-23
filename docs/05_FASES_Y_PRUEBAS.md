@@ -67,3 +67,14 @@ Bloqueantes: [casos CR-01–CR-07](13_CUESTIONARIO_CAPTURA.md), presentaciones G
 - Entregas parciales y G03-B siguen abiertos; en ninguno de los dos modos se puede afirmar colores/stock asegurados sin reglas aplicables y stock apto.
 
 Ver [plan especializado](15_PRODUCCION_CALIDAD_SURTIDO.md) y [decisión pendiente](16_DECISION_BLOQUEO_SURTIDO.md).
+
+## Pruebas candidatas de la elección B (cupo surtido garantizado)
+- Guardar surtido de 6 del modelo con **stock apto elegible 12** y 3 unidades asignadas por color → cupo surtido 6, disponibles agregadas **3**; borrador previo no bloquea.
+- Dos reservas de surtido simultáneas no pueden comprometer la última disponibilidad agregada dos veces.
+- Venta directa de color concreto requiere stock de ese color **Y** cupo agregado todavía libre, nunca puede apropiarse de las seis unidades reservadas genéricamente.
+- Asignar seis unidades surtidas a colores reales: cupo sin color −6, asignación exacta +6; disponibilidad agregada se mantiene igual.
+- Una merma descubierta tras bloquear cupo puede causar déficit: registrar defecto e incidencia, no inventar prendas ni forzar repartos de 11 colores con negro adicional.
+- Liberar cupo por cancelación de reserva aún no entregada **solo cuando se cumpla una condición de cancelación aprobada**, una sola vez y con auditoría; probar casos de media docena y docena bajo **misma política**, sin inventar plazo ni penalización.
+- Entrega parcial/cancelación de pedido convertido sigue sujeta a G03-B y debe contar solo saldos pendientes.
+- Talla desconocida o surtido con mezcla de tallas: **caso bloqueante hasta que se decida el grupo elegible**; no garantizar a ciegas una talla específica.
+Sin código/test ejecutable todavía: estos son escenarios de aceptación para el futuro.
