@@ -25,12 +25,12 @@ Seleccionar contacto → modelo/color/talla → consultar inventario → elegir 
 G01 plazo y prórrogas; G02 solicitudes públicas; G03 transición reserva/pedido/entrega; G04 formatos y tarifas; G05 conciliación de inventario; G06 pagos y logística; G07 permisos; G08 datos y contactos.
 
 ## Adenda: segunda ronda G03/G04 (pendiente de ratificación)
-1. Reserva: **solo mayorista**, desde **6 unidades por modelo**; no habilitar reserva minorista por deducción. Se permiten colores mezclados y el usuario menciona tallas M/XL con precios diferentes sumadas por modelo, sujeto a contradicción G04-04 sobre «una talla por presentación».
+1. Reserva: **solo mayorista**, desde **6 unidades por modelo**; no habilitar reserva minorista por deducción. Se permiten colores mezclados de un modelo, que **tiene una única talla fija** según aclaración posterior; los modelos M y XL son distintos y no suman unidades bajo el mismo modelo.
 2. Reserva → pedido: conservar asignación de unidades; pedido directo asigna al confirmarse; **solo reserva pendiente sin convertir vence automáticamente**.
 3. **Aclaración posterior de G03-02:** el propietario explica que al confirmar se descuenta la **disponibilidad para aceptar más pedidos**, mientras la existencia física permanece hasta retirar/despachar. La confirmación conserva asignación exclusiva; en entregas parciales baja el stock físico de lo efectivamente retirado/despachado y el pendiente asignado, sin vender dos veces.
 4. Cancelación de lo no entregado: liberar asignación e historial; reversión de pedidos confirmados o parcialmente entregados sigue abierta. Encargo futuro: asignación manual de existencias ingresadas.
 5. Precios por segmento/presentación, especial de cliente primero, fijación al confirmar, ajuste manual solo admin con motivo e historial. **G04-01 abierto**. Ejemplo de docena Bs 380 no determina precio de 7 unidades ni fórmula por unidad.
-6. Mezclas entre modelos permitidas en pedido pero **no suman a un único mínimo mayorista de seis**: la observación exige seis por modelo. ¿Presentación de una sola talla o suma de tallas separadas por modelo? Sin resolver.
+6. Mezclas entre modelos permitidas en pedido pero **no suman a un único mínimo mayorista de seis**: la observación exige seis por modelo. **Aclaración posterior:** cada modelo es de talla única; no se combinan tallas para alcanzar seis de un modelo. Sigue pendiente definir presentaciones y precios G04.
 
 Consultar [registro literal de 16 selecciones, ejemplos y conflictos](09_G03_G04_SELECCIONES.md) antes de implementar.
 
@@ -55,3 +55,6 @@ Flujo especializado propuesto: planificar lote de un modelo → anotar entradas/
 La asignación posterior de colores transfiere cupo genérico a asignaciones exactas **sin reducir nuevamente el disponible agregado**. Los pedidos por color y los surtidos compiten por el mismo stock apto, por lo que validar ambos niveles. Si aparece un defecto posteriormente, registrar incidencia e insuficiencia explícita, sin esconderla.
 **Cancelación o no retiro:** el propietario no quiere una regla especial por media docena/docena. La liberación/registro procedente se aplicará por cantidades pendientes según las condiciones generales que faltan por definir (G01, G03-B); no programar vencimiento automático al no presentarse.
 Ver [B elegida](16_DECISION_BLOQUEO_SURTIDO.md) y [contrato](11_CONTRATO_INVENTARIO.md).
+
+## Flujo preciso con talla implícita por modelo
+**Nuevo modelo:** crear modelo con talla fija y colores específicos. Al abrir reserva, buscar modelo ⇒ talla aparece informativa, **no selector que mezcle tallas** ⇒ ingresar cantidad obligatoria ⇒ seleccionar colores fijos o marcar surtido para completar después. **Guardar reserva surtida** aparta cantidad del **total apto del modelo**, sin asignación inicial por color. Cuando el administrador concrete el reparto, convertir cupo a líneas por color sin volver a descontar; al entregar, registrar variantes reales. Un carrito puede contener **modelos diferentes** de tallas y precios diferentes; cada modelo cumple su propio mínimo. [Modelo con talla única](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).

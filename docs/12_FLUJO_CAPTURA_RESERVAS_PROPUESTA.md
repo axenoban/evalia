@@ -12,7 +12,7 @@ No confundir esta secuencia manual con autorización para automatizar WhatsApp, 
 
 1. Registrar **primero los colores en catálogo común** (no preregistro en cada modelo). La lista es reutilizable entre modelos.
 2. Registrar el **modelo** con fotografía/datos y asignarle **solo los colores que tendrá ese modelo**. Un modelo puede ofrecer combinaciones de colores distintas de otro, incluso por un único color.
-3. Gestionar tallas conforme a D07 y asociar existencias a variantes **modelo + talla + color**.
+3. Cada **modelo tiene una talla fija**, elegida al crearlo. Asociar existencias a **modelo + color**, cuya talla se hereda del modelo (D07).
 4. Cargar el inventario inicial **solo mediante ingreso manual por variante** (R04). La elección excluye una función de importación Excel/CSV de la primera fase.
 5. Mostrar en catálogo solo colores asociados a cada modelo, distinguiendo color ofrecido de unidades realmente disponibles. Si cambia la paleta, no borrar datos que tengan historia comercial.
 
@@ -22,7 +22,7 @@ No confundir esta secuencia manual con autorización para automatizar WhatsApp, 
 
 1. **Solo administrador** abre «Nueva reserva» (R01) desde el catálogo visual con buscador y carrito (R05).
 2. Buscar cliente por **WhatsApp** (R03), ofrecer coincidencias sin unir registros silenciosamente, o registrar **nombre + número WhatsApp** (R02).
-3. Seleccionar modelo enviado por captura en WhatsApp y sus variantes/quantidades disponibles; el sistema muestra totales **por modelo** y desglose de talla/color.
+3. Seleccionar modelo enviado por captura en WhatsApp; mostrar su **única talla** y colores disponibles; ingresar cantidades por modelo (y por color cuando el cliente los elige), sin selector para mezclar tallas dentro del modelo.
 4. Para pedido **menor de una docena**, el cliente puede seleccionar colores o pedir **surtido** según la práctica descrita. **Nueva aclaración posterior:** en surtido los colores se asignan **después de registrar la operación inicial**, cuando se conoce el stock apto; el mínimo mayorista de 6 por modelo se mantiene y G04 sigue abierto.
 5. Preparar un **borrador sin bloquear unidades** (R06). Para surtido con colores por asignar, distinguir una **solicitud no bloqueante** de una posible **reserva de cupo agregado** sin colores; el tipo de compromiso todavía requiere respuesta del propietario, ver [comparativa](16_DECISION_BLOQUEO_SURTIDO.md).
 6. Pulsar **Guardar reserva** para selecciones de colores concretos: validar stock por variante y mínimo mayorista; exceso → rechazo y corrección (R07). **Para surtidos sin colores, no definir todavía si Guardar genera solo solicitud o bloquea un cupo agregado**: la regla necesita decisión específica y validación atómica diferente.
@@ -62,5 +62,8 @@ RLS/validación servidor sobre datos de cliente y movimiento; operaciones de blo
 **No ejecutar código, migraciones o merge en esta fase.**
 
 ## Resolución comercial posterior de la opción A/B (2026-11-22)
-**El propietario seleccionó B: garantizar cantidad de una reserva surtida desde que se GUARDA, sin exigir colores al registrar; EVALIA asigna los colores después.** El borrador previo sigue sin bloquear (R06). El sistema debe verificar que existe suficiente stock **apto y no comprometido** dentro del conjunto de variantes elegibles del modelo, y reservar el cupo agregado sin doble compromiso; colores concretos se elegirán en una transacción posterior. Esta aclaración **supera** los pasajes históricos que rotulan A/B como abiertos. La clasificación de talla/mezcla sigue pendiente; no prometer una talla que no se garantizó.
+**El propietario seleccionó B: garantizar cantidad de una reserva surtida desde que se GUARDA, sin exigir colores al registrar; EVALIA asigna los colores después.** El borrador previo sigue sin bloquear (R06). El sistema debe verificar que existe suficiente stock **apto y no comprometido** dentro del conjunto de variantes elegibles del modelo, y reservar el cupo agregado sin doble compromiso; colores concretos se elegirán en una transacción posterior. Esta aclaración **supera** los pasajes históricos que rotulan A/B como abiertos. La talla ya está fijada por el modelo; se garantiza su **cantidad apta** al guardar, pero no los colores específicos aún pendientes.
 La falta de retiro/cancelación no tendrá un tratamiento diferente solo por el volumen media docena versus docena. Siguen pendientes el plazo de vencimiento, reglas de liberación de pedido confirmado, entregas parciales, política de daños, precios y devoluciones. [Contrato B](16_DECISION_BLOQUEO_SURTIDO.md).
+
+## Cierre de tallas por modelo (2026-11-22)
+**Un modelo tiene una sola talla**, aunque el catálogo de EVALIA contenga modelos M, XL o 2XL; **no se combinan tallas de un mismo modelo**. El surtido identifica primero modelo ⇒ talla ya conocida ⇒ **cantidad necesaria para guardar** ⇒ colores pendientes de repartir posteriormente. La asignación de colores transferirá cupo agregado del modelo a variantes específicas sin segundo descuento. Un carrito puede contener varios modelos con talla/precio diferentes; cada modelo se calcula y valida separadamente. [Regla canónica](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).

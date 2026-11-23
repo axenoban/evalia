@@ -28,7 +28,7 @@ No desplegar datos personales ni bases de producción sin validación y recupera
 - Reservas: 5 del mismo modelo debe rechazarse para **reserva mayorista**; 6 permite continuar a las demás validaciones; 3 del modelo A + 3 del B **no** satisfacen el mínimo de 6 **por modelo**.
 - G03: confirmar reserva conserva asignación; pedido directo asigna; vencimiento automático no debe afectar pedido ya convertido; cancelación no duplica stock; parcial registra unidades pendientes; asignación a encargo futuro es manual.
 - G03-02 aclarado: al confirmar desciende **disponibilidad**, no necesariamente el físico presente. Probar conciliación entre físico, reservas activas, pendientes de pedidos y despacho; quedan pendientes reglas de cancelación parcial.
-- G04: 7 unidades con docena ejemplo Bs 380 no implican Bs 380/12 × 7; el importe depende de tarifa fijada por modelo/variante. Mezcla de modelos requiere cálculo por sus líneas y mínimos independientes. Una talla por presentación y mezcla M/XL en mínimo por modelo requiere decisión explícita.
+- G04: 7 unidades con docena ejemplo Bs 380 no implican Bs 380/12 × 7; el importe depende de tarifa fijada por modelo/variante. Mezcla de modelos requiere cálculo por sus líneas y mínimos independientes. **Aclaración posterior:** un modelo solo puede tener una talla; prueba negativa para M+XL en un mismo modelo. Presentaciones y precios siguen pendientes.
 - Cambios manuales de precio: solo admin, con motivo y auditoría. Precio acordado se fija al confirmar; reserva muestra tarifa vigente, sin congelarla salvo nueva regla.
 
 No habilitar implementaciones/migraciones definitivas de G03/G04 sin cerrar [preguntas críticas](09_G03_G04_SELECCIONES.md).
@@ -76,5 +76,16 @@ Ver [plan especializado](15_PRODUCCION_CALIDAD_SURTIDO.md) y [decisión pendient
 - Una merma descubierta tras bloquear cupo puede causar déficit: registrar defecto e incidencia, no inventar prendas ni forzar repartos de 11 colores con negro adicional.
 - Liberar cupo por cancelación de reserva aún no entregada **solo cuando se cumpla una condición de cancelación aprobada**, una sola vez y con auditoría; probar casos de media docena y docena bajo **misma política**, sin inventar plazo ni penalización.
 - Entrega parcial/cancelación de pedido convertido sigue sujeta a G03-B y debe contar solo saldos pendientes.
-- Talla desconocida o surtido con mezcla de tallas: **caso bloqueante hasta que se decida el grupo elegible**; no garantizar a ciegas una talla específica.
+- **Talla determinada por modelo:** toda reserva/surtido debe heredar la talla única del modelo, sin opción de combinar M/XL/2XL dentro del mismo. Cantidad informada al Guardar, cupo exclusivamente por modelo y sin doble asignación de colores.
 Sin código/test ejecutable todavía: estos son escenarios de aceptación para el futuro.
+
+## QA adicional — talla única por modelo y surtido
+- Alta: modelo A talla M; al añadir colores negro/rosa, **ninguna variante** del modelo puede declararse XL. Modelo B talla XL es válido y tiene stock/precio propios.
+- Carrito: cliente solicita 6 del A (talla M) y 6 del B (talla XL); son **dos modelos**, cada mínimo por modelo se evalúa por separado.
+- No aceptar 3 del A-M + 3 del supuesto A-XL como seis del mismo modelo: A-XL no es variante válida del modelo A.
+- Al seleccionar A la talla M se muestra **derivada** sin un selector independiente. Se pueden elegir varios colores del A.
+- **Surtido:** seleccionar A-M, ingresar 6 unidades, Guardar reserva → cupo global del A reduce 6 y colores quedan pendientes; tras elegir 2 negras+4 rosas, cupo baja 6 y asignaciones exactas suben 6 **sin reducir por segunda vez** la disponibilidad.
+- Guardar sin cantidad positiva o con cantidad superior al saldo apto no puede garantizar unidades; mostrar validación, no registrar compromiso.
+- Un modelo con colores agotados puede tener stock total cero pese a tener colores asignados. Un modelo diferente no presta stock a A.
+- Probar que cambiar talla de un modelo con historial **no reetiqueta** reservas/pedidos antiguos; política de cambio pendiente.
+**No se han ejecutado tests funcionales**: estos son escenarios de aceptación. [Modelo con talla única](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).

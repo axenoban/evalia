@@ -13,7 +13,7 @@ El propietario desea **registrar los colores antes de los modelos**, reutilizarl
 | Catálogo de colores | Identidad estable y nombre de cada color reutilizable | No inventar lista inicial ni códigos |
 | Modelo de prenda | Diseño/fotografía y datos comerciales propios | Los precios son por modelo/variante según política futura |
 | Colores del modelo | Relación explícita entre modelo y los colores que ofrece | Un color global no se ofrece en todos los modelos |
-| Variante | Combinación modelo + color permitido + talla | Talla proviene del catálogo validado, no se inventan tallas |
+| Variante | Combinación de modelo + color permitido; **talla heredada del modelo** | Cada modelo tiene una sola talla; no hay combinaciones de tallas dentro de ese modelo |
 | Inventario por variante | Cantidad física, reservas vigentes, pedidos pendientes y disponibilidad | Disponibilidad nunca negativa; historial de movimientos |
 | Historial | Cambios de relación color-modelo, reservas, pedidos y ajustes | No borrar referencias históricas por quitar un color |
 
@@ -23,7 +23,7 @@ El propietario desea **registrar los colores antes de los modelos**, reutilizarl
 
 1. **Colores →** crear color en catálogo común.
 2. **Modelos →** crear modelo y asignarle los colores válidos de los ya registrados.
-3. **Variantes/tallas →** establecer combinaciones disponibles para ese modelo (qué tallas y colores existen realmente); **no forzar el producto cartesiano completo** de colores × tallas si una combinación no se fabrica.
+3. **Talla fija del modelo y variantes por color →** definir una única talla al crear el modelo; habilitar solo los colores realmente ofrecidos. No generar combinaciones ficticias de tallas × colores dentro de ese modelo.
 4. **Stock inicial →** ingreso manual por variante modelo/color/talla, elegido en R04.
 5. **Pedidos y reservas →** escoger únicamente variantes permitidas; validar stock exacto al guardar.
 
@@ -42,7 +42,7 @@ No son colores, tallas o productos reales de EVALIA.
 
 - **Administrar colores:** lista reutilizable, crear/editar, búsqueda de colores, número de modelos asociados (conteo candidato).
 - **Editar modelo:** selector múltiple de colores del catálogo; mostrar variantes habilitadas y aviso de colores retirados con historial.
-- **Nueva reserva:** tarjeta de modelo con cantidad y talla; chips de colores vinculados al modelo; indicador de disponible por color; opción comercial «Surtido» solo si se decide su regla.
+- **Nueva reserva:** tarjeta de modelo que muestra su talla fija, campo cantidad y colores habilitados; indicador de disponible por color. La opción «Surtido» ya fue seleccionada para bloquear cupo agregado, con colores asignables después.
 - **Inventario:** tabla modelo+talla expandable por color; físicamente presentes, reservados, pedidos pendientes, disponibles.
 
 ## Problema de surtido
@@ -63,3 +63,6 @@ Cliente puede pedir «surtido» para cantidades inferiores a una docena y dejar 
 
 ## Actualización de surtido: colores después
 La decisión posterior del propietario **descarta elegir obligatoriamente los colores antes del registro inicial de surtido**. La lista maestra de colores y la asignación de colores disponibles a cada modelo permanecen vigentes, pero **los colores efectivamente asignados a una solicitud de surtido podrán completarse después**, según stock apto tras calidad. La recomendación histórica de esta página queda reemplazada **para el momento de captura**, sin decidir si la solicitud inicial bloquea un cupo del modelo/talla. No forzar un «negro doble» si el stock real no lo permite. Ver [detalle de producción](15_PRODUCCION_CALIDAD_SURTIDO.md) y [decisión pendiente](16_DECISION_BLOQUEO_SURTIDO.md).
+
+## Talla única del modelo (decisión posterior)
+Al crear modelo, seleccionar **una talla fija** como atributo del modelo (M, XL, 2XL son solo ejemplos aportados). A cada modelo se asignan sus colores y su política de precios; no se crea una matriz de múltiples tallas para el mismo modelo. La **variante** es modelo+color y muestra talla heredada. Si el mismo diseño se comercializa en otra talla, no unirlo como otra talla del mismo modelo sin decisión de identidad/versionado. La reserva surtida bloquea cupo **por modelo**, cantidad obligatoria y color posterior. [Detalle](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).

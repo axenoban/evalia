@@ -36,7 +36,7 @@ Si luego se detectan dos prendas no aptas, el total apto baja de 12 a 10; en B l
 
 ## Limitaciones y reglas NO fijadas
 
-- Falta saber si **talla se define al registrar**. Cupo por modelo+talla no protege una petición con talla desconocida; no inventar agrupamiento entre tallas.
+- **RESUELTO posteriormente:** la talla **está fijada por el modelo**; no se mezclan tallas dentro de un modelo, por lo que el grupo de cupo es **un modelo con su talla fija** y sus colores aptos.
 - Falta establecer plazo de reserva y qué ocurre al vencer si no hay colores asignados.
 - Un patrón de **11 colores más negro adicional** no puede asegurarse por cantidad agregada cuando hay mermas; no afirmar que opción B garantice esa mezcla.
 - Falta decidir si se puede dividir un surtido, confirmar pedido antes de asignar tonos, y quién resuelve faltantes.
@@ -44,7 +44,7 @@ Si luego se detectan dos prendas no aptas, el total apto baja de 12 a 10; en B l
 - Calidad e inspección no justifican asumir que un lote previsto ya contiene stock vendible.
 
 ## Recomendación técnica
-**B ya fue elegida expresamente por el propietario.** La reserva surtida guardada debe apartar cantidad apta sin fijar los colores y la decisión de talla o conjunto elegible deberá ser resuelta antes de implementar. Es necesario distinguir el compromiso comercial garantizado de colores aún indeterminados: el sistema no puede prometer tonos específicos.
+**B ya fue elegida expresamente por el propietario.** La reserva surtida guardada debe apartar cantidad apta sin fijar los colores; la **talla ya viene determinada por el modelo**, conforme a la aclaración posterior. Es necesario distinguir el compromiso comercial garantizado de colores aún indeterminados: el sistema no puede prometer tonos específicos.
 
 **Cancelación y no retiro:** el propietario no distingue el tratamiento por media docena o docena. Esto no fija plazo ni sanciones, y la liberación del cupo deberá depender de las condiciones generales aprobadas de G01/G03-B. No construir SQL definitivo ni cambiar estado draft del PR.
 
@@ -56,6 +56,9 @@ Si luego se detectan dos prendas no aptas, el total apto baja de 12 a 10; en B l
 
 **Cancelaciones y no retiro:** la política se aplicará por igual independientemente de que sean seis o doce prendas; esto **no** define multas, plazo, penalización, anticipo, devolución, momento automático de liberación ni tratamiento de prendas ya entregadas. G01 y G03-B siguen abiertos.
 
-**Pendiente principal antes de SQL:** ¿al guardar un surtido están establecidas las tallas/cantidades por talla o también quedan a elección posterior de EVALIA? Si no se conoce el conjunto de tallas, el cupo por modelo+talla de este documento no basta para garantizar talla concreta. Ver [contrato ampliado](11_CONTRATO_INVENTARIO.md).
+**Aclaración posterior que resuelve ese pendiente:** cada modelo tiene talla única (M, XL, 2XL son ejemplos de modelos distintos), sin mezcla de tallas. Al guardar surtido se conoce modelo y talla, se registra cantidad para el cupo; los colores se asignan después. Ver [contrato ampliado](11_CONTRATO_INVENTARIO.md).
 
 **Estado:** decisión seleccionada y documentada en feature; sin autorización para ejecutar migraciones ni fusionar PR.
+
+## CR-02 / C-G04-A cerrada: no mezclar tallas dentro de un modelo (2026-11-22)
+Un modelo comercial = **una única talla**, con conjunto de colores y esquema de precios propios. Elegir el modelo determina la talla; en la reserva surtida se registra cantidad y se bloquea un cupo agregado de prendas aptas **de ese modelo**, que serán repartidas por color posteriormente. No existe cupo flexible entre modelos ni tallas. Las cantidades de dos modelos diferentes **no se suman para cumplir el mínimo de seis por modelo**. No inventar el importe de siete unidades: G04-01/criterios de precio permanecen abiertos. [Contrato](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).

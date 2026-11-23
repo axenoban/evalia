@@ -57,7 +57,7 @@ No se ordenó guardar capturas en la BD, extraer datos con OCR, leer automática
 ## Tensiones y parámetros abiertos
 
 - **CR-01 (surtido):** momento de selección de colores por EVALIA y posibilidad de sustitución si luego falta color.
-- **CR-02 (presentaciones y tallas):** G04-01 sigue indefinido y G04-04 «una talla por presentación» convive con sumatoria M/XL por modelo; el carrito por talla no resuelve por sí mismo esa discrepancia.
+- **CR-02 (presentaciones y tallas):** **Resuelto mediante aclaración posterior:** cada modelo tiene una única talla, no admite combinación M/XL; G04-04 resulta coherente. Sigue abierto G04-01 presentaciones.
 - **CR-03 (menos de docena):** confirmar si selección de colores es obligatoria exactamente para 6–11, y el comportamiento para 12 o más; no asumir surtido automático ni colores para docenas sin instrucción.
 - **CR-04 (precios):** mantener sin resolver el cálculo de siete unidades, diferencia por modelos/tallas, redondeo y tarifas. Los precios publicados en el grupo no autorizan actualizarlos automáticamente en BD.
 - **CR-05 (vencimiento):** G01/R09 no contienen plazo inicial ni reglas de prórroga.
@@ -87,4 +87,7 @@ También se solicita un sistema propio de EVALIA que registre fabricación y con
 
 ## CR-01 — decisión de garantía posterior recibida (2026-11-22)
 **Se escogió B:** registrar la reserva surtida, **bloquear un cupo de cantidad apta** al guardar y elegir colores más adelante. A no será el comportamiento de una reserva guardada; solo puede existir borrador no bloqueante conforme R06. Esta decisión sustituye el carácter hipotético de «cupo agregado» de la sección anterior.
-La cancelación/falta de retiro **no distingue comercialmente** media docena y docena por sí sola; plazo, devoluciones y saldos parciales siguen pendientes. Se requiere definición de tallas elegibles para cupo y no inventar precio por surtido. [Decisión y condiciones](16_DECISION_BLOQUEO_SURTIDO.md).
+La cancelación/falta de retiro **no distingue comercialmente** media docena y docena por sí sola; plazo, devoluciones y saldos parciales siguen pendientes. La talla queda definida por el **modelo único** conforme a aclaración posterior, sin agrupación de varias tallas en un modelo; no inventar precio por surtido. [Decisión y condiciones](16_DECISION_BLOQUEO_SURTIDO.md).
+
+## Aclaración final sobre tallas y registro de cantidad (2026-11-22)
+Cada **modelo** comercial tiene una **sola talla** (ejemplos M, XL o 2XL); distintos modelos pueden tener distintas tallas, colores y precios. No sumar M y XL **dentro del mismo modelo**. Al crear surtido se conoce modelo y por tanto talla; la **cantidad debe registrarse antes de Guardar** para poder garantizar cupo de stock apto. Solo la distribución por colores se completará después. Esta precisión prevalece sobre inferencias previas R05/G04, sin alterar respuestas literales R01–R12. [Contrato](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).

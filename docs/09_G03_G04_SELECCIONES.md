@@ -33,7 +33,7 @@
 2. **Mínimo 6 unidades por modelo para reserva mayorista** (media docena); el mínimo se evalúa **por modelo** y NO se sustituye por seis unidades repartidas entre modelos distintos.
 3. Se permiten **colores mezclados del mismo modelo** (G04-02).
 4. Se permite **mezclar modelos distintos** en el pedido (G04-03), con cálculo final por las prendas seleccionadas, **sin borrar el requisito de seis por modelo para reservar**. La presentación comercial y si la mezcla sucede dentro de una presentación o solo entre líneas siguen pendientes (G04-01).
-5. La observación admite que el mínimo de seis por modelo pueda componerse de variantes M o XL, incluso con **precios diferentes**; sin embargo, **G04-04 afirma «Cada presentación tiene una sola talla»**. Se necesita distinguir entre mezcla en un **pedido** y mezcla dentro de una **presentación** antes de formalizar validación.
+5. **Actualización posterior:** la mención anterior de variantes M y XL dentro del mismo modelo fue **aclarada y descartada** por el propietario: cada modelo tiene **una sola talla**. Diferentes modelos pueden tener M, XL o 2XL, precios y colores propios. G04-04 es compatible con esta nueva definición.
 6. Se indica que al comprar 7 unidades, si la docena del ejemplo cuesta Bs 380, **se aplicará el precio fijado para el modelo**. **Bs 380 es un ejemplo del propietario, no un precio canónico universal; no se deduce fórmula Bs 380/12 × 7, redondeos ni tarifa unitaria concreta.**
 7. Mínimos configurables por segmento/presentación (G04-05) son compatibles con **6 por modelo** para reservas mayoristas, siempre que una configuración no contradiga ese mínimo sin decisión posterior.
 8. Segmento + presentación elegible determinan tarifa; precio especial explícito del cliente tiene precedencia sobre tarifa general (G04-06/G04-07). Precio definitivo se fija al confirmar el pedido, no al crear la reserva (G04-08).
@@ -47,7 +47,7 @@
 
 - **C-G03-A — Saldo físico vs confirmado/entregado:** ¿confirmar pedido significa descontar el saldo de existencias *del sistema* aunque las prendas sigan físicamente en almacén, manteniendo un registro separado de «pendiente de retiro/entrega»? ¿O también deben considerarse físicamente retiradas al confirmar? La elección G03-02 se conserva hasta respuesta expresa.
 - **C-G03-B — Anulación y entrega parcial:** al cancelar un pedido ya confirmado, ¿cómo revertir el descuento y qué cantidad se puede devolver a disponible? Si hubo entrega parcial, nunca restaurar automáticamente como disponible la porción entregada. Reglas sobre devoluciones pendientes.
-- **C-G04-A — Talla y presentación:** G04-04 exige una talla por presentación, pero la observación admite sumar M y XL para alcanzar seis por modelo; ¿el mínimo cuenta entre *líneas separadas por talla* de un mismo pedido? ¿Permite mezclar tallas dentro de una presentación? No reinterpretar sin autorización.
+- **C-G04-A — Talla y presentación:** **RESUELTO posteriormente:** un modelo tiene talla única, no admite M y XL simultáneos. Las tallas diferentes corresponden a **modelos distintos**, sin combinar cantidades para alcanzar el mínimo del mismo modelo. G04-01 presentaciones sigue abierto.
 - **C-G04-B — Presentaciones:** G04-01 quedó expresamente *pendiente*. ¿Qué presentaciones existen comercialmente (unidad, media docena, docena, lotes libres), su capacidad y su relación con el mínimo de seis?
 - **C-G04-C — Precio de 7 unidades y precios diferentes:** ¿cuál es la tarifa parametrizada aplicable a cada variante/presentación y cómo se calcula el total si los modelos/tallas tienen distinto precio? No proporcionalizar Bs 380 ni fijar precios con conversaciones previas.
 - **C-G04-D — Mezcla y elegibilidad:** «cualquier mezcla» G04-03 no puede interpretarse como que 3 unidades del modelo A + 3 del B cumplen el mínimo **por modelo** de seis. Confirmar solo si el mínimo vale por pedido, por presentación o por línea agrupada por modelo, según el escenario de venta.
@@ -59,7 +59,7 @@
 | --- | --- | --- |
 | Reserva mayorista: 5 del mismo modelo | No cumple mínimo 6 por modelo | Reglas de otras ventas minoristas |
 | Reserva: 7 unidades del modelo A, combinando colores | Cumple mínimo numérico y se permiten colores mezclados | Precio final sin tarifa configurada |
-| Reserva: modelo A (3 M + 3 XL) | Observación permite contar ambas tallas por modelo | Si están en una o dos presentaciones frente a G04-04 |
+| Reserva: supuesto modelo A (3 M + 3 XL) | **No válida:** A tiene una talla única; M y XL serían modelos distintos | No se suman tallas dentro de A según aclaración posterior |
 | Reserva: modelo A (3) + modelo B (3) | No cumple mínimo de 6 **por modelo** | Posibles excepciones administrativas, no autorizadas |
 | Pedido: A (6) + B (6) | Se permite mezclar modelos si se respetan condiciones de cada uno | Total sin tarifas por variante/cliente/presentación |
 | Ejemplo docena Bs 380, pedido de 7 | Aplicar precio fijado para el modelo | No existe regla de Bs 380 ÷ 12, ni redondeo definido |
@@ -80,3 +80,6 @@ Por tanto:
 ## Observación de producción y surtido posterior (2026-11-22)
 El propietario **prefiere asignar colores después de registrar un surtido**, debido a prendas defectuosas por costuras o manchas y a variaciones reales por color. Lotes habituales aproximados de **6 a 6,5 docenas por modelo**, **once colores con negro repetido** para completar una docena, sin poder garantizar composición final exacta. Esto **no fija** disponibilidad ni obliga a vender surtidos completos.
 Se mantiene mínimo mayorista de 6 por modelo, pero el efecto de una solicitud de surtido sin color en el **stock disponible** sigue pendiente de decisión: simple solicitud sin garantía o **cupo agregado bloqueado** (sin prometer un tono). Leer [producción](15_PRODUCCION_CALIDAD_SURTIDO.md) y [A/B de bloqueo](16_DECISION_BLOQUEO_SURTIDO.md). Esta observación supera cualquier recomendación anterior de escoger colores *antes del registro inicial*.
+
+## Aclaración posterior que prevalece: un modelo, una talla (2026-11-22)
+El propietario precisó que los modelos difieren por **talla**, colores y precios, pero **no se mezclan tallas dentro del mismo modelo**. Por tanto la tensión C-G04-A/CR-02 queda **resuelta**, al igual que el alcance del cupo de surtido: al seleccionar modelo ya se conoce talla, se debe especificar cantidad para bloquear y **solo los colores** se asignan después. El texto literal de la observación anterior permanece como evidencia histórica; la nueva aclaración prevalece sobre inferencias de suma M+XL. **G04-01 y la fórmula del ejemplo Bs 380/7 permanecen sin definir.** [Contrato](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).

@@ -6,7 +6,7 @@
 |---|---|---|
 | Identidad | usuarios internos, asignación de roles/permisos | Admin inicial, personal posterior |
 | Clientes | contactos, clasificación comercial | Mayoristas/minoristas, sin cuenta inicialmente |
-| Catálogo | productos, variantes, imágenes | Una variante por combinación de modelo/color/talla que el negocio confirme |
+| Catálogo | productos, variantes, imágenes | Una variante por modelo+color, con talla única heredada del modelo (aclaración posterior) |
 | Precios | listas, reglas de aplicación, precios por presentación | Tarifas por cliente/presentación, sin montos supuestos |
 | Inventario | saldos físicos, movimientos, motivos | Exactitud por variante y correcciones auditables |
 | Reservas | reserva física, líneas, caducidad | Bloqueo temporal de unidades existentes |
@@ -31,10 +31,10 @@ Cerrar G03/G04 (transiciones, presentaciones), G01/G05 (caducidad y stock), G07/
 **No hay migraciones ejecutadas ni conexión Supabase realizada.**
 
 ## Adenda de modelo por respuestas G03/G04 (NO SQL definitivo)
-- **Reserva mayorista:** asociada a grupo/segmento de cliente y líneas de variantes; validar **cantidad acumulada por modelo ≥6** para una reserva mayorista, sin suponer que unidades de modelos distintos se suman para cumplirlo.
+- **Reserva mayorista:** asociada a grupo/segmento de cliente y líneas de modelos+colores; validar **cantidad acumulada por modelo ≥6**, sin sumar otros modelos; la talla es única por modelo (aclaración posterior).
 - **Pedido:** asignaciones por línea; reserva convertida mantiene su compromiso, pedido directo crea compromiso. Entrega parcial requiere cantidades entregadas y pendientes por línea. Pedido futuro se asigna a stock por intervención manual.
 - **Inventario:** **G03-02 aclarado:** confirmar reduce **disponibilidad**, no existencia física todavía en custodia. Mantener contadores/derivados separados: físico, reservas vigentes, pedidos confirmados sin retirar/despachar y disponible. C-G03-A **resuelto conceptualmente**, pero no crear esquema definitivo sin cerrar reversión de cancelaciones parciales G03-B y G04.
-- **Presentaciones:** quedan **indefinidas** por G04-01. Necesario modelar líneas separadas por variante (talla/color) para conocer precios distintos; G04-04 de una talla por presentación choca con composición del mínimo combinando M/XL. No fijar restricciones SQL de composición hasta aclarar.
+- **Presentaciones:** quedan **indefinidas** por G04-01. Necesario modelar líneas separadas por variante (talla/color) para conocer precios distintos; **La contradicción de mezclar M/XL en un modelo quedó resuelta:** la talla es única del modelo. Las presentaciones y reglas de precio de G04-01 aún no se definieron.
 - **Precio:** atributos de segmento/presentación, excepciones por cliente, tarifa efectiva al confirmar y snapshot histórico; editar importe solo admin auditado. Sin tarifas numéricas, fórmula de prorrateo, impuestos ni redondeo.
 
 Revisar [selecciones literales y casos](09_G03_G04_SELECCIONES.md) antes de migraciones o diagrama lógico final.
@@ -49,8 +49,13 @@ La verdad de inventario debe trazarse por variante **modelo + talla + color**; l
 
 ## Modelo especializado EVALIA: producción y calidad; surtido sin colores iniciales
 **Aclaración directa:** registrar surtido primero y decidir colores después. Separar **lote de producción planificado**, **resultado real inspeccionado**, **stock apto por variante**, **prendas no aptas/manchadas/con mala costura**, **demanda de surtido sin colores**, **asignaciones exactas** y **compromiso de pedido**. Registrar la realidad por variante manualmente (R04); no inferir del lote previsto cantidad final vendible. EVALIA menciona 6–6,5 docenas por modelo y once colores con negro repetido; variables de contexto, no cardinalidades forzadas.
-Una posible arquitectura de **cupo flexible** permite reservar N unidades del modelo/talla sin decidir el color aún y mantener disponible agregado; otra permite crear una **solicitud sin bloqueo**. **Falta escoger cuál**. Si se elige el cupo, el contrato anterior F−R−P por variante **requiere ampliación explícita** para que un cupo genérico no se reste otra vez al asignarse a color y no se sobrevendan totales. Ver [contrato y análisis](16_DECISION_BLOQUEO_SURTIDO.md). No declarar SQL definitivo ni mezclar stock físico con merma.
+Una posible arquitectura de **cupo flexible** permite reservar N unidades del modelo/talla sin decidir el color aún y mantener disponible agregado; otra permite crear una **solicitud sin bloqueo**. **Se eligió cupo garantizado B**. El grupo de cupo queda determinado por el **modelo, que tiene una talla única**, según aclaración posterior. Si se elige el cupo, el contrato anterior F−R−P por variante **requiere ampliación explícita** para que un cupo genérico no se reste otra vez al asignarse a color y no se sobrevendan totales. Ver [contrato y análisis](16_DECISION_BLOQUEO_SURTIDO.md). No declarar SQL definitivo ni mezclar stock físico con merma.
 
 ## CR-01: decisión de cupo garantizado (B) registrada
 Se adoptó como **selección comercial** un compromiso de cantidad mayorista por modelo para surtidos **sin fijar colores de inmediato**, respaldado por unidades aptas contadas. No es solicitud sin garantía. El inventario conceptual requiere **dos niveles de compromiso**: (i) asignaciones exactas por variante color+talla y (ii) **cupo flexible pendiente de reparto** sobre un grupo de variantes elegibles del modelo, pendiente de política de tallas. La composición exacta se fija posteriormente: transformar cupo en asignaciones exactas sin doble consumo. **La vista A=F−R−P por variante sola no es suficiente** para medir disponible si hay cupos agregados: agregar restricción global por grupo compatible, preservar validación individual por variante.
 No se ha decidido un modelo SQL ni si el conjunto elegible incluye talla única o varias; no fabricar stock ficticio ni permitir disponibilidad global negativa tras compromisos nuevos. [Decisión B y ejemplo](16_DECISION_BLOQUEO_SURTIDO.md).
+
+## Cardinalidades actualizadas por talla única
+**Modelo** → **1 talla fija**; **modelo** → N colores asignados (del maestro global); **variante vendible** ≈ modelo+color válido, heredando talla del modelo; **inventario** y movimientos para cada variante real. **Precio/configuración comercial** vinculado al modelo y a las listas por segmento/presentación/cliente (G04 sigue sin cerrar), no asumir precio universal por talla o color.
+**Reserva surtida** → un modelo y cantidad solicitada positiva; talla conocida automáticamente, colores pendientes de asignación; cupo agregado garantizado se descuenta una vez del total apto del modelo; al asignar colores, convertir cupo a cantidades por variante sin segundo descuento. Una reserva multímodelo guarda **líneas o grupos de cupos separados por modelo**, sin compartir existencia ni mínimo.
+**Historial:** la edición de talla de un modelo con reservas o movimientos podría alterar retroactivamente pedidos, así que se requiere política (bloqueo, nuevo modelo o versionado) antes de SQL. [Contrato específico](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).
