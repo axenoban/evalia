@@ -468,3 +468,40 @@ button.button:active:not(:disabled){transform:translateY(0)}
  .portion-result{align-items:flex-start;flex-direction:column}
  .record-line-detail{flex-wrap:wrap}
 }
+
+/* D3 · Cobros, conciliación manual, entregas y cierre */
+.money-form,.delivery-form,.record-details,.order-operations{margin-top:16px;padding:15px;border:1px solid #ebe0e8;
+ border-radius:13px;background:#fdfafb}
+.money-form>.small-note,.delivery-form>.small-note{margin:0 0 12px;line-height:1.6}
+.money-form .form-inline{display:grid;grid-template-columns:minmax(100px,1fr) 2fr;gap:12px;margin-bottom:10px}
+.payment-history{display:grid;gap:7px;margin:10px 0}
+.payment-history-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:11px;
+ background:#fff;border:1px solid #eee8ed;border-radius:9px;padding:9px 10px}
+.payment-history-line span{flex:1}
+.payment-history-line small{width:100%;color:var(--muted)}
+.pay-state{font-size:10px;display:inline-flex;align-items:center;border-radius:20px;padding:5px 9px;
+ background:#f1e8f0;color:#64445c;white-space:nowrap}
+.pay-approved{background:#e5f5ec;color:#256342}
+.pay-rejected{background:#fdecee;color:#8e3b48}
+.pay-observed{background:#fff4db;color:#856024}
+.pay-pending{background:#f7eff7;color:#754a70}
+.payment-review-actions{border-top:1px solid #eee5ec;margin-top:15px;padding-top:12px}
+.payment-review-actions .field{width:100%;margin-bottom:8px}
+.payment-review-actions .form-actions{flex-wrap:wrap;gap:8px}
+.order-operations>h3,.record-details>h3{font-size:13px;margin:19px 0 9px}
+.order-operational-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.order-operational-metrics>div{background:white;border-radius:10px;padding:12px;border:1px solid #f0e8ee;min-width:0}
+.order-operational-metrics small,.order-operational-metrics strong{display:block}
+.order-operational-metrics small{font-size:9px;color:var(--muted);line-height:1.5}
+.order-operational-metrics strong{font-size:12px;margin-top:5px;overflow-wrap:anywhere}
+.order-operations>.button{margin-top:18px}
+.delivery-line{display:flex;align-items:center;justify-content:space-between;gap:10px;
+ margin:9px 0;font-size:11px;background:#fff;padding:9px 11px;border:1px solid #eee6ed;border-radius:9px}
+.delivery-line input{max-width:100px;width:80px;text-align:center}
+@media(max-width:640px){
+ .money-form .form-inline{grid-template-columns:1fr}
+ .order-operational-metrics{grid-template-columns:1fr 1fr}
+ .payment-review-actions .form-actions{flex-direction:column;align-items:stretch}
+ .payment-review-actions .form-actions button{width:100%}
+ .delivery-line input{width:65px}
+}
