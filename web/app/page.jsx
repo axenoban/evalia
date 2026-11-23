@@ -9,7 +9,7 @@ import {
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import {
-  centsFromBs, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
+  centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
 } from '../lib/domain.js';
 
 const MENU=[
@@ -829,11 +829,11 @@ function Orders({data,onReport,onDeliver,onComplete,onIssueLink,onRevokeLink,bus
     <footer className="order-total"><span>Total del pedido</span><strong>{formatBs(total)}</strong></footer>
     <div className="order-operations">
       <div className="order-operational-metrics">
-       <div><small>Abonado y aprobado</small><strong>{formatBs(centsFromBs(finance.approved))}</strong></div>
-       <div><small>Saldo pendiente</small><strong>{formatBs(centsFromBs(finance.pending))}</strong></div>
+       <div><small>Abonado y aprobado</small><strong>{formatBs(amountCents(finance.approved))}</strong></div>
+       <div><small>Saldo pendiente</small><strong>{formatBs(amountCents(finance.pending))}</strong></div>
        <div><small>Retiradas</small><strong>{delivery.delivered} / {delivery.ordered}</strong></div>
       </div>
-      {Number(finance.excess)>0&&<Notice type="error">Existe exceso de pago para conciliación: {formatBs(centsFromBs(finance.excess))}. No se puede cerrar automáticamente.</Notice>}
+      {Number(finance.excess)>0&&<Notice type="error">Existe exceso de pago para conciliación: {formatBs(amountCents(finance.excess))}. No se puede cerrar automáticamente.</Notice>}
       <h3>Avisos y abonos</h3>
       <PaymentHistory items={data.payments.filter(p=>p.order_id===o.id || (o.origin_reservation_id && p.reservation_id===o.origin_reservation_id))}/>
       {o.status==='active'&&<PaymentForm targetId={o.id} onSubmit={onReport} busy={busy}/>}
