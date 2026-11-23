@@ -522,3 +522,16 @@ button.button:active:not(:disabled){transform:translateY(0)}
 .private-url input{min-width:0;padding:10px;border:1px solid #d7c6d1;border-radius:8px;background:#fff;overflow-wrap:anywhere;font:11px monospace;color:#784567}
 .private-url .button{white-space:nowrap}
 @media(max-width:650px){.private-url{grid-template-columns:1fr}.private-url button{width:100%}}
+
+/* M03/M05: edición de maestros auditada, sin cambiar pedidos históricos */
+.client-record{border-bottom:1px solid #f1ebef}
+.client-record .client-row{border-bottom:0}
+.client-record .client-row>div{flex:1;min-width:0}
+.client-record .client-row .button{flex:none}
+.customer-edit{padding:15px;margin:0 0 12px;border-radius:10px;
+ background:#faf6f9;border:1px solid #e8dce4}
+.customer-edit .form-actions{justify-content:flex-start;gap:8px;flex-wrap:wrap}
+.stock-editor .form-inline{grid-template-columns:1fr;gap:11px}
+.stock-editor input[type=file]{max-width:100%;font-size:11px}
+@media(max-width:640px){.client-record .client-row{flex-wrap:wrap}
+ .customer-edit .form-inline{grid-template-columns:1fr}}
