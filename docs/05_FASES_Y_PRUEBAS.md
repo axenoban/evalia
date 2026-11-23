@@ -132,3 +132,14 @@ Se preserva **sin descuentos E1**; no se aplica precio >12 por inferencia. La no
 - **No extrapolar** el ejemplo de 18 prendas del pedido a 18 unidades de **un solo modelo**: MAY-12 pendiente de política.
 - **No descuentos en E1**, tampoco para 6–11 cuando se agregue módulo futuro. Snapshot G04-08 guarda subtotal final por modelo, incluido x,50 si corresponde.
 **RND-01 y RND-02 resueltos.** Los escenarios anteriores marcados «empate pendiente» son antecedentes históricos superados por esta decisión. [Contrato de precios](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
+
+## QA MAY-12 — rango mayorista abierto n ≥ 6 (RESUELTO)
+El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de un mismo modelo**, además de carritos con varios modelos. Criterios de prueba **documentales, no tests de software ejecutables**:
+- Docena ficticia **Bs 420**: n=6 → 210; n=12 → 420; n=13 → **455**; n=19 → **665**; n=24 → **840**; n=25 → **875**; n=36 → **1260**.
+- Docena **Bs 380**: n=13 → 411,666… ⇒ **Bs 412**; n=19 → 601,666… ⇒ **Bs 602**; n=24 → **Bs 760**. No crear tarifa distinta después de 12 unidades.
+- Docena **Bs 381**: n=18 → **Bs 571,50** exactos, **sin redondear los 50 centavos**.
+- **Mismo modelo, varios colores:** 10 unidades negras y 9 rosas de un modelo P=380 ⇒ n=19, **Bs 602**, calculado una sola vez; no dos redondeos independientes por color o por paquete.
+- **Varios modelos:** A P=420 n=19 ⇒ 665; B P=381 n=6 ⇒ 190,50; **total pedido Bs 855,50**, sin nuevo redondeo. Cada modelo cumple mínimo de 6.
+- **Sin descuentos E1** aunque n=24, 36 u otra cantidad mayor. Guardar snapshot al confirmar; color surtido pendiente no cambia precio.
+- No aceptar reserva de 5 unidades de un modelo aunque otro tenga 19: mínimo aplica por modelo. Validar cupo apto/garantía de surtidos con las cantidades altas sin sobreventa.
+**MAY-12 cerrado:** las advertencias históricas «13+ pendiente» de secciones anteriores son antecedentes superados. [Contrato canónico](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
