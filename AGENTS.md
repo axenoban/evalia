@@ -20,3 +20,6 @@ VS Code + Codex, sustituible por Claude Code sin alterar stack ni requisitos. Ne
 La autorización debe verificarse en BD/API; esconder botones no protege. Supabase: RLS y tests de acceso cruzado. Solo claves publicables en navegador conforme a RLS; nunca exponer secret key ni datos sensibles. Reservas, inventario y confirmaciones deben ser atómicos, auditables e idempotentes. No desplegar datos de negocio reales sin políticas, backups y restauración probada.
 
 No construir SQL definitivo ni imponer defaults comerciales donde existan preguntas abiertas. Distinguir siempre HECHO / REGISTRADO / PROPUESTA / PENDIENTE / APROBADO.
+
+## Segunda ronda comercial — bloqueo documental
+Antes de generar modelos/migraciones, leer [G03/G04 registrados](docs/09_G03_G04_SELECCIONES.md). **Reservas solo mayoristas con mínimo de 6 unidades por modelo**; presentaciones exactas pendientes, precio variable según modelo/variante y tarifa configurada. Nunca deducir Bs 380/12 × 7. La elección de descontar inventario físico al confirmar **no** autoriza asumir que la mercancía salió de la tienda ni modificar la elección para ocultar la tensión con entregas parciales. Tampoco resolver por cuenta propia una talla por presentación frente al mínimo de seis que puede contar M/XL; pedir decisión al propietario. Mantener PR en borrador.

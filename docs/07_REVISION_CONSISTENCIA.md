@@ -35,3 +35,12 @@
 
 ## Recomendación de secuencia
 Cerrar G03 y G04 primero, luego G01/G02/G05, después G06–G08; por último G09. No introducir defaults temporales ni publicar un contrato SQL que los presuponga. PR #1 continúa en borrador.
+
+## Evaluación adicional de G03/G04 (22-11-2026)
+**Respuestas recopiladas: 16/16.** Se definió reserva **solo mayorista** con mínimo 6 **por modelo**, no por suma de modelos; se permiten combinaciones de modelos y colores, y en la observación se admite agregar M/XL y precios distintos por modelo. Pendientes G04-01 presentaciones y precio de un pedido de 7 unidades. El ejemplo de Bs 380 por docena **no autoriza prorratear**.
+
+**Dos tensiones que exigen confirmación explícita:**
+1. **G03-01/G03-02/G03-07:** unidades aún asignadas al pedido y entregables parcialmente, pero elección de descuento de «stock físico» en confirmación. Si las prendas continúan físicamente en el almacén, el saldo físico real y el saldo comercial divergen; puede requerirse separación contable. Cancelaciones revertirían compromisos/ajustes sin restaurar artículos ya entregados (C-G03-A/B).
+2. **G04-04 + observación:** presentación homogénea por talla, pero mínimo mayorista cumplido sumando 3 M + 3 XL por modelo; decidir si las tallas se agrupan entre distintas líneas/presentaciones o si se pretende mezclarlas dentro de una presentación (C-G04-A/B).
+
+**Preguntas que bloquean SQL comercial:** C-G03-A, C-G03-B, C-G04-A, C-G04-B, C-G04-C. En segundo nivel: vigencia/prórrogas G01, tarifas/condiciones G04, permisos G07, política de privacidad G08. [Documento G03/G04](09_G03_G04_SELECCIONES.md). No declarar G03/G04 cerrados por el mero envío del cuestionario.

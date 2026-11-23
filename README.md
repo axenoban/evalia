@@ -22,3 +22,6 @@ El primer módulo es **administración** de catálogo, reservas de stock disponi
 main = publicable; dev/evalia-core = baseline validado futuro; feature/* = pendientes de aprobación. El PR #1 debe mantenerse como borrador; main no se modifica en esta entrega.
 
 El repositorio es público: no introducir datos reales de clientes, credenciales ni comprobantes.
+
+## G03/G04 — segunda ronda de decisiones
+Las 16 selecciones están transcritas en [G03/G04 (no ratificadas)](docs/09_G03_G04_SELECCIONES.md). **Reserva mayorista solo desde 6 unidades por modelo**, con condiciones de composición y precio aún por precisar. Importante: se detectó tensión entre **descontar stock físico al confirmar** y **entregas parciales**, y entre **una talla por presentación** y **mínimo combinado de M/XL por modelo**. No se implementarán como reglas definitivas antes de resolverlas.

@@ -24,3 +24,6 @@ VS Code + Codex, Next.js, Supabase. Claude Code puede reemplazar Codex sin reabr
 Ni anticipo obligatorio ni horas de reserva, descuentos, impuestos, reglas de paquetes, tipos de pago, tarifas de envío, permisos por función, checkout público ni integración automática de WhatsApp se consideran decididos.
 
 La transición reserva → pedido es una decisión comercial aún abierta; **no descontar doble** ni convertir pedidos futuros en existencias.
+
+## Aclaración posterior de reservas y precios (22-11-2026)
+La observación directa limita **reservas a pedidos mayoristas, mínimo 6 unidades por modelo**. Esto no equivale a un mínimo global por pedido ni configura ventas minoristas. Se eligió reserva convertida en pedido conservando la asignación; pedido directo asigna stock; vencimiento solo para reservas no convertidas; pedidos futuros reciben stock por asignación manual; entregas parciales permitidas. Las presentaciones exactas **siguen abiertas (G04-01)**. Precios variables por modelo/talla y composición, sin fórmula para el ejemplo de Bs 380. Véase [registro específico](09_G03_G04_SELECCIONES.md). **Revisar los apartados anteriores a la luz de este complemento; no asumir que cualquier reserva minorista se permite.**

@@ -31,3 +31,6 @@ Modelo lógico, transiciones de stock (G03), plazos (G01), precios (G04), roles 
 - https://supabase.com/docs/guides/auth/server-side
 - https://supabase.com/docs/guides/database/postgres/row-level-security
 - https://supabase.com/docs/guides/getting-started/api-keys
+
+## Riesgo de consistencia comercial añadido — G03/G04
+La respuesta G03-02 eligió descontar **inventario físico al confirmar el pedido** y G03-07 permite entregas parciales. No definir aún una única columna `stock_fisico` que reste al confirmar si las prendas siguen físicamente almacenadas: se requiere distinguir stock contable vendido, existencias físicas y saldo pendiente de entrega, según aclaración del propietario. Un pedido cancelado antes de entregar podría exigir reversión auditable. La validación de mínimos por modelo y el cálculo por variante/presentación requieren decisión de G04-01, C-G04-A y C-G04-C. Leer [selecciones de G03/G04](09_G03_G04_SELECCIONES.md) antes de elaborar SQL.

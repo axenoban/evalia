@@ -45,3 +45,11 @@ D02/D03/D10 compatibles si reserva de stock real y pedido futuro permanecen sepa
 
 ## Aprobación
 Solo tras revisión explícita registrar: ID · APROBADA · fecha · selección literal · confirmación del propietario. Los Gxx requieren respuesta propia antes de introducir comportamiento comercial.
+
+## Segunda ronda G03/G04 — respuesta del propietario (2026-11-22)
+**16/16 decisiones literales**, reglas extra de mayoristas, ejemplos y ambigüedades documentadas en [G03/G04: selecciones](09_G03_G04_SELECCIONES.md). Siguen **seleccionadas y pendientes de aprobación formal**, no fusionadas en main.
+
+- G03: unidades se conservan asignadas al pedido, pedido directo asigna al confirmar, solo reserva sin convertir vence, cancelación libera e historiza, encargo futuro se abastece por asignación manual, entrega parcial habilitada. **G03-02 indica descuento físico al confirmar**: falta precisar cómo se representa una prenda que sigue en almacén y qué se revierte en una cancelación.
+- G04: **G04-01 está pendiente de definición**; sí se admiten mezclas de colores, mezclas de modelos con total calculado, una talla por presentación, mínimos configurables, tarifas por segmento/presentación, especial de cliente antes de tarifa general, precio fijado en confirmación y cambios manuales solo administrador auditados.
+- Condición mayorista adicional: **las reservas solo son para pedidos al por mayor con al menos 6 unidades por modelo**. Ejemplo de docena de Bs 380 y 7 unidades no fija una fórmula ni el precio de ninguna variante.
+- **Conflicto a resolver:** G04-04 una talla por presentación frente a observación que permite contar M y XL (diferentes precios) para seis unidades por modelo. Las mezclas entre modelos no anulan el mínimo por modelo.
