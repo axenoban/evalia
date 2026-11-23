@@ -200,3 +200,17 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 **G01-L — decisión posterior (2026-11-22):** con depósito recibido oportunamente antes de F, la reserva no convertida ni concluida que alcanza **L=F+7 días naturales, 12:00** entra en **EN REVISIÓN** y genera un **pendiente de intento de contacto manual por WhatsApp** para el administrador (R11). **No enviar automáticamente, no liberar stock reservado G/E, no modificar inventario físico S, disponibilidad A ni depósito**. Procesar transición idempotente y auditable; no aplicarla a pedidos confirmados/parciales. Sin depósito, caducidad ordinaria en F. **Sin respuesta:** reglas de cierre, cancelación, dinero y plazos aún abiertas G03-B/G06. [Contrato canónico](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
 
 **QA candidatos G01-L:** (1) F=2026-11-28 12:00, L=2026-12-05 12:00, a 11:59:59 no transición, a 12:00 EN REVISIÓN; (2) F=2026-12-02, L=2026-12-09, misma regla; (3) cupos G/E no se liberan ni cambia A/S/depósito; (4) reintento 10 veces no crea múltiples tareas ni mensajes enviados; (5) admin puede registrar intento real de contacto, un texto preparado no se registra como enviado; (6) sin respuesta no hay caducidad ni penalización automática; (7) reserva sin depósito expira en F, confirmados/parciales se rigen por G03-B. **No hay tests de software, solo casos documentados.**
+
+## QA G03-B-PARCIAL — cancelación de saldo pendiente de pedido confirmado
+**Pruebas de aceptación documentadas, sin aplicación ejecutable:**
+- Confirmado **12**, entregado **5**, pendiente **7**; admin cancela exactamente **7** → entregado **5**, pendiente **0**, cancelado **7**, `ΔS=0`, `Δ(E/G)=−7`, `ΔA=+7`. El pedido histórico se conserva.
+- Intentar cancelar **8**, **0** o **−1** si pendiente=7 → **rechazo**, sin cambios.
+- Cancelar 7 una vez y reintentar **10 veces** misma operación → liberación acumulada solo **7**, nunca 70.
+- Dos operaciones concurrentes **entregar** vs **cancelar** las 7 últimas → solo una gana y otra revalida; no sobreentrega ni doble disponibilidad.
+- Surtido garantizado **G=7** pendiente → cancelar 7 libera solo ese G, sin alterar E de otros colores/modelos ni S físico; asignaciones E exactas liberan únicamente sus variantes elegibles.
+- No permitir «cancelar» unidades **ya entregadas 5** bajo este flujo; posible devolución física es proceso distinto **sin definir**.
+- El mínimo mayorista se validó al contratar 12 y no invalida el historial de 5 entregadas.
+- Depósitos/pagos previamente registrados permanecen **sin movimiento automático** al cancelar; la conciliación G06 sigue por definir.
+- Un pedido confirmado y parcialmente entregado **no expira con reloj de reserva G01**.
+- Rechazar cancelaciones sin autorización de admin (E1); auditar motivo, cantidades y autor.
+**Contrato canónico:** [G03-B](21_CANCELACION_SALDO_PENDIENTE_PEDIDOS.md).
