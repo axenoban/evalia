@@ -51,3 +51,6 @@ La selección posterior cubre **los siete días**: **domingo/lunes → miércole
 
 ## Tolerancia comercial de depósito — regla posterior
 Si el cliente ya ha realizado un depósito registrado y recibido a tiempo, EVALIA **puede conservar la reserva hasta una semana adicional** para completar pago y retiro. La práctica habitual no ha superado ese plazo. **No se eligió desde qué fecha contar la semana ni la acción automática al finalizar**, por lo que no se introduce fecha límite ficticia o devolución/penalización inventada. Se preserva el calendario habitual de feria, válido para los siete días. [G01](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
+
+## G06 — pagos parciales y depósito aplicable al pedido (decisión posterior)
+EVALIA registra manualmente abonos externos y permite **varios pagos por pedido**. El depósito efectuado durante una reserva se considera **parte pagada del pedido**, sin duplicar el evento al confirmarse. Ejemplo total Bs 840, depósito Bs 200 y pago Bs 300: **500 abonados, 340 por pagar**. Eventos con historial y saldo derivados; **sin automatizar reembolsos, descuentos o retenciones** al cancelar productos pendientes. Verificación de recepción, compensaciones y pagos en exceso requieren decisión. [Contrato G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).

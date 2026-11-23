@@ -73,3 +73,6 @@ Para cada línea de pedido por modelo (y, cuando esté asignado, por color) cons
 **No aprobado todavía:** devolución o recepción de prendas **ya entregadas**, compensación/refund de dinero o depósito, nueva tarifa recalculada para unidades efectivamente conservadas, cancelación automática de pedidos, plazos de reconsideración del cliente, y correcciones de pedidos con descuentos futuros.
 
 **Siguiente bloque G06 — conciliación de pagos externos y depósitos:** definir cómo registrar pago total, pago parcial, saldo a pagar, depósito y conciliación ante cancelación parcial sin inventar tasas, devoluciones ni sanciones. **No crear SQL ni fusionar el PR #1**.
+
+## Aclaración G06 posterior — abonos no se ajustan al cancelar saldo no entregado
+Se aprobó que depósito y pagos parciales se acumulen como abonos al pedido y que su historial no se duplique al confirmar. En cancelación de `q` pendientes, la decisión G03-B **solo libera compromisos de inventario**. Los abonos recibidos **siguen registrados en su totalidad** y el precio histórico confirmado tampoco se recalcula por deducción. Se identifica **conciliación económica pendiente** (posible exceso, pago parcial, devolución o ajuste sujeto a aprobación ulterior). No compensar dinero ni cambiar tarifa de las cinco prendas ya entregadas por inferencia. [Contrato financiero G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).

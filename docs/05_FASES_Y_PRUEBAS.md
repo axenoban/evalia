@@ -214,3 +214,14 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - Un pedido confirmado y parcialmente entregado **no expira con reloj de reserva G01**.
 - Rechazar cancelaciones sin autorización de admin (E1); auditar motivo, cantidades y autor.
 **Contrato canónico:** [G03-B](21_CANCELACION_SALDO_PENDIENTE_PEDIDOS.md).
+
+## QA G06 — abonos múltiples, saldo y no duplicación
+**Solo casos documentales**, sin código/BD ejecutable. Pedido histórico Bs 840, depósito recibido antes de confirmar Bs 200 → luego de confirmar **saldo 640** con **un solo evento**, no doble cobro; abono adicional Bs 300 → **500 pagados, 340 pendientes**; abono final Bs 340 → **840 pagados, 0 pendientes**, historial de tres abonos.
+- Precio Bs 610,50 con pagos Bs 200 + Bs 110,50 → **310,50 recibido, 300 pendiente**, sin redondear abonos a enteros.
+- Reejecutar asociación reserva→pedido 10 veces → depósito contado **una sola vez**; no duplicar pago ni afectar precio histórico G04-08.
+- Cobros 200 + 300 + 400 en pedido 840 → **exceso Bs 60 pendiente de conciliación**, no saldo negativo mostrado como obligación, ni devolución o crédito automáticos.
+- Confirmar cancelación de 7 pendientes tras 5 entregadas y depósito 200 → las 7 unidades vuelven a disponibilidad, las 5 entregadas conservan historial, **depósito 200 no cambia**, conciliación económica pendiente.
+- Aviso de WhatsApp «pagué» sin constatación real **no se considera ingreso recibido**; proceso exacto de comprobación queda pendiente.
+- Tras editar precio sugerido del modelo no se recalculan pedidos confirmados ni cobros anteriores.
+- Corrección/doble registro de pago exige trazabilidad; reglas de reversión exacta pendientes.
+**Test de consistencia:** `diferencia = total_confirmado − total_recibido`, sin confundir depósito con descuento. [G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).

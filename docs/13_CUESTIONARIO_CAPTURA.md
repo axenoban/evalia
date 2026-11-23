@@ -125,3 +125,6 @@ El propietario confirmó la primera opción para una semana adicional: **desde e
 
 ## C-G03-B-PARCIAL — autorización del dueño recibida
 El propietario aprobó la recomendación: **cancelar únicamente unidades pendientes de entrega de un pedido confirmado**, con autorización de admin, **sin tocar unidades ya retiradas ni borrar su historial**. Caso 12 confirmadas, 5 entregadas, 7 pendientes → cancelar 7: 5 entregadas, 7 canceladas, 0 pendientes; liberar comercialmente 7, no subir stock físico por cancelación. **Persisten sin definir** ajustes de pagos/devoluciones/depósitos, devolución de entregados y resolución de revisión G01. [Contrato](21_CANCELACION_SALDO_PENDIENTE_PEDIDOS.md).
+
+## G06 — respuesta comercial sobre pagos parciales
+El propietario respondió «si, esta bien, continuemos» y **aprobó** que el depósito **cuente como abono al total del pedido** y se puedan registrar **varios pagos parciales** hasta liquidar el saldo. Ej.: pedido Bs 840, depósito 200, otro pago 300 ⇒ abonado 500 y pendiente 340. Guardar historial de cada cobro, sin duplicarlo al transferir reserva→pedido. No se aprobó reembolso por cancelación, retención de anticipo, crédito por exceso ni forma exacta de validar comprobantes/recepción. [G06](22_DEPOSITOS_ABONOS_Y_SALDOS.md).
