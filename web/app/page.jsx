@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, reviseReservation, createColor,
-  createCustomer, createModel, uploadPhoto, adjustStock, createReservation,
+  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, createReservation,
   createOrder, confirmReservation, reportPayment, reviewPayment, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
@@ -174,8 +174,39 @@ function StockEditor({model,stock,onSave,busy}){
   {expected<committed&&<p className="form-error" role="alert">No puedes reducir el stock por debajo del compromiso con clientes.</p>}
  </form>;
 }
-function Catalog({data,onCreateColor,onCreateModel,onAdjust,busy}){
- const [view,setView]=useState('list'),[search,setSearch]=useState(''),[editStock,setEditStock]=useState(null);
+function ModelEditor({model,onSave,busy}){
+ const [price,setPrice]=useState(String(model.price_dozen_bs));
+ const [photo,setPhoto]=useState(null),[error,setError]=useState('');
+ const requestId=useRef(null);
+ const changed=price.trim()!==String(model.price_dozen_bs)||Boolean(photo);
+ async function submit(e){
+  e.preventDefault();setError('');
+  try{
+   centsFromBs(price);
+   if(!changed)return;
+   if(!requestId.current)requestId.current=uuid();
+   const ok=await onSave({model,price,photo,requestId:requestId.current});
+   if(ok){requestId.current=null;setPhoto(null);}
+  }catch(e){setError(e.message);}
+ }
+ return <form className="stock-editor" onSubmit={submit}>
+  <p className="editor-title">Actualizar precio o foto — {model.name}</p>
+  <p className="small-note">El precio nuevo solo afecta reservas y pedidos futuros. Los pedidos confirmados conservan su tarifa histórica. No modifica talla, colores comprometidos ni stock.</p>
+  <div className="form-inline">
+   <Field title="Nuevo precio por docena (Bs)">
+    <input name={'editModelPrice-'+model.id} value={price} inputMode="decimal" required
+     onChange={e=>{setPrice(e.target.value);requestId.current=null;}}/></Field>
+   <Field title="Reemplazar fotografía (opcional)">
+    <input name={'editModelPhoto-'+model.id} type="file" accept="image/jpeg,image/png,image/webp"
+     onChange={e=>{setPhoto(e.target.files?.[0]||null);requestId.current=null;}}/></Field>
+  </div>
+  {error&&<p className="form-error" role="alert">{error}</p>}
+  <button className="button button-primary" disabled={busy||!changed} type="submit">
+   {busy?'Guardando…':'Guardar corrección auditada'}</button>
+ </form>;
+}
+function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,busy}){
+ const [view,setView]=useState('list'),[search,setSearch]=useState(''),[editStock,setEditStock]=useState(null),[editCatalog,setEditCatalog]=useState(null);
  const [newColor,setNewColor]=useState(''),[newHex,setNewHex]=useState('#9b6682');
  const filtered=data.models.filter(m=>(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  async function submitColor(e){e.preventDefault();const ok=await onCreateColor(newColor.trim(),newHex);if(ok)setNewColor('');}
@@ -223,6 +254,11 @@ function Catalog({data,onCreateColor,onCreateModel,onAdjust,busy}){
        {editStock===m.id?'Cerrar ajuste':'▥ Ajustar stock'}
      </button>
      {editStock===m.id&&<StockEditor model={m} stock={s} onSave={onAdjust} busy={busy}/>}
+     <button className="button button-outline full" type="button"
+      onClick={()=>{setEditCatalog(editCatalog===m.id?null:m.id);setEditStock(null);}}>
+      {editCatalog===m.id?'Cerrar edición':'✎ Cambiar precio o fotografía'}</button>
+     {editCatalog===m.id&&<ModelEditor key={m.id+'-'+m.updated_at} model={m} onSave={onUpdateModel} busy={busy}/>}
+
     </div>
    </article>})}</div>:<Empty title="No se encontraron productos" detail="Prueba otra búsqueda o registra un modelo."/>}
   </>}
@@ -286,8 +322,35 @@ function ModelForm({colors,onCreate,busy}){
    {busy?'Guardando modelo…':'Registrar producto e inventario'}</button>
  </form>;
 }
-function ClientPanel({data,onCreate,busy}){
- const [search,setSearch]=useState('');
+function ClientEditForm({customer,onSave,onCancel,busy}){
+ const [name,setName]=useState(customer.name),[phone,setPhone]=useState(customer.whatsapp),[error,setError]=useState('');
+ const requestId=useRef(null);
+ async function submit(e){
+  e.preventDefault();setError('');
+  const newName=name.trim(),newPhone=phone.trim();
+  if(!newName||!newPhone){setError('Nombre y WhatsApp obligatorios.');return;}
+  if(newName===customer.name&&newPhone===customer.whatsapp)return;
+  if(!requestId.current)requestId.current=uuid();
+  const ok=await onSave({customer,name:newName,whatsapp:newPhone,requestId:requestId.current});
+  if(ok){requestId.current=null;onCancel();}
+ }
+ return <form className="customer-edit" onSubmit={submit}>
+  <p className="small-note">Corrige esta ficha sin fusionarla con otros clientes ni cambiar sus pedidos.</p>
+  <div className="form-inline">
+   <Field title="Nombre"><input value={name} maxLength={130} required
+    onChange={e=>{setName(e.target.value);requestId.current=null;}}/></Field>
+   <Field title="WhatsApp"><input value={phone} maxLength={30} type="tel" inputMode="tel" required
+    onChange={e=>{setPhone(e.target.value);requestId.current=null;}}/></Field>
+  </div>
+  {error&&<p role="alert" className="form-error">{error}</p>}
+  <div className="form-actions">
+   <button type="submit" disabled={busy||name.trim()===customer.name&&phone.trim()===customer.whatsapp} className="button button-primary">Guardar corrección</button>
+   <button type="button" className="button button-outline" onClick={onCancel}>Cancelar</button>
+  </div>
+ </form>;
+}
+function ClientPanel({data,onCreate,onUpdate,busy}){
+ const [search,setSearch]=useState(''),[editing,setEditing]=useState(null);
  const clients=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  return <>
   <SectionHead eyebrow="DIRECTORIO COMERCIAL" title="Clientes y compradores."
@@ -302,8 +365,13 @@ function ClientPanel({data,onCreate,busy}){
     {clients.length?<div className="client-list">{clients.map(c=>{
       const reservations=data.reservations.filter(r=>r.customer_id===c.id).length;
       const orders=data.orders.filter(o=>o.customer_id===c.id).length;
-      return <div className="client-row" key={c.id}><span className="avatar">{initials(c.name)}</span>
-       <div><strong>{c.name}</strong><small>{c.whatsapp}</small><span>{reservations} reservas · {orders} pedidos</span></div></div>
+      return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
+       <div><strong>{c.name}</strong><small>{c.whatsapp}</small><span>{reservations} reservas · {orders} pedidos</span></div>
+       <button className="button button-outline" type="button" disabled={busy}
+        onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button></div>
+       {editing===c.id&&<ClientEditForm key={c.id+'-'+c.updated_at} customer={c}
+        onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy}/>}
+      </div>
     })}</div>:<Empty title="Sin clientes coincidentes" detail="Registra una ficha o cambia la búsqueda."/>}
    </section>
   </div>
@@ -923,6 +991,17 @@ export default function HomePage(){
    await createModel({...values,imagePath:path,requestId:req});
   },'El modelo y su stock se registraron en Supabase.');
  }
+ const saveModelEdit=(params)=>mutation(async()=>{
+  const imagePath=params.photo?await uploadPhoto(params.photo):null;
+  try{
+   await updateModel({modelId:params.model.id,price:params.price,imagePath,
+    expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
+  }catch(e){if(imagePath)await removePhoto(imagePath).catch(()=>{});throw e;}
+ },'Precio/fotografía actualizados; los pedidos históricos no cambiaron.');
+ const saveCustomerEdit=(params)=>mutation(()=>updateCustomer({
+  customerId:params.customer.id,name:params.name,whatsapp:params.whatsapp,
+  expectedUpdatedAt:params.customer.updated_at,requestId:params.requestId
+ }),'Ficha corregida y registrada en auditoría.');
  const addColor=(name,hex)=>mutation(()=>createColor(name,hex),'Color registrado.');
  const addClient=(name,phone)=>mutation(()=>createCustomer(name,phone),'Cliente registrado.');
  const updateStock=(modelId,operation,units,version,requestId)=>
@@ -984,13 +1063,13 @@ export default function HomePage(){
     {message&&<Notice type="success" onClose={()=>setMessage('')}>{message}</Notice>}
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
-      tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} busy={busy}/>:
+      tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} busy={busy}/>: 
       tab==='booking'?<BookingPanel key={editingReservation?.id||'new'} data={data} editReservation={editingReservation}
        onReservation={reserve} onOrder={order} onUpdate={revise} onCloseEdit={closeEdit} onCreateClient={addClient} busy={busy}/>: 
       tab==='reservations'?<Reservations data={data} onConvert={convert} onEdit={openEdit} onReport={report} busy={busy}/>: 
       tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onIssueLink={issueLink} onRevokeLink={revokeLink} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy}/>:  
-      <ClientPanel data={data} onCreate={addClient} busy={busy}/>}
+      <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
    </main>
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
   </div>
