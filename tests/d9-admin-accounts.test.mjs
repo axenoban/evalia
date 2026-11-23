@@ -22,8 +22,8 @@ test('dominio de confianza fijo, sin URL suministrada por usuario',()=>{
 test('canje solo invite/recovery y contraseña mínima',()=>{
  assert.equal(accountFragment('#type=magiclink&access_token=x&refresh_token=y'),null);
  assert.deepEqual(accountFragment('#type=recovery&access_token=x&refresh_token=y'),{access_token:'x',refresh_token:'y'});
- assert.equal(passwordValid('12345678901234'),false);
- assert.equal(passwordValid('123456789012345'),true);
+ assert.equal(passwordValid('Abcd!12'),false);
+ assert.equal(passwordValid('Abcd!123'),true);
 });
 test('la API verifica identidad y autorización reciente antes de enviar, nunca genera un enlace para el solicitante',()=>{
  const route=read('web/app/api/admin-cuentas/route.js');
