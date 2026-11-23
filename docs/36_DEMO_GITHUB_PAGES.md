@@ -35,7 +35,13 @@ Abrir `http://localhost:8765/` en un navegador moderno. Para pruebas automatizad
 
 La rama `feature/fundamentos-reservas-pedidos` incluye `.github/workflows/evalia-demo-pages.yml`. Al actualizar la demo se ejecuta `npm run check` y, si pasa, el job Pages publica **solo** `site/`.
 
-**Configuración necesaria del repositorio (una sola vez por el propietario/admin GitHub):** Settings → Pages → Build and deployment → Source: **GitHub Actions**. Después abrir Actions → `EVALIA demo · GitHub Pages` y comprobar que `verify` y `deploy` terminan correctamente. El destino esperado, sujeto a la configuración de GitHub Pages, es `https://axenoban.github.io/evalia/`. **No afirmar que esa URL está activa sin verificación**.
+**Configuración necesaria del repositorio (una sola vez por el propietario/admin GitHub):** Settings → Pages → Build and deployment → Source: **GitHub Actions**. Si ya aparece seleccionado, confirmar que el sitio se encuentra habilitado (y guardar si la interfaz muestra `Save`). Solo después abrir Actions → `EVALIA demo · GitHub Pages` → ejecutar el workflow actualizado o `Re-run jobs` del run más reciente, y comprobar que `verify` y `deploy` terminen correctamente. El destino esperado, sujeto a la configuración de GitHub Pages, es `https://axenoban.github.io/evalia/`. **No afirmar que esa URL está activa sin verificación**.
+
+### Corrección Pages 403 — 2026-11-23
+
+En el primer intento, `verify` pasó y el paso `actions/configure-pages@v5` con `enablement: true` intentó crear el sitio usando `GITHUB_TOKEN`. El servidor rechazó la creación (`Resource not accessible by integration`). **El workflow corregido elimina `enablement: true`** y mantiene `pages: write` + `id-token: write` para **desplegar** una vez creado el sitio desde Settings. Reintentar sin crear antes el sitio puede fallar con `Get Pages site failed: Not Found`: eso confirma que falta la configuración de Pages, no un error de JavaScript ni del catálogo. No solicitar PAT ni secrets para esta prueba.
+
+Los avisos acerca de Node.js 20 de acciones upstream no fueron el motivo del fallo de publicación; `verify` terminó correctamente. El despliegue de la demo desde feature no implica integrar PR #1 en `main`.
 
 El workflow se activa por cambios del prototipo en la rama feature, sin integrar el PR en `main`. La demo es independiente del baseline de producción. `main` permanece intacta y PR #1 continúa borrador.
 
