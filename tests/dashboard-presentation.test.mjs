@@ -31,7 +31,9 @@ test('dashboard consume disponibilidad libre y no altera la gestión de pedidos'
  assert.match(dashboard,/formatAvailableDozens\(stock\?\.available\?\?0\)/);
  assert.match(dashboard,/formatModelDozenPrice\(model\.price_dozen_bs\)/);
  assert.match(dashboard,/data\.orders\.filter\(o=>o\.status==='active'\)/);
- assert.match(page,/MENU\.map\(\(\[id,label,sign\]\)=>/);
+ assert.match(page,/const menu=owner\?\[\.\.\.MENU,\['security','Usuarios','⚙'\]\]:MENU;/);
+ assert.match(page,/menu\.map\(\(\[id,label,sign\]\)=>/);
+ for(const id of ['home','catalog','booking','orders','payments','customers']) assert.match(page,new RegExp("\\['"+id+"',"));
 });
 
 test('la presentación incorpora carrusel accesible y cuadrícula móvil de dos columnas',()=>{
