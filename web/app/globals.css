@@ -535,3 +535,24 @@ button.button:active:not(:disabled){transform:translateY(0)}
 .stock-editor input[type=file]{max-width:100%;font-size:11px}
 @media(max-width:640px){.client-record .client-row{flex-wrap:wrap}
  .customer-edit .form-inline{grid-template-columns:1fr}}
+
+/* Ventas confirmadas: decisión única y transición visible de registros anteriores */
+.order-confirmation-note{background:#f0f8f4;border:1px solid #cee6d8;
+ padding:15px 17px;border-radius:12px;margin-top:10px}
+.order-confirmation-note strong{color:var(--success);display:block;font-size:13px}
+.order-confirmation-note p{font-size:12px;line-height:1.65;color:var(--ink-soft);margin:5px 0 0}
+.legacy-alert{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+ margin:16px 0;padding:15px 17px;border-radius:12px;border:1px solid #edcf9a;
+ background:#fff8ee;font-size:12px}
+.legacy-alert strong{color:var(--warn)}
+.legacy-alert span{flex:1;min-width:220px;line-height:1.6}
+.legacy-commitments{margin:18px 0;border:1px solid #e7ccab}
+.legacy-commitments>summary{list-style-position:inside;padding:16px;cursor:pointer;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.legacy-commitments>summary strong{font-size:13px;color:var(--warn)}
+.legacy-commitments>summary span{font-size:11px;color:var(--muted);flex:1}
+.legacy-commitment-list{border-top:1px solid #ede1d3;padding:14px;display:grid;gap:12px}
+.legacy-commitment{border:1px solid #eae4e9;padding:15px;border-radius:11px}
+.legacy-commitment .record-line-detail{gap:12px;display:flex;flex-wrap:wrap}
+.legacy-commitment .button{margin-top:12px}
+@media(max-width:600px){.legacy-commitments>summary{align-items:flex-start;flex-direction:column}
+ .legacy-alert .button{width:100%}}

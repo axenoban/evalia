@@ -116,11 +116,6 @@ export async function adjustStock({modelId,operation,units,version,requestId}){
     p_expected_version:version,p_request_id:requestId
   }),'Ajustar stock');
 }
-export async function createReservation(customerId,lines,requestId){
-  return unwrap(await client().rpc('create_evalia_reservation',{
-    p_customer_id:customerId,p_lines:lines,p_request_id:requestId
-  }),'Guardar reserva');
-}
 export async function createOrder(customerId,lines,requestId){
   return unwrap(await client().rpc('create_evalia_order',{
     p_customer_id:customerId,p_lines:lines,p_request_id:requestId
@@ -130,11 +125,6 @@ export async function confirmReservation(reservationId,requestId){
   return unwrap(await client().rpc('confirm_evalia_reservation',{
     p_reservation_id:reservationId,p_request_id:requestId
   }),'Convertir reserva');
-}
-export async function reviseReservation(reservationId,lines,requestId){
-  return unwrap(await client().rpc('revise_evalia_reservation',{
-    p_reservation_id:reservationId,p_lines:lines,p_request_id:requestId
-  }),'Editar reserva');
 }
 
 /** Declarar dinero informado sin aprobarlo ni modificar el saldo. */
