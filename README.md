@@ -30,3 +30,7 @@ Las 16 selecciones están transcritas en [G03/G04 (no ratificadas)](docs/09_G03_
 - [Panel por modelo, talla y color](docs/10_PANEL_STOCK_ADMIN.md): propuesta de interfaz con stock físico, reservado, pedidos por entregar y disponible; también conteo de reservas.
 - [Contrato conceptual de inventario](docs/11_CONTRATO_INVENTARIO.md): aclaración de disponibilidad comercial y conciliación tras confirmar y entregar.
 La **aclaración C-G03-A quedó resuelta a nivel conceptual**, pero no se aprobó aún esquema SQL, aplicación, cancelación parcial ni el conjunto de reglas G04.
+
+## Próxima definición: captura de reservas y registros
+- [Propuesta operativa de captura de reservas](docs/12_FLUJO_CAPTURA_RESERVAS_PROPUESTA.md) — recomendación, no aprobada.
+- [Cuestionario R01–R12 de registros y canal](docs/13_CUESTIONARIO_CAPTURA.md) — pendiente de respuestas.
