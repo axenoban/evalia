@@ -711,7 +711,7 @@ export default function HomePage(){
  const closeEdit=()=>{setEditingReservation(null);setTab('reservations');};
  if(!configured)return <main className="setup-screen"><section className="setup-card">
   <span className="brand-icon">E</span><h1>Configuración de EVALIA</h1>
-  <p>La aplicación operativa no tiene conexión a Supabase. Configura <code>NEXT_PUBLIC_SUPABASE_URL</code> y <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> según <code>web/.env.example</code>, aplica y valida las migraciones.</p>
+  <p>La aplicación operativa no tiene conexión a Supabase. La base ya está inicializada. Configura <code>NEXT_PUBLIC_SUPABASE_URL</code> y <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> en <code>web/.env.local</code>, usando únicamente la clave pública de tu proyecto. Después inicia sesión como administrador autorizado.</p>
   <p>No se mostrarán datos ficticios como si fueran operaciones reales.</p>
  </section></main>;
  if(!ready)return <main className="loading">Verificando acceso administrativo…</main>;

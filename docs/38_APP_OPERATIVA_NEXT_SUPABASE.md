@@ -1,5 +1,7 @@
 # EVALIA — Panel administrativo operativo conectado a Supabase (candidato)
 
+> **Actualización de integración (2026-11-23):** este documento describe el candidato inicial PR #3. La captura comercial vigente está en [docs/39](39_CAPTURA_DOCENAS_COLORES_INDIVIDUALES.md). Las migraciones 001–005 **ya fueron aplicadas** al Supabase remoto `evalia` y verificadas; el procedimiento real de arranque se encuentra en [docs/40](40_INTEGRACION_SUPABASE_REAL.md). Las afirmaciones históricas de que no existe una base o que no se seleccionan colores individuales están superadas. Sigue pendiente el usuario administrador, alojamiento de Next.js y prueba de navegador.
+
 Fecha: 2026-11-23. Rama: `feature/evalia-panel-operativo`. Estado: **implementado en código, sin despliegue ni verificación contra una base real**.
 
 ## Resultado implementado
