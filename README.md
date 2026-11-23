@@ -112,3 +112,6 @@ El índice vigente de **14 módulos**, decisiones prioritarias, exclusiones G03-
 
 ## D0 — propuesta de arquitectura y pruebas transaccionales (2026-11-22)
 Se documentaron [ADR-D0-01: modelo lógico/transacciones](docs/29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [D0-02: seguridad/QA](docs/30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md). **Solo diseño**, sin SQL, aplicación, infraestructura ni merge. Prioriza bloqueo por modelo para disponibilidad `A=S−E−G`, registro real de entrega/cobros, scheduler F/L idempotente, token cliente privado y evidencias protegidas. **Pendiente explícito** cómo confirmar pedido con surtido G sin color y tratamiento de mermas con cupos prometidos. No crear reglas arbitrarias.
+
+## D0-A aprobado: pedido surtido confirmado sin definir colores
+El propietario aprobó **confirmar un pedido con cantidad surtida G ya garantizada sin elegir colores todavía**; se deben definir los **colores reales antes de entregar las prendas**. Transferir reserva→pedido conserva el mismo G (sin doble descuento) y al elegir colores trasladar G→E atómicamente, con S y A invariantes. Pedido directo solo crea G una vez tras validar stock. El pago y el precio no cambian por repartir colores. **D0-C mermas/defectos después de compromiso sigue pendiente**. [Contrato canónico D0-A](docs/31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).

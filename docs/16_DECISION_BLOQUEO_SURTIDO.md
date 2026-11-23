@@ -39,7 +39,7 @@ Si luego se detectan dos prendas no aptas, el total apto baja de 12 a 10; en B l
 - **RESUELTO posteriormente:** la talla **está fijada por el modelo**; no se mezclan tallas dentro de un modelo, por lo que el grupo de cupo es **un modelo con su talla fija** y sus colores aptos.
 - Falta establecer plazo de reserva y qué ocurre al vencer si no hay colores asignados.
 - Un patrón de **11 colores más negro adicional** no puede asegurarse por cantidad agregada cuando hay mermas; no afirmar que opción B garantice esa mezcla.
-- Falta decidir si se puede dividir un surtido, confirmar pedido antes de asignar tonos, y quién resuelve faltantes.
+- **D0-A RESUELTO posteriormente:** se puede **confirmar pedido surtido antes de asignar tonos**, siempre con cantidad garantizada. Todavía está por definir el procedimiento ante faltantes/mermas y la política operativa de división/asignación parcial.
 - Precio para siete prendas y presentaciones por talla/modelo siguen sin aprobar.
 - Calidad e inspección no justifican asumir que un lote previsto ya contiene stock vendible.
 
@@ -75,3 +75,6 @@ Al Guardar reserva surtida, el cupo G del modelo queda garantizado hasta vencimi
 
 ## D0 — transacciones para reserva de cupo por modelo (PROPUESTA)
 El cupo surtido G aprobado **compite por el mismo disponible A del modelo** que E exacto, por lo que un lock solo por color no basta. [D0-01](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) recomienda serializar mutaciones por modelo y transferir `G−q/E+q` en **una transacción**, nunca dos RPC separadas. Confirmación de pedido con G aún sin color (D0-A) no ha sido ratificada: no elegir un orden por suposición. [QA](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md).
+
+## DECISIÓN POSTERIOR D0-A: la confirmación NO exige colores
+**Aprobado por el propietario:** el surtido G garantizado puede **pasar de reserva a pedido confirmado sin definir tonos**. Los colores se asignan sobre existencias aptas del mismo modelo **antes de la entrega física**. La reserva y el pedido confirmado no duplican G; pedido directo comprueba A y crea G una vez. Transición G→E atómica y sin segundo descuento, ver [D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md). La duda anterior «confirmar antes de asignar tonos» **está RESUELTA**, pero dividir surtido/forma exacta de asignación parcial y resolución de déficit por merma siguen sujetas a diseño/política posterior.

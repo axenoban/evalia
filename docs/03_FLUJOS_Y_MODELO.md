@@ -111,3 +111,6 @@ La práctica aprobada es **no entregar normalmente antes de completar pago**. Al
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 En E1 **no implementar** flujo de cancelaciones/devoluciones por el cliente ni reajustes automáticos de stock/dinero; G03-B queda para fase futura. Casos raros se gestionan externamente; COMPLETADO normal continúa exigiendo retiro y pago real aprobado. Cierre excepcional con diferencias aún sin diseño seguro, no bypass. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## Decisión D0-A posterior: confirmar surtido sin elegir colores (2026-11-22)
+**Aprobado:** un pedido puede quedar **CONFIRMADO con cupo G de surtido garantizado sin variantes exactas**, conservando titularidad de compromiso si se convirtió desde reserva. No crear un segundo compromiso al confirmar; si pedido directo, validar A y crear G una sola vez. **Los colores aptos se asignan después, pero antes de entregar físicamente cada prenda**, trasladando cupos G→E en transacción y sin cambiar disponibilidad agregada A ni existencia S. Confirmado con G no es entregado ni COMPLETADO: el cierre sigue pago realmente aprobado + recogida. **Merma posterior y falta de colores queda D0-C abierto**. [Contrato](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).

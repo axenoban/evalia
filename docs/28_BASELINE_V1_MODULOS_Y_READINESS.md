@@ -120,3 +120,6 @@
 
 ## D0 documental en curso — diseño lógico y matriz de amenazas
 [29: ADR-D0-01](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [30: D0-02](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md) desarrollan **modelo lógico propuesto** (13 agrupados), límites atómicos S/E/G, bloqueo por modelo, máquinas de estado candidatas, contrato cron/admin y seguridad/30 QA. **No se ejecutó código ni SQL; no aprobar DDL por este índice.** Prioridad de negocio por decidir D0-A: si se puede CONFIRMAR pedido con G surtido sin colores ya fijados; D0-C: déficit por mermas; D0-D: acreditación tardía. Mantener G03-B FUERA de V1.
+
+## D0-A — confirmación de pedidos surtidos con G sin colores: APROBADO
+**Decisión comercial posterior:** confirmar pedido surtido **sin asignar colores** está permitido si G corresponde a cantidad real de stock apto garantizada. Transferir compromiso desde reserva sin contar dos veces; pedido directo con G requiere validar y apartar una sola vez. Antes de la entrega, asignar variantes reales mediante G→E; entrega reduce S/E, no confirmación. Este requisito ahora integra el alcance M07/M08 de V1 y tiene QA de aceptación documental A01–A14 en [D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md). **D0-C mermas/defectos sobre cupos garantizados queda como la próxima política pendiente**. No autoriza SQL ni aplicación.

@@ -18,14 +18,14 @@ Para cada modelo `m`, con **una sola talla propia** y conjunto de colores permit
 
 - `S_c`: unidades **aptas**, físicamente presentes para un color `c` de `m`. Prendas defectuosas NO se incluyen en S; registrar pérdidas de aptitud como movimiento real y incidencia.
 - `E_c`: compromisos **exactos por color** de unidades todavía físicamente no entregadas; incluir tanto reservas guardadas como pedidos confirmados todavía pendientes, sin contarlos doble.
-- `G_m`: compromisos **de surtido sin colores asignados** garantizados por cantidad dentro de ese mismo modelo, de reservas activas y, si el flujo futuro lo admite, pedidos no entregados.
+- `G_m`: compromisos **de surtido sin colores asignados** garantizados por cantidad dentro de ese mismo modelo, pertenecientes tanto a **reservas guardadas como a pedidos confirmados no entregados** (D0-A aprobado).
 - `S_m = Σ_c S_c`, `E_m = Σ_c E_c`, `A_m = S_m − E_m − G_m`: disponibilidad comercial total del modelo.
 - `F_c = S_c − E_c`: margen físico no asignado exactamente en ese color; puede estar **protegido parcialmente por G agregado**. Por eso `F_c > 0` **NO basta** para aceptar una nueva venta exacta.
 - **Nueva reserva/pedido exacto de `q` en `c`:** debe validar simultáneamente `q>0`, `F_c≥q` y `A_m≥q`, además de la restricción mayorista `n≥6` **sumando líneas del mismo modelo al crear la operación**. Si uno falla, rechazar sin mutación parcial.
 - **Nueva reserva surtida de `q` (colores pendientes):** `A_m≥q` y la cantidad comercial válida; `G_m += q`, `A_m -= q`, **sin** asignar ninguna variante ficticia y **sin** modificar S.
 - **Asignación posterior `G_m→E_{c_i}`:** si `Σ q_i=q` y `G_m≥q`, cada color habilitado cumple `S_c−E_c≥q_i`; operación única `G_m -= q`, `E_{c_i} += q_i`, sin tocar S y **sin cambiar A_m**. No trasladar stock entre modelos/tallas.
 - **Conversión reserva guardada → pedido confirmado:** cambiar titularidad del mismo compromiso pendiente (exacto o G), **no** hacer `+E` o `+G` sobre unidades ya protegidas. Para pedido **directo**, sí crear compromiso por única vez tras validar disponibilidad.
-- **Entrega física real de `q_i` por color:** `S_{c_i} -= q_i` y `E_{c_i} -= q_i` en el mismo evento/operación; `A_m` se mantiene inalterada. Un surtido G necesita identificar los colores físicos antes del retiro; la política comercial sobre confirmar pedido antes de asignar colores sigue abierta, **no forzar un orden supuesto**.
+- **Entrega física real de `q_i` por color:** `S_{c_i} -= q_i` y `E_{c_i} -= q_i` en el mismo evento/operación; `A_m` se mantiene inalterada. Un surtido G puede confirmarse como pedido **sin colores asignados** (D0-A aprobado); **identificar y asignar los colores aptos reales antes de la entrega física**.
 - **Caducidad de reserva sin depósito aplicable:** liberar exclusivamente **E/G pendiente de esa reserva**, `S` intacto, `A` sube según cantidad liberada; conservar auditoría, sin tocar pedidos ya convertidos.
 - **Pedidos futuros sin stock apto:** representar solo **demanda futura**, sin aumentar S ni descontar disponibilidad de existencias inexistentes. La asignación manual posterior deberá validar cupo y crear compromiso una única vez.
 
@@ -111,7 +111,7 @@ COMPLETADO exige **pago confirmado real y entrega real**. La decisión de **no i
 
 | ID | Punto abierto | Tratamiento de diseño seguro hasta resolución |
 | --- | --- | --- |
-| D0-A | ¿Se permite **confirmar un pedido con G surtido todavía sin color asignado**? | El modelo soporta G y E; confirmar y entregar son eventos distintos. **No fijar regla de confirmación** sin aprobación; exigir asignación de color antes de salida física |
+| D0-A | **RESUELTO: SÍ**, se puede **confirmar pedido surtido con G pendiente de colores** cuando cantidad ya está garantizada | Trasladar titularidad G reserva→pedido sin doble bloqueo; pedido directo garantiza G una vez; colores aptos antes de entrega. [Decisión](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md) |
 | D0-B | **Encargo futuro**: cuándo pasa de demanda a asignación real y si usa reserva o pedido sin existencias | Mantener demanda futura separada de S/E/G hasta asignación manual; no crear stock |
 | D0-C | **Merma/ajuste** de stock apto y saldos desfavorables tras comprometer cupos | Mantener historia y alerta sin sobreventa; qué ajuste administrativo y evidencia exigir aún necesita contrato |
 | D0-D | **Pago anunciado antes de F, verificado/aprobado después de F** | No reactivar automáticamente reserva expirada; revisar recepción y stock. Falta política de oportunidad en ese borde |
@@ -120,3 +120,6 @@ COMPLETADO exige **pago confirmado real y entrega real**. La decisión de **no i
 | D0-G | **Hosting, cron, transaction runner y condiciones de aislamiento** | ADR pendiente de ratificación; no desplegar ni elegir un proveedor arbitrario |
 
 **Resultado D0-01:** propuesta de modelo y frontera transaccional suficiente para una revisión técnica de SQL posterior, **todavía NO un esquema implementable aprobado**. Para la seguridad de la vista de cliente, continuar con [D0-02 y QA](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md).
+
+## D0-A APROBADO — sustitución explícita de la anterior pregunta abierta (2026-11-22)
+La aprobación posterior del propietario **autoriza confirmar un pedido surtido aunque todavía no tenga colores asignados**, **siempre que G ya garantice cantidad apta y disponible del mismo modelo**. Al convertir reserva guardada→pedido, la transacción solo cambia titularidad del compromiso y mantiene `ΔS=ΔE=ΔG=ΔA=0`; no sumar G al confirmar. En pedido directo, crear G solo una vez después de validar A. **El pedido puede permanecer CONFIRMADO con G aún pendiente**; al asignar colores reales del mismo modelo para entregar, transferir `G−q; ΣE+q` sin modificar S/A. La entrega física solo ocurre por variantes/colores ya identificados y reduce `S_c` y `E_c` simultáneamente. **La fila histórica D0-A en la sección 8 se considera CERRADA por este contrato posterior**. Sin inventar condiciones de producción, reparto fijo de colores o ajustes por merma. [Contrato canónico](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).

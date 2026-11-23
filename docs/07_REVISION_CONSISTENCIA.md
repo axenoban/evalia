@@ -130,3 +130,6 @@ El propietario **descarta como flujo habitual** la entrega con deuda: cliente no
 
 ## Auditoría D0 — núcleos comercialmente resueltos frente a transiciones abiertas
 Se proponen [29](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [30](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md). Reglas comerciales aprobadas incluyen A=S−E−G, confirmar sin salida física, G→E sin doble bloqueo, F/L, pagos admin y cierre real. **D0-A (pedido confirmado con surtido G aún sin asignar), D0-C (mermas cuando hay compromisos) y D0-D (pago recibido antes F pero aprobado después)** siguen **PENDIENTES**: no poner reglas arbitrarias. El cuello técnico prioritario es modelo lógico con transacciones y seguridad real; no SQL ni ejecución autorizada.
+
+## D0-A RESUELTO — confirmar G sin color, exigencia de variante antes de entregar
+La última decisión explícita aprobó **pedido surtido CONFIRMADO con colores pendientes**, siempre que su cantidad esté garantizada con cupo G sobre stock apto. Prevalece sobre listas anteriores de «confirmar antes de asignar tonos pendiente»: reserva→pedido conserva G; pedido directo crea G una sola vez; asignación G→E atómica sin segundo bloqueo y entrega física solo desde color asignado. No equivale a habilitar devolución/cancelación G03-B en V1. **D0-C merma/defectos tras comprometer stock continúa abierto**. [D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).

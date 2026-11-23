@@ -79,7 +79,7 @@
 
 ## 5. Decisiones por aprobar antes de SQL/publicación
 
-1. **D0-A:** confirmar pedido con G todavía sin colores: ¿se admite y se asignan antes de retirar, o debe fijarse color antes de Confirmar? La primera versión no debe inventar una regla.
+1. **D0-A CERRADO:** se **permite** confirmar con G surtido sin colores cuando existe cupo apto garantizado; asignar colores antes de entregar. [Aprobación](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).
 2. **D0-B:** esquema de encargo futuro sin inventario y momento de asignación real; no bloquear existencias inexistentes.
 3. **D0-C:** ajustes/mermas auditados y criterio ante merma que provoca sobrecompromiso.
 4. **D0-D:** transferencia anterior a F aprobada después, y rechazo/corrección de abonos, sin resurrección automática.
@@ -90,3 +90,6 @@
 
 ## Corrección de precisión en D0-02
 En el caso C03, el límite global **A=3** exige especificar cantidades concretas de solicitudes concurrentes. Dos solicitudes exactas simultáneas de **2 unidades cada una** no deben reservar las cuatro, aunque cada color separado muestre margen físico: el servidor admite solo una y la otra falla tras serialización por modelo. El mínimo mayorista de seis **se valida en la operación comercial por modelo**, por lo que este escenario es una prueba aislada de **función interna de asignación**, no de creación válida de una reserva mayorista de 2 prendas. Para una prueba end-to-end comercial, preparar un carrito por modelo de 6 o más unidades que incluya esa asignación de color, o configurar solicitudes concurrentes válidas de 6+ en otro fixture.
+
+## D0-A — decisión cerrada y nuevos QA de pedido confirmado sin colores
+**APROBADO:** pedido surtido puede confirmar con G sin colores cuando cantidad está garantizada; colores reales aptos se asignan **antes de su entrega**, G→E sin doble conteo. **La anterior pregunta «D0-A» de sección 5 quedó resuelta**. Agregar casos A01–A14 del [contrato D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md) como futuros tests V1 **P0**, especialmente reserva→pedido ΔG=0, pedido directo G+q tras validar, confirmación multi-modelo atómica, bloqueo por modelo, reintentos/cron y protección de entrega. El bloque C30 de cancelación G03-B continúa fuera de V1. **D0-C merma que reduce S después de reservar sigue pendiente**; no inventar reposición o cancelación automática. Todo QA es documental, no tests corridos.
