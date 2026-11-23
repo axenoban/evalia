@@ -20,7 +20,7 @@ select ok(not has_table_privilege('authenticated','public.order_extra_colors','I
 select ok(not has_function_privilege('anon','public.evalia_validate_portions(jsonb)','EXECUTE'),'validador no expuesto a anónimos');
 select ok(not has_function_privilege('authenticated','public.evalia_validate_portions(jsonb)','EXECUTE'),'validador interno solamente');
 select ok(has_function_privilege('authenticated','public.create_evalia_order(uuid,jsonb,uuid)','EXECUTE'),'orden usa RPC admin');
-select ok(has_function_privilege('authenticated','public.create_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'reserva usa RPC admin');
+select ok(not has_function_privilege('authenticated','public.create_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'la API de reservas está retirada para nuevos registros');
 select ok(has_function_privilege('authenticated','public.confirm_evalia_reservation(uuid,uuid)','EXECUTE'),'conversión usa RPC admin');
 select * from finish();
 rollback;

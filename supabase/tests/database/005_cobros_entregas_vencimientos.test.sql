@@ -14,6 +14,8 @@ insert into public.model_colors(model_id,color_id)
 update public.model_inventory set on_hand=72 where model_id='20000000-0000-4000-8000-000000000001';
 insert into public.customers(id,name,whatsapp)
  values('30000000-0000-4000-8000-000000000001','Cliente de prueba','0000000');
+-- Fixture histórica en transacción de prueba. En producción ambas RPC permanecen revocadas.
+grant execute on function public.create_evalia_reservation(uuid,jsonb,uuid) to authenticated;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 

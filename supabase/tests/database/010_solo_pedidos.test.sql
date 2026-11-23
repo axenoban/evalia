@@ -1,0 +1,20 @@
+-- Eliminación de reservas nuevas: solo pedidos confirmados por admin.
+begin;
+create schema if not exists extensions;
+create extension if not exists pgtap with schema extensions;
+set local search_path=public,extensions;
+select plan(12);
+select ok(not has_function_privilege('authenticated','public.create_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'admin no puede iniciar reservas nuevas');
+select ok(not has_function_privilege('anon','public.create_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'anónimo no puede iniciar reservas');
+select ok(not has_function_privilege('service_role','public.create_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'servidor no crea reservas');
+select ok(not has_function_privilege('authenticated','public.revise_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'admin no edita reservas antiguas');
+select ok(not has_function_privilege('anon','public.revise_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'anónimo no edita antiguas');
+select ok(not has_function_privilege('service_role','public.revise_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'servidor no edita antiguas');
+select ok(has_function_privilege('authenticated','public.create_evalia_order(uuid,jsonb,uuid)','EXECUTE'),'pedido directo permanece autorizado');
+select ok(has_function_privilege('authenticated','public.confirm_evalia_reservation(uuid,uuid)','EXECUTE'),'la transición de registros históricos sigue autorizada');
+select ok(has_function_privilege('authenticated','public.get_model_stock(uuid)','EXECUTE'),'inventario continua operativo');
+select ok(has_function_privilege('authenticated','public.review_evalia_payment(uuid,text,uuid,text)','EXECUTE'),'revisión de pagos se conserva');
+select ok(not has_table_privilege('authenticated','public.reservations','INSERT'),'tampoco hay inserción directa a tabla histórica');
+select ok((select count(*) from cron.job where jobname='evalia-vencimientos-f-l' and active)=1,'cron sigue liberando antiguos compromisos al llegar F');
+select * from finish();
+rollback;

@@ -26,6 +26,10 @@ update public.model_inventory set on_hand=24 where model_id='20000000-0000-4000-
 insert into public.customers(id,name,whatsapp)
  values('30000000-0000-4000-8000-000000000001','Comprador ficticio SQL','000000000');
 
+-- Permisos restaurados temporalmente SOLO en esta transacción de pgTAP
+-- para validar legados y vencimientos; rollback evita modificar la configuración real.
+grant execute on function public.create_evalia_reservation(uuid,jsonb,uuid) to authenticated;
+grant execute on function public.revise_evalia_reservation(uuid,jsonb,uuid) to authenticated;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 
