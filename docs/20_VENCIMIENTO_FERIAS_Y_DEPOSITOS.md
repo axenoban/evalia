@@ -1,6 +1,6 @@
-# EVALIA — G01/R09: calendario de ferias y plazo ampliado con depósito
+# EVALIA — G01/R09: calendario, depósitos y revisión al superar la semana adicional
 
-**Fecha de selección:** 2026-11-22. **Estado:** calendario de siete días cerrado, registro posterior de depósito permitido y **tolerancia comercial usual de hasta una semana adicional** expresada por el propietario. **La fecha de inicio de la semana ya está fijada por decisión posterior: se cuentan 7 días naturales desde el vencimiento ordinario F de la feria, con hora límite 12:00. La acción de liberación automática al concluir sigue sin estar aprobada**. PR #1 en borrador. **Sin SQL, aplicación o pagos implementados.**
+**Fecha de selección:** 2026-11-22. **Estado:** calendario de siete días cerrado, registro posterior de depósito permitido y **tolerancia comercial usual de hasta una semana adicional** expresada por el propietario. **La fecha de inicio de la semana ya está fijada por decisión posterior: se cuentan 7 días naturales desde el vencimiento ordinario F de la feria, con hora límite 12:00. La decisión posterior autoriza **EN REVISIÓN + intento de contacto WhatsApp manual**, NO liberación automática, al alcanzar L**. PR #1 en borrador. **Sin SQL, aplicación o pagos implementados.**
 
 ## Declaración literal del propietario
 
@@ -78,8 +78,8 @@ La fecha/hora debe mostrarse en el administrador **explícitamente** y en el men
 | G01: depósito posterior a crear reserva | **RESUELTO** | Registro posterior permitido |
 | G01: depósito protege frente a vencimiento de feria | **RESUELTO como excepción** | No liberar automáticamente ese día si se recibió a tiempo |
 | G01: plazo con depósito | **RESUELTO EN DURACIÓN Y ANCLA** | Vencimiento original de feria F **+7 días naturales, 12:00** |
-| G01: liberación al final del plazo ampliado | **PENDIENTE** | No se eligió automática vs revisión ni destino del depósito |
-| G01: salida final después de tolerancia | **PENDIENTE** | No se eligió liberación automática vs revisión manual, ni tratamiento de dinero |
+| G01: entrada a revisión tras L con depósito | **RESUELTO** | **EN REVISIÓN** y contacto **WhatsApp manual**; sin liberación ni movimiento de dinero |
+| G03-B/G06: resolución después de revisión | **PENDIENTE** | Plazo/intentos de respuesta, liberación/cancelación posterior y destino del depósito |
 | G06: importe mínimo, prueba/validación y múltiples depósitos | **PENDIENTE** | Solo se confirmó posibilidad de registrar depósito |
 | G03-B: pedido confirmado/parcial o cancelaciones | **PENDIENTE** | No aplicar vencimiento de reserva a pedido |
 | G01: feriados, cierres excepcionales, fines de campaña | **PENDIENTE** | No inventar prórrogas o desplazamientos automáticos |
@@ -110,8 +110,8 @@ La fecha/hora debe mostrarse en el administrador **explícitamente** y en el men
 
 ## Pendientes para la siguiente pregunta al propietario
 
-1. **Cómo actuar al llegar al límite ampliado L:** liberación automática vs revisión del administrador, aviso y destino del depósito. El cómputo L=F+7 días ya está resuelto.
-2. **Qué pasa al concluir la semana adicional:** vencimiento automático, revisión manual, aviso, plazo extra excepcional u otra condición; no liberar ni reembolsar sin regla aprobada.
+1. **Cómo resolver el caso DESPUÉS de marcar EN REVISIÓN e intentar contactar por WhatsApp manual**: sin respuesta, nuevas prórrogas, cancelación/liberación manual, plazo y número de intentos aún pendientes.
+2. **Destino del depósito** después de esa resolución: no retener, reembolsar o compensar automáticamente sin nueva aprobación.
 3. **Definir depósito** para protección: importe mínimo, confirmado vs solamente notificado, cuándo se acredita y cómo se registra uno recibido tarde.
 4. **G03-B:** cancelación con depósito, pedidos ya confirmados y entrega parcial, destino de pago si se cancela.
 5. Régimen excepcional por feriado/cambio de día de feria y aviso al cliente: no aprobado.
@@ -171,3 +171,32 @@ Para una reserva guardada, aún vigente y sin convertir a pedido, sea **F** su v
 **Prueba de invariancia del depósito:** para una reserva del martes 24/11 con F=28/11 a las 12:00, recibir depósito el miércoles 25/11 o viernes 27/11 produce **el mismo L: sábado 05/12 a las 12:00**. No usar `deposit_at+7d`. A las 11:59:59 de L permanece dentro de tolerancia; a las 12:00 se cumple L sin que eso autorice por sí mismo una liberación de stock.
 
 **Estado:** calendario G01 (7 días) RESUELTO; tolerancia (7 días naturales desde F, 12:00) RESUELTA; **acción final al alcanzar L, dinero, depósitos tardíos, feriados y pedidos parciales** PENDIENTES. Solo documentos, sin SQL ni merge.
+
+## ÚLTIMA DECISIÓN G01-L — revisión administrativa y WhatsApp, sin liberación (2026-11-22)
+
+**Declaración literal del propietario:** «en el poco probable caso, marquemos en revision donde se intentara contactar con el cliente por whattsapp».
+
+**Qué sucede al llegar al límite ampliado L** (`L = vencimiento ordinario de feria F + 7 días naturales`, a las **12:00 locales**):
+
+1. Si sigue siendo **reserva con depósito efectivamente recibido antes de F**, que **no se convirtió a pedido confirmado ni concluyó con pago y recogida**, cambiar automáticamente **solo su estado administrativo** a **EN REVISIÓN**, con **pendiente de intentar contacto por WhatsApp**. La regla es determinística y debe comprobar el estado más reciente.
+2. **Contacto manual:** el administrador intentará contactar al cliente mediante su WhatsApp. Se mantiene R11: **E1 no incluye API de WhatsApp, envío automático ni confirmación de envío por generar un texto**. Se recomienda una acción de la ficha para registrar **fecha, responsable, resultado y observaciones** del intento real, sin inventar cantidad mínima de intentos, mensajes obligatorios ni plazo de respuesta.
+3. **No liberar existencias ni mover dinero al entrar a revisión**: las cantidades exactas E y cupos surtidos G siguen reservados para el cliente, la disponibilidad comercial `A = S − E − G` no aumenta y el stock físico apto S no cambia. El depósito registrado permanece asociado e intacto; **no cancelación automática, multa, confiscación ni devolución** por mero vencimiento de L.
+4. **Idempotencia:** ejecutar la evaluación temporal repetidas veces no debe crear revisiones, tareas de contacto ni movimientos duplicados. Solo el administrador acredita un contacto realizado; el scheduler no envía mensajes.
+5. **No confundir estados:** una **reserva sin depósito** vence y libera su compromiso todavía reservado al llegar a F, conforme a la regla original. Un **pedido confirmado** (o parcialmente entregado) no debe entrar en el vencimiento de reservas ni perder su compromiso; su tratamiento sigue G03-B.
+6. **Tras la revisión**, qué hacer cuando el cliente **no responde**, pide plazo extra, quiere cancelar o no termina de pagar es **un nuevo punto de decisión**: no aprobar liberación posterior ni disposición del depósito por inferencia. Preservar auditoría y prevenir sobreventa.
+
+### Criterios QA para la entrada en revisión (NO ejecutables hasta desarrollar app)
+
+| Situación | Resultado esperado |
+| --- | --- |
+| Reserva martes 2026-11-24, depósito recibido a tiempo | F sábado 2026-11-28 a las 12:00, L sábado **2026-12-05 12:00** |
+| Esa reserva a las **2026-12-05 11:59:59** | Continúa dentro del plazo ampliado, no aplicar transición L |
+| Esa reserva a las **2026-12-05 12:00**, sin completar pago/retiro y sin confirmar pedido | **EN REVISIÓN**, pendiente contacto WhatsApp **manual**, **sin liberar G/E** ni mover depósito |
+| Reserva viernes 2026-11-27 con depósito oportuno | F miércoles 2026-12-02 12:00, L miércoles **2026-12-09 12:00**, mismo proceso |
+| Repetir job de revisión 10 veces | Una sola transición administrativa y tarea pendiente, **0 envíos WhatsApp automáticos**, 0 liberaciones duplicadas |
+| Reserva sin depósito al llegar F | Vencimiento ordinario y liberación de cupo pendiente, **no EN REVISIÓN por esta excepción** |
+| Reserva convertida a pedido antes de L | No tocar por scheduler de reservas; compromiso del pedido protegido |
+| Administrador intenta contactar y no obtiene respuesta | Registrar intento real si hay funcionalidad, **seguir en revisión**, sin cancelación ni devolución automática |
+| Depósito anotado después de reserva ya expirada y liberada | No resucitar cupo ni rehacer reserva automáticamente; incidencia administrativa |
+
+**Estado después de esta decisión:** calendario G01 **resuelto**; fecha F **resuelta**; depósito antes de F protege; límite L=F+7 días **resuelto**; al llegar L **EN REVISIÓN + WhatsApp manual** **resuelto**. **Pendiente G03-B/G06:** qué hacer después de contactar, plazos, cancelaciones, devoluciones/retenciones, parcialidades y verificación de pagos. **Sin SQL, sin código, PR #1 DRAFT, sin merge.** Las anotaciones anteriores «qué hacer al alcanzar L pendiente» quedan superadas únicamente para **entrada en revisión**, no para resolución posterior.
