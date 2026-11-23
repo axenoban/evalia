@@ -556,3 +556,16 @@ button.button:active:not(:disabled){transform:translateY(0)}
 .legacy-commitment .button{margin-top:12px}
 @media(max-width:600px){.legacy-commitments>summary{align-items:flex-start;flex-direction:column}
  .legacy-alert .button{width:100%}}
+
+/* Mensaje editable para WhatsApp: utilitario previo al rediseño integral */
+.whatsapp-message-composer{margin-top:15px;padding:15px;border:1px solid var(--border);
+ background:var(--blush);border-radius:12px;display:grid;gap:9px}
+.whatsapp-message-composer>.field-label{display:block;font-weight:800;color:var(--ink)}
+.whatsapp-message-composer .small-note{margin:0;line-height:1.55}
+.whatsapp-message-draft{resize:vertical;width:100%;min-height:220px;
+ font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;
+ padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+ color:var(--ink)}
+.whatsapp-message-draft:focus-visible{outline:3px solid #ac688b;outline-offset:2px}
+.whatsapp-message-composer .form-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:640px){.whatsapp-message-composer .form-actions>.button{width:100%}}

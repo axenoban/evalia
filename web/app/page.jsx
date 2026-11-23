@@ -8,6 +8,7 @@ import {
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
+import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
 import {
   centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
 } from '../lib/domain.js';
@@ -28,7 +29,7 @@ const displayDate=iso=>iso?new Intl.DateTimeFormat('es-BO',{
 }).format(new Date(iso)):'—';
 const initials=name=>String(name||'EV').trim().split(/\s+/).slice(0,2).map(s=>s[0]?.toUpperCase()).join('');
 const rup=number=>new Intl.NumberFormat('es-BO').format(Number(number)||0);
-const statusLabels={saved:'Reservada',in_review:'En revisión',expired:'Vencida',converted:'Convertida',active:'En preparación',completed:'Completado',draft:'Borrador'};
+const statusLabels={saved:'Compromiso anterior',in_review:'Revisión histórica',expired:'Histórico vencido',converted:'Convertido a pedido',active:'En preparación',completed:'Completado',draft:'Borrador'};
 
 function ColorChip({color,selected=false,onClick,compact=false,disabled=false}){
  const colorValid=/^#[\da-f]{6}$/i.test(color?.hex_code||'');
@@ -193,7 +194,7 @@ function ModelEditor({model,onSave,busy}){
  }
  return <form className="stock-editor" onSubmit={submit}>
   <p className="editor-title">Actualizar precio o foto — {model.name}</p>
-  <p className="small-note">El precio nuevo solo afecta reservas y pedidos futuros. Los pedidos confirmados conservan su tarifa histórica. No modifica talla, colores comprometidos ni stock.</p>
+  <p className="small-note">El precio nuevo solo afecta los próximos pedidos. Los pedidos existentes conservan su tarifa histórica. No modifica talla, colores ni stock.</p>
   <div className="form-inline">
    <Field title="Nuevo precio por docena (Bs)">
     <input name={'editModelPrice-'+model.id} value={price} inputMode="decimal" required
@@ -356,7 +357,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
  const clients=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  return <>
   <SectionHead eyebrow="DIRECTORIO COMERCIAL" title="Clientes y compradores."
-    description="Identifica a cada cliente antes de registrar una reserva o pedido. El teléfono no fusiona fichas."/>
+    description="Registra y actualiza los datos de contacto de tus compradores. El teléfono no fusiona fichas."/>
   <div className="two-columns customer-layout">
    <section className="surface pad"><h2>Registrar cliente</h2>
     <p className="muted">Solo los datos necesarios para reconocer el pedido y contactar por WhatsApp.</p>
@@ -368,7 +369,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
       const reservations=data.reservations.filter(r=>r.customer_id===c.id).length;
       const orders=data.orders.filter(o=>o.customer_id===c.id).length;
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
-       <div><strong>{c.name}</strong><small>{c.whatsapp}</small><span>{reservations} reservas · {orders} pedidos</span></div>
+       <div><strong>{c.name}</strong><small>{c.whatsapp}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span></div>
        <button className="button button-outline" type="button" disabled={busy}
         onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button></div>
        {editing===c.id&&<ClientEditForm key={c.id+'-'+c.updated_at} customer={c}
@@ -519,7 +520,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
        <input type="search" aria-label="Buscar clientes por nombre o WhatsApp" autoComplete="off"
         placeholder="Buscar cliente por WhatsApp…" value={customerSearch}
         onChange={e=>setCustomerSearch(e.target.value)}/></label>
-      <div className="client-selection"><Field title="Cliente para esta operación">
+      <div className="client-selection"><Field title="Cliente del pedido">
        <select name="customerId" value={customerId} required
         onChange={e=>{setCustomerId(e.target.value);requestId.current=null;}}>
         <option value="">Selecciona un cliente…</option>
@@ -676,26 +677,34 @@ function QrAdmin({settings,onSave,busy}){
  </section>;
 }
 function OrderLinkPanel({order,data,onIssue,onRevoke,busy}){
- const [plain,setPlain]=useState(null),[hint,setHint]=useState('');
+ const [plain,setPlain]=useState(null),[draft,setDraft]=useState(''),[hint,setHint]=useState('');
  const saved=data.links.find(l=>l.order_id===order.id);
  const active=Boolean(saved&&!saved.revoked_at&&order.status==='active');
  async function issue(){
   setHint('');
   const link=await onIssue(order.id);
-  if(link){setPlain(link);setHint('Enlace emitido. Copia y comparte manualmente por WhatsApp. Si sales de aquí necesitarás regenerarlo.');}
+  if(link){
+   const customer=data.customers.find(c=>c.id===order.customer_id);
+   setPlain(link);
+   setDraft(buildOrderWhatsAppMessage({
+    order,customer,models:data.models,colors:data.colors,
+    finance:data.finances[order.id],url:link
+   }));
+   setHint('Enlace privado creado. Revisa el mensaje y compártelo solo con el comprador. Si sales de esta pantalla necesitarás generar un enlace nuevo.');
+  }
  }
  async function revoke(){
   setHint('');
   const ok=await onRevoke(order.id);
-  if(ok){setPlain(null);setHint('Enlace revocado inmediatamente.');}
+  if(ok){setPlain(null);setDraft('');setHint('Enlace revocado inmediatamente.');}
  }
- async function copy(){
-  try{await navigator.clipboard.writeText(plain);setHint('Enlace copiado al portapapeles.');}
-  catch{setHint('No se pudo copiar; selecciona el texto manualmente.');}
+ async function copy(value,success){
+  try{await navigator.clipboard.writeText(value);setHint(success);}
+  catch{setHint('No se pudo copiar automáticamente; selecciona el texto y cópialo manualmente.');}
  }
  return <div className="order-links">
-  <h3>Enlace privado para este pedido</h3>
-  <p className="small-note">Solo permite consultar el pedido e informar pagos pendientes de verificación. Quien posea el enlace podrá usarlo: compártelo únicamente con el cliente.</p>
+  <h3>Confirmación por WhatsApp y enlace privado</h3>
+  <p className="small-note">El enlace permite consultar únicamente este pedido e informar pagos para revisión. Cualquier persona que lo reciba podrá usarlo: envíalo solo al comprador.</p>
   {active?<span className="pay-state pay-approved">Enlace vigente (versión {saved.version})</span>:
    <span className="pay-state">{order.status==='completed'?'Desactivado por cierre':'Sin enlace activo'}</span>}
   {order.status==='active'&&<div className="form-actions">
@@ -703,10 +712,21 @@ function OrderLinkPanel({order,data,onIssue,onRevoke,busy}){
     {active?'↻ Reemplazar enlace':'＋ Crear enlace privado'}</button>
    {active&&<button type="button" className="button button-outline" disabled={busy} onClick={revoke}>Revocar</button>}
   </div>}
-  {plain&&<div className="private-url">
-    <input readOnly value={plain} aria-label="Enlace secreto del pedido"/>
-    <button className="button button-primary" type="button" onClick={copy}>Copiar enlace</button>
-  </div>}
+  {plain&&active&&<div className="whatsapp-message-composer">
+    <label htmlFor={'whatsapp-message-'+order.id} className="field-label">Mensaje de confirmación para WhatsApp</label>
+    <p className="small-note">Texto preparado con los datos reales del pedido. Puedes editarlo antes de copiar; no se envía automáticamente.</p>
+    <textarea id={'whatsapp-message-'+order.id} className="whatsapp-message-draft"
+      rows={13} value={draft} onChange={e=>setDraft(e.target.value)} spellCheck={true}/>
+    <div className="form-actions">
+     <button type="button" className="button button-primary" disabled={!draft.trim()}
+      onClick={()=>copy(draft,'Mensaje de confirmación copiado. Pégalo en el chat del comprador.')}>
+      Copiar mensaje para WhatsApp</button>
+     <button type="button" className="button button-outline"
+      onClick={()=>copy(plain,'Enlace privado copiado. Pégalo únicamente en el chat del comprador.')}>
+      Copiar solo enlace</button>
+    </div>
+   </div>}
+  {plain&&!active&&<p className="small-note">El enlace fue reemplazado o revocado. Crea uno nuevo para compartirlo.</p>}
   {hint&&<p role="status" className="small-note">{hint}</p>}
  </div>;
 }
@@ -953,7 +973,7 @@ export default function HomePage(){
  const updateStock=(modelId,operation,units,version,requestId)=>
   mutation(()=>adjustStock({modelId,operation,units,version,requestId:requestId||uuid()}),'Stock actualizado.');
  const order=(customerId,lines,requestId)=>mutation(()=>createOrder(customerId,lines,requestId||uuid()),'Pedido confirmado con precios congelados.');
- const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Reserva convertida en pedido sin doble descuento de stock.');
+ const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Registro anterior convertido en pedido, sin descontar inventario dos veces.');
  const report=(v)=>mutation(()=>reportPayment(v),'Aviso de pago guardado; pendiente de aprobación.');
  const approve=(id,action,note)=>mutation(()=>reviewPayment({reportId:id,action,requestId:uuid(),note}),
   action==='approve'?'Pago aprobado después de verificar su recepción.':'Revisión registrada sin mover dinero.');
