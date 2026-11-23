@@ -2,9 +2,9 @@ name: EVALIA · Aplicación operativa
 
 on:
   push:
-    branches: [feature/evalia-panel-operativo]
+    branches: [feature/evalia-panel-operativo, feature/evalia-captura-docenas-colores]
   pull_request:
-    branches: [feature/skills-formularios-evalia]
+    branches: [feature/skills-formularios-evalia, feature/evalia-panel-operativo]
   workflow_dispatch:
 
 permissions:
