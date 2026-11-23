@@ -36,3 +36,12 @@ Consultar [registro literal de 16 selecciones, ejemplos y conflictos](09_G03_G04
 
 ## Vista administrativa para evitar revisiones manuales
 Un tablero muestra, con filtros por modelo, talla y color: **físico, reservado en reservas activas, comprometido en pedidos sin entregar, disponible** y **número de reservas activas**. Se puede abrir el detalle de un modelo/talla hasta sus variantes y reservas/pedidos asociados; ningún subtotal sustituye verificar la variante solicitada. Ver [panel](10_PANEL_STOCK_ADMIN.md).
+
+## Flujo de captura seleccionado R01–R12 y WhatsApp
+1. Publicación manual de modelos/precios/colores en grupo WhatsApp (práctica actual), recepción privada de captura, cantidades y elección de colores o surtido para pedidos menores de una docena.
+2. El administrador selecciona cliente existente buscando por teléfono o lo registra con nombre+WhatsApp; no crea cuenta Auth ni fusiona automáticamente duplicados.
+3. **Preparación de catálogo:** colores globales registrados antes del modelo → selección de colores del modelo → variantes por modelo+talla+color → alta inicial **manual** de stock por variante.
+4. Carrito visual con cantidades por variante y resumen por modelo, con mínimo mayorista vigente de 6 unidades por modelo. Borrador sin bloqueo.
+5. Solo en **Guardar reserva** se valida stock real por variante y se bloquea transaccionalmente; exceso → rechazo con corrección; edición controlada con auditoría.
+6. Código y WhatsApp manual; vencimiento configurable sin duración inicial; solo administrador confirma el pedido, trasladando reserva a pedido sin segundo descuento. Primera fase no acepta solicitudes públicas autónomas.
+7. **Surtido no resuelto:** reservar stock específico exige elegir variantes color+talla; la selección hecha por EVALIA antes del guardado es recomendación, no regla vigente. Ver [selecciones](13_CUESTIONARIO_CAPTURA.md), [flujo](12_FLUJO_CAPTURA_RESERVAS_PROPUESTA.md) y [colores](14_CATALOGO_COLORES_Y_VARIANTES.md).

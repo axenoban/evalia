@@ -44,3 +44,15 @@ No habilitar implementaciones/migraciones definitivas de G03/G04 sin cerrar [pre
 - Una reserva con varias líneas debe mostrar **unidades reservadas** y **conteo de reservas distintas** sin contarlas varias veces.
 - Cancelación de pedido con despacho parcial: pendiente G03-B; no habilitar reversión automática de unidades ya entregadas sin política aprobada.
 - No inferir que el total por modelo + talla satisface la combinación comercial de presentaciones: siguen pendientes G04-A/B/C.
+
+## QA adicional por R01–R12 / colores (casos candidatos)
+- Solo admin puede abrir/guardar reservas y confirmar; datos de clientes protegidos. Nombre y WhatsApp, búsqueda por teléfono sin fusionar coincidencias.
+- Alta: primero color maestro, luego modelo vinculado a uno o varios colores; mostrar únicamente colores asociados y variantes existentes; stock inicial **ingresado manualmente** por variante (sin importación en E1).
+- El modelo A y B pueden tener colores diferentes. Color permitido pero agotado no se muestra como disponible; un subtotal por talla no permite vender un color con cero saldo.
+- Borrador sin bloqueo, Guardar reserva transaccional y rechazo corregible por exceso, sin parcialidad oculta. Edición revalida y audita.
+- Cliente puede indicar colores o surtido en solicitud de menos de docena. **Hasta aprobar CR-01**, no bloquear stock sin asignación precisa por variante; mostrar propuesta de selección admin antes de guardar, no elegir colores arbitrariamente.
+- Mínimo mayorista de **6 unidades por modelo**; no suponer que la opción «surtido» evita este mínimo.
+- Solo admin confirma; reserva→pedido no duplica compromiso, mensaje WhatsApp manual con código. Duración del vencimiento no definida; no programar plazos asumidos.
+- Sin acceso a solicitudes públicas/clientes de autoservicio en E1.
+
+Bloqueantes: [casos CR-01–CR-07](13_CUESTIONARIO_CAPTURA.md), presentaciones G04, cancelaciones parciales G03-B, caducidad G01.

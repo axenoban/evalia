@@ -44,3 +44,6 @@ Al hacer una operación, el frontend puede mostrar disponibilidad instantánea y
 
 ## No aprobado aún
 Diseño visual exacto, alertas de umbral, reglas de ajustes, permisos de personal, estados definitivos de pedidos, reglas de G04, comportamiento de cancelaciones tras entrega parcial ni sincronización sin Internet. El sistema no está publicado.
+
+## Panel y catálogo reutilizable tras selección R01–R12
+Mostrar modelo/talla con expansión por color, **solo colores asignados a cada modelo**, diferenciando oferta del color frente a inventario físico y disponible. Para alta: pantalla previa **Colores** (maestro global) → **Modelos** (colores vinculados) → **Variantes e inventario** (stock inicial manual por color+talla). Desde el dashboard se puede abrir el catálogo visual/carrito para reserva admin, que bloquea solo tras **Guardar reserva**. Si cliente pide «surtido», la asignación exacta por color/talla sigue en decisión CR-01; nunca indicar stock suficiente por subtotal de modelo si uno de los colores está agotado.

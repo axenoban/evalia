@@ -44,3 +44,12 @@ Cerrar G03 y G04 primero, luego G01/G02/G05, después G06–G08; por último G09
 2. **G04-04 + observación:** presentación homogénea por talla, pero mínimo mayorista cumplido sumando 3 M + 3 XL por modelo; decidir si las tallas se agrupan entre distintas líneas/presentaciones o si se pretende mezclarlas dentro de una presentación (C-G04-A/B).
 
 **Preguntas que bloquean SQL comercial:** C-G03-B, C-G04-A, C-G04-B, C-G04-C. **C-G03-A ya aclarado** mediante explicación directa del propietario. En segundo nivel: vigencia/prórrogas G01, tarifas/condiciones G04, permisos G07, política de privacidad G08. [Documento G03/G04](09_G03_G04_SELECCIONES.md). No declarar G03/G04 cerrados por el mero envío del cuestionario.
+
+## Revisión R01–R12 y nuevo caso «surtido» (2026-11-22)
+**Las 12 elecciones son compatibles** con D01–D18 y los compromisos G03 ya aclarados. R04 corrige la recomendación documental anterior: **registro manual por variante, no importador** en la fase inicial. R12 confirma que no habrá solicitudes públicas en E1. R09 conserva **sin definir** el vencimiento inicial. R10 confirma la acción explícita solo admin.
+
+**Nuevo riesgo CR-01 — surtido:** comprador pide surtido para menos de una docena, EVALIA elige colores; si la reserva bloquea stock por variante, debe determinarse **qué colores/tallas** se asignaron. Recomendación sin aprobación: el administrador compone el surtido desde stock disponible **antes de Guardar reserva**; alternativa: solicitud sin bloqueo hasta la asignación. No reservar un saldo abstracto a nivel modelo.
+
+**CR-02/03:** G04-04 «una talla por presentación» sigue pudiendo convivir con varios renglones M/XL por modelo, pero el propietario no lo resolvió; G04-01 presentaciones aún abiertas. Para cantidades inferiores a docena se describe elección de color o surtido; **política para >=12 unidades no especificada**, ni se concede derecho a surtido automático.
+
+**CR-04:** el grupo WhatsApp publica precios, pero ello no define una integración de precios ni la fórmula de 7 unidades; modelo/color/talla diferentes pueden tener tarifa diferente. **CR-05:** duración inicial de reserva aún abierta. **CR-06:** colores del modelo pueden cambiar, preservar referencias históricas. **CR-07:** contacto/privacidad y posibles duplicados. Consultar [registro](13_CUESTIONARIO_CAPTURA.md) y [colores](14_CATALOGO_COLORES_Y_VARIANTES.md).

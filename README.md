@@ -34,3 +34,9 @@ La **aclaración C-G03-A quedó resuelta a nivel conceptual**, pero no se aprob�
 ## Próxima definición: captura de reservas y registros
 - [Propuesta operativa de captura de reservas](docs/12_FLUJO_CAPTURA_RESERVAS_PROPUESTA.md) — recomendación, no aprobada.
 - [Cuestionario R01–R12 de registros y canal](docs/13_CUESTIONARIO_CAPTURA.md) — pendiente de respuestas.
+
+## R01–R12 — Captura de reservas definida por selección
+- [Respuestas registradas R01–R12 y flujo actual WhatsApp](docs/13_CUESTIONARIO_CAPTURA.md)
+- [Flujo operativo revisado](docs/12_FLUJO_CAPTURA_RESERVAS_PROPUESTA.md)
+- [Catálogo maestro de colores y asignación por modelo](docs/14_CATALOGO_COLORES_Y_VARIANTES.md)
+**R04: solo stock inicial manual por variante** (no importar Excel/CSV en la primera fase). Registro de colores **antes de crear modelos**, con colores específicos asignados a cada modelo. El caso «surtido» sigue necesitando definición de asignación concreta antes de bloquear stock; presentaciones G04 siguen abiertas.

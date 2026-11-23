@@ -1,44 +1,82 @@
-# EVALIA — Cuestionario interactivo R01–R12: registros, reserva y aplicación
+# EVALIA — R01–R12: decisiones de registro y captura de reservas
 
-**Estado: PENDIENTE DE RESPUESTAS, NO APROBADO.** Cada opción «recomendada» sigue siendo recomendación y no decisión. El usuario responderá mediante cuestionario de selección en ChatGPT; actualizar el registro solo tras recepción.
+**Fecha de recepción:** 2026-11-22. **Estado:** 12 selecciones registradas, pendientes de ratificación formal; PR #1 permanece en borrador. Ninguna es implementación ni política que autorice fusionar la rama.
 
-## Etapa A · Registros
-| ID | Pregunta | Recomendación inicial |
+## Respuestas literales del propietario
+
+| ID | Respuesta recibida | Estado |
 | --- | --- | --- |
-| R01 | ¿Quién registra las reservas en la primera fase? | Solo administrador, personal se habilita después |
-| R02 | ¿Qué contacto es indispensable para reservar? | Nombre y número de WhatsApp; otros datos al concretar entrega |
-| R03 | ¿Cómo identificar clientes existentes? | Buscar por teléfono; sugerir, no fusionar automáticamente |
-| R04 | ¿Cómo cargar existencias iniciales? | Por modelo/color/talla, con formulario e importación validada opcional |
+| R01 | Solo administrador inicialmente | Seleccionada, no ratificada |
+| R02 | Nombre y número de WhatsApp | Seleccionada, no ratificada |
+| R03 | Buscar por teléfono y sugerir coincidencias sin unir registros automáticamente | Seleccionada, no ratificada |
+| R04 | Solo registro manual por variante | Seleccionada, no ratificada |
+| R05 | Catálogo visual con buscador y carrito por modelo talla y color | Seleccionada, no ratificada |
+| R06 | Solo al guardar formalmente la reserva; borrador sin bloqueo | Seleccionada, no ratificada |
+| R07 | Rechazar el exceso y permitir modificar cantidades | Seleccionada, no ratificada |
+| R08 | Si con validación de stock y registro de cambios | Seleccionada, no ratificada |
+| R09 | Plazo configurable; duración inicial pendiente de definir | Seleccionada, no ratificada |
+| R10 | Botón Confirmar pedido ejecutado por administrador | Seleccionada, no ratificada |
+| R11 | Codigo de reserva y mensaje preparado para WhatsApp enviado manualmente | Seleccionada, no ratificada |
+| R12 | Primera fase solo administrador; solicitudes publicas en fase posterior | Seleccionada, no ratificada |
 
-## Etapa B · Captura y stock
-| ID | Pregunta | Recomendación inicial |
-| --- | --- | --- |
-| R05 | ¿Desde qué interfaz armar reservas? | Catálogo visual con búsqueda y carrito multilínea |
-| R06 | ¿Cuándo bloquear stock? | Borrador sin bloqueo; al confirmar Guardar reserva |
-| R07 | ¿Qué pasa si una variante no alcanza? | Rechazar asignación, mostrar saldo real y permitir corregir |
-| R08 | ¿Cómo editar una reserva vigente? | Edición controlada con recálculo transaccional y auditoría |
+## Observación del propietario, conservada literalmente
 
-## Etapa C · Seguimiento y canales
-| ID | Pregunta | Recomendación inicial |
-| --- | --- | --- |
-| R09 | ¿Cómo se decide el vencimiento? | Plazo configurable; duración inicial **sin fijar** hasta G01 |
-| R10 | ¿Cómo confirmar reserva como pedido? | Acción explícita del administrador, sin esperar pago automático |
-| R11 | ¿Cómo comunicar la reserva? | Copiar mensaje de WhatsApp con código/estado, envío manual |
-| R12 | ¿Qué función tiene la web para clientes al inicio? | Solo administración; catálogo/solicitudes públicas, fase posterior |
+> actulmente se suben los modelos con los precios, colores al grupo de whattsapp de  clientes, y los clientes nos hablan al privado con la captura del modelo definiendo sus cantidades, y si quieren menos de una docena normalmente escogen colores o piden surtudo para q ue nosotros escojamos los colores o los que queden disponible, por ello al realizar la reserva, se debe escoger el modelo ,  y si es menor a una docena se deba seleccionar los colores, estos colores quier oque se registren antes incluso  de los modelos, y al registrar el modelo asignar los colores que tendra el modelo ,ya que siempre puede variar aunq sea por un color, de esta manera tendemos los colores diponibles y seleccionables por modelo
 
-## Cruces con requisitos
-- D02/D03/D08 + R06/R07: bloqueo real al guardar, nunca solo por ver carrito.
-- D13/D18 + R02/R03: contacto interno sin login, datos mínimos y protección por permisos.
-- G03-01/G03-02 + R10: confirmar conserva compromiso, no descuenta dos veces.
-- D04 + R09: vencimiento automático configurable; **no elegir 24/48 h sin respuesta**.
-- D15 + R11: WhatsApp manual, no API.
-- G04: presentar cantidades por variante y subtotal por modelo; **no asumir todavía** presentación ni precio mayorista de 7 prendas.
+## Traducción a requisitos de producto (sin añadir normas comerciales)
 
-## Decisiones adicionales no cubiertas
-- Datos de contacto válidos, compartición de teléfonos, privacidad/consentimiento.
-- Quién puede liberar y cancelar luego de una entrega parcial (G03-B).
-- Diferencia comercial entre solicitud, reserva y pedido, política de anticipo si existe.
-- Tarifas, mezclas de tallas y presentaciones (G04).
-- Inicio efectivo de canal público, permisos del personal y forma de actualización de stock.
+**Registro y cuentas.** En la primera fase solo el administrador crea reservas (R01). Cliente sin cuenta, con nombre y WhatsApp (R02); buscar por teléfono y presentar posibles coincidencias sin fusionar automáticamente clientes (R03). El uso/retención de datos personales sigue sujeto a G08.
 
-**No convertir automáticamente estas recomendaciones en normas ni fusionar PR #1.**
+**Carga de existencias.** R04 reemplaza expresamente la sugerencia anterior de importar Excel/CSV: **solo carga manual del stock inicial por variante modelo + talla + color**; no incluir importación como requisito de E1. Antes de crear modelos se registran los colores en un catálogo reutilizable; al crear/editar un modelo se le asigna su conjunto de colores, que puede cambiar entre modelos. Ver [maestro de colores](14_CATALOGO_COLORES_Y_VARIANTES.md).
+
+**Captura.** Catálogo visual + buscador + carrito con modelo, talla y color (R05). Borrador sin bloqueo; solo **Guardar reserva** bloquea unidades (R06). Si falta stock, impedir asignación excesiva, explicar cantidades reales y permitir corregir (R07). Modificar una reserva requiere validación de stock y auditoría (R08).
+
+**Confirmación.** Vencimiento configurable, duración inicial **no definida** (R09/G01). Solo el administrador usa la acción **Confirmar pedido** (R10). Código de reserva con mensaje WhatsApp preparado y envío manual (R11); no asumir WhatsApp API ni importación automática de capturas. Primera fase solo web administrativa; solicitudes públicas después (R12).
+
+**Reserva mayorista preexistente.** Seguir aplicando **mínimo seis unidades por modelo** (G03/G04), separado de presentación comercial pendiente G04-01. Este cuestionario no cambia el umbral ni fija tarifas.
+
+## Flujo de WhatsApp efectivamente descrito
+
+1. EVALIA **publica modelos, precios y colores en un grupo de WhatsApp**.
+2. El cliente escribe **por privado con captura del modelo y cantidades**.
+3. En el administrador se busca ese modelo y se prepara la reserva, con el cliente asociado.
+4. Para **menos de una docena** (sin alterar el mínimo de 6 por modelo vigente para reservas mayoristas), el cliente normalmente **elige colores** o solicita **«surtido»**, dejando que EVALIA elija los colores disponibles.
+5. **Antes de crear un modelo**, sus colores deben poder existir en el catálogo global; a cada modelo se le asignan sus colores específicos. No todas las variantes tendrán el mismo color.
+6. El sistema solo debe ofrecer las combinaciones pertenecientes al modelo. La cantidad disponible se verifica por **modelo + talla + color**, no por el total agregado del modelo.
+
+No se ordenó guardar capturas en la BD, extraer datos con OCR, leer automáticamente grupos de WhatsApp ni definir colores por defecto.
+
+## Distinción «colores seleccionados» vs «surtido» — PENDIENTE DE DECISIÓN
+
+**Confirmado:** el cliente puede elegir colores o pedir surtido por debajo de una docena; en surtido EVALIA decide los colores disponibles.
+
+**Restricción técnica:** no es seguro bloquear un genérico «6 prendas del modelo A» si el sistema maneja saldos por talla y color. La reserva finalmente comprometida debe registrar las variantes concretas para no prometer dos veces un mismo color.
+
+**Recomendación a validar:** cuando el cliente solicita surtido, el administrador selecciona los colores que efectivamente se apartarán **antes de Guardar reserva** y el sistema valida stock de cada variante; el carrito puede mostrar la etiqueta comercial «Surtido (selección EVALIA)» sin reemplazar las líneas concretas. Alternativa que requiere decisión: conservar la solicitud como **borrador sin bloqueo** hasta que EVALIA asigne colores. **No implementar asignación automática ni selección arbitraria de variantes sin aprobación.**
+
+## Tensiones y parámetros abiertos
+
+- **CR-01 (surtido):** momento de selección de colores por EVALIA y posibilidad de sustitución si luego falta color.
+- **CR-02 (presentaciones y tallas):** G04-01 sigue indefinido y G04-04 «una talla por presentación» convive con sumatoria M/XL por modelo; el carrito por talla no resuelve por sí mismo esa discrepancia.
+- **CR-03 (menos de docena):** confirmar si selección de colores es obligatoria exactamente para 6–11, y el comportamiento para 12 o más; no asumir surtido automático ni colores para docenas sin instrucción.
+- **CR-04 (precios):** mantener sin resolver el cálculo de siete unidades, diferencia por modelos/tallas, redondeo y tarifas. Los precios publicados en el grupo no autorizan actualizarlos automáticamente en BD.
+- **CR-05 (vencimiento):** G01/R09 no contienen plazo inicial ni reglas de prórroga.
+- **CR-06 (cambios del catálogo):** decidir tratamiento del color ya asignado a un modelo y usado en reservas/pedidos cuando deje de producirse; técnicamente preservar historia y referencias.
+- **CR-07 (privacidad y correcciones):** normalización de teléfonos, coincidencias, historial y actores (G07/G08).
+
+## Invariantes propuestos para QA
+
+- Registro manual de stock inicial por variante; no importación automática.
+- Catálogo global de colores reutilizable; cada modelo ofrece solo sus colores asignados.
+- Dos modelos pueden tener conjuntos distintos de colores.
+- Si un color deja de ofrecerse no se deben borrar los registros históricos que lo referencian.
+- Cliente ya existente puede seleccionarse desde su número sin fusionar registros en silencio.
+- Borrador no bloquea disponibilidad.
+- Guardar una reserva con variante agotada falla sin asignación parcial accidental.
+- Reserva de surtido que bloquea stock no debe carecer de asignación exacta por variante **si se valida la recomendación de resolución previa**.
+- Conversión reserva → pedido no hace doble descuento; solo admin confirma.
+- La reserva no se publica automáticamente a clientes sin autenticación en E1.
+
+Ver [flujo operacional](12_FLUJO_CAPTURA_RESERVAS_PROPUESTA.md), [modelo conceptual](06_MODELO_CONCEPTUAL_DATOS.md), [colores](14_CATALOGO_COLORES_Y_VARIANTES.md) y [consistencia](07_REVISION_CONSISTENCIA.md).
+
+**No ejecutar migraciones comerciales, fusionar el PR ni marcar estas respuestas como aprobadas sin ratificación.**

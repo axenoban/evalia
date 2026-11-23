@@ -1,52 +1,60 @@
-# EVALIA — Propuesta de registro y captura de reservas v0.1
+# EVALIA — Flujo de registro y captura de reservas v0.2
 
-**Estado: PROPUESTA DEL ARQUITECTO, NO APROBADA.** 2026-11-22. Nace del requerimiento del propietario de definir cómo se registran clientes, stock y reservas, y qué flujo operativo simplifica la feria/WhatsApp. **No crea políticas comerciales ni software**.
+**Estado:** respuestas R01–R12 registradas por el propietario; el flujo siguiente separa **requisitos expresos**, **recomendaciones** y **reglas todavía abiertas**. Ninguna implementación ni esquema SQL fue autorizado. Fecha 2026-11-22.
 
-## Contexto confirmado
-- Primera perspectiva: administrador. Clientes registrados internamente sin cuenta (D01/D13).
-- Reserva de existencias: **solo mayorista, mínimo seis unidades por modelo**, contando variantes de ese modelo conforme a restricciones todavía abiertas sobre presentaciones y tallas.
-- Existencias limitadas: una reserva activa bloquea disponible; un pedido confirmado mantiene compromiso; entregas parciales ajustan cantidades físicamente presentes y saldo pendiente (docs/11_CONTRATO_INVENTARIO.md).
-- Venta en feria, coordinación por WhatsApp y canal web futuro (D05). Pagos externos registrados manualmente y WhatsApp con mensaje preparado, no envío automático.
-- Precios por cliente/presentación y excepciones, pero G04-01 y cálculo de combinaciones todavía abiertos.
+## 1. Flujo operativo confirmado hoy
 
-## Flujo sugerido para E1 (a validar)
-1. **Nueva reserva / Nuevo pedido** desde el mismo panel, seleccionando operación (no implicar que toda venta requiera reserva).
-2. **Cliente:** buscar contacto existente por teléfono o registrar nombre + WhatsApp, con información de entrega cuando sea requerida; no fusionar automáticamente registros coincidentes.
-3. **Selección visual:** catálogo con buscador por modelo/código, selector por talla y color, cantidad por variante y carrito multilínea. Agrupar cantidades por modelo para validar mínimo mayorista sin impedir desglose y precio por variante.
-4. **Borrador local o persistente a elección:** preparación sin descontar disponibilidad hasta que usuario autorizado confirme **Guardar reserva**. Al guardar validar condiciones y stock en transacción atómica; devolver fallo claro si una variante se agotó mientras se preparaba el carrito.
-5. **Reserva creada:** generar identificador único, fecha, cliente, líneas, canal de origen, actor, cantidad y eventual vencimiento configurable. Mostrar unidades reservadas y saldo libre instantáneamente. **No asumir valor temporal de vencimiento**; consultar G01.
-6. **Seguimiento:** detalle y listado filtrable de reservas, sus artículos y vencimiento; acción de copiar/enviar manualmente un mensaje predefinido de WhatsApp con datos autorizados, sin credenciales ni automatización de API.
-7. **Confirmación comercial:** operación explícita **Confirmar pedido**, con snapshot de precios y transferencia de asignación de reserva a pedido, **sin descontar disponibilidad dos veces**. Pedido directo asigna al confirmar. La confirmación y autorización exactas son materia del cuestionario R10.
-8. **Entrega parcial / cierre:** por cada variante, registrar lo efectivamente entregado y mantener pendiente lo restante. Reglas sobre cancelaciones tras entregas parciales siguen abiertas (G03-B).
+**EVALIA publica modelos con precios y colores en grupo de WhatsApp → cliente envía mensaje privado con captura del modelo y cantidades → EVALIA selecciona modelo, cantidades y colores o «surtido» → administrador registra la reserva.**
 
-## Registros conceptuales necesarios (NO estructura SQL definitiva)
-- **Clientes/Contactos:** ID estable y datos mínimos a decidir, segmento, historial de pedidos/reservas. Cliente no equivale a usuario Auth.
-- **Catálogo:** modelos, imágenes y variantes por color+talla, SKU si se decide. Inventario inicial por variante; separar físico, R y P.
-- **Reservas:** ID, cliente, líneas con variante+cantidad, origen, fecha, vencimiento, responsable, referencia a pedido si se convierte, historial.
-- **Pedidos:** ID, líneas, fuente directa o reserva, cantidades asignadas y pendientes, snapshot de precios y movimientos/eventos.
-- **Movimientos de stock:** entradas/salidas/correcciones físicas auditadas, no sumar ventas dos veces.
-- **Actividad/Comunicaciones:** eventos de cambio, envío manual de WhatsApp si se registra, sin automatizar mensajería.
+No confundir esta secuencia manual con autorización para automatizar WhatsApp, importar capturas, copiar precios a mano de una imagen mediante OCR o hacer pública la reserva.
 
-## Por qué esta forma es preferible
-- El usuario opera con un **carrito** (más rápido que escribir y sumar cada reserva).
-- No se bloquea stock mientras simplemente consulta o compone el borrador.
-- La asignación real es **atómica y persistente**, para evitar sobreventa con dos operadores.
-- El administrador ve por modelo/talla y desglose color: físico, reservado, pendiente de entrega y disponible.
-- Sirve con Next.js + Supabase y deja abierta la futura solicitud pública sin otorgar al cliente acceso directo al inventario.
+## 2. Preparación del catálogo — requisitos expresos
 
-## Opciones abiertas
-R01–R12 en [cuestionario de captura](13_CUESTIONARIO_CAPTURA.md), además de G01, G03-B, G04-01/A/B/C, G05 y G07/G08. Nada de esto aprueba cuentas de clientes o pagos online.
+1. Registrar **primero los colores en catálogo común** (no preregistro en cada modelo). La lista es reutilizable entre modelos.
+2. Registrar el **modelo** con fotografía/datos y asignarle **solo los colores que tendrá ese modelo**. Un modelo puede ofrecer combinaciones de colores distintas de otro, incluso por un único color.
+3. Gestionar tallas conforme a D07 y asociar existencias a variantes **modelo + talla + color**.
+4. Cargar el inventario inicial **solo mediante ingreso manual por variante** (R04). La elección excluye una función de importación Excel/CSV de la primera fase.
+5. Mostrar en catálogo solo colores asociados a cada modelo, distinguiendo color ofrecido de unidades realmente disponibles. Si cambia la paleta, no borrar datos que tengan historia comercial.
 
-## Seguridad
-Las operaciones mutables se validan en servidor y PostgreSQL, con RLS/privilegios mínimos. La función transaccional evita R+P > F e impide crear dos reservas sobre la última unidad. No guardar datos sensibles en repositorio público.
+**Propuesta de implementación, no regla comercial:** catálogo `Color` reutilizable, relación `Modelo–Color`, variantes comercializables `Modelo–Color–Talla`, y movimientos de inventario asociados a cada variante. Ver [detalle](14_CATALOGO_COLORES_Y_VARIANTES.md).
 
-## Pruebas candidatas
-- Borrador NO bloquea; guardar reserva bloquea si hay stock.
-- Dos operadores con carrito equivalente: solo uno puede guardar si no hay unidades para ambos.
-- Una reserva multilínea con varios colores cuenta una sola reserva, pero suma unidades correctamente por variante.
-- Agrupar ≥6 por modelo para mayorista, sin declarar que distintas tallas formen una sola presentación.
-- Convertir reserva → pedido no cambia disponible, pero traslada R→P.
-- Pedido confirmado se conserva físicamente hasta entrega, con saldo parcial.
-- Dato del cliente no aparece para un usuario sin permiso.
+## 3. Alta de reserva — requisitos seleccionados
 
-**Todo este documento es propuesta, no regla aprobada ni especificación SQL.**
+1. **Solo administrador** abre «Nueva reserva» (R01) desde el catálogo visual con buscador y carrito (R05).
+2. Buscar cliente por **WhatsApp** (R03), ofrecer coincidencias sin unir registros silenciosamente, o registrar **nombre + número WhatsApp** (R02).
+3. Seleccionar modelo enviado por captura en WhatsApp y sus variantes/quantidades disponibles; el sistema muestra totales **por modelo** y desglose de talla/color.
+4. Para pedido **menor de una docena**, el cliente puede seleccionar colores o pedir **surtido**, según la práctica comercial expresamente descrita. La reserva mayorista sigue requiriendo **mínimo 6 unidades por modelo**; política exacta de composición sin cerrar G04.
+5. Preparar un **borrador sin bloquear unidades** (R06). Un surtido sin colores determinados **no puede convertirse sin más en reserva sobre una variante**: ver [decisiones pendientes](13_CUESTIONARIO_CAPTURA.md).
+6. Pulsar **Guardar reserva**: validar stock de cada variante y condición mayorista; si hay exceso, **rechazarlo y permitir corregir cantidades** (R07). La asignación debe ser única, atómica y con registro; no vender dos veces.
+7. Al guardarse, generar **código** y permitir crear mensaje de WhatsApp para envío **manual** (R11), con datos autorizados. Evitar implementar envío automático.
+8. La reserva tiene vencimiento **configurable**, pero **sin duración inicial decidida** (R09/G01); no fijar 24/48 horas por defecto.
+9. Se puede **editar reserva** con revalidación de stock y conservación de historial (R08).
+10. Solo administrador acciona **Confirmar pedido** (R10). Convertir reserva transfiere unidades reservadas a pedido pendiente sin descontar otra vez. Un pedido directo asigna una vez al confirmar (G03).
+11. Solo interfaz de **administración** en la primera fase; un catálogo/solicitudes de cliente sin cuenta queda para fase posterior (R12).
+
+## 4. Decisión de surtido abierta — recomendación profesional
+
+**Opción preferida a validar:** marcar intención «Surtido · selección EVALIA» en carrito, mostrar solo colores de ese modelo con stock disponible y permitir que administrador reparta las unidades entre variantes **antes del guardado que bloquea stock**. Mostrar esa composición en el detalle de reserva y al preparar pedido, sin fingir que el cliente eligió cada color.
+
+**Alternativa sin bloqueo:** guardar solo una **solicitud/borrador** de surtido sin colores precisos, y cuando administrador los decida convertirla en reserva transaccional. La solicitud no promete disponibilidad.
+
+**No decidir arbitrariamente:** si la asignación se completa inmediatamente, si puede modificarse posteriormente por sustitución de color, ni el caso de docenas enteras o más. No reservar «surtido genérico» como reducción de un saldo agregado del modelo sin validar colores+tallas.
+
+## 5. Registros resultantes (candidatos, NO SQL definitivo)
+
+- Cliente/contacto sin Auth: nombre y WhatsApp, ID estable, posible segmento e historial.
+- Catálogo de colores global; modelos; asignación de colores permitidos por modelo; tallas y variantes.
+- Entradas manuales de stock por variante, con actor y motivo a decidir en G05/G07.
+- Reserva con código único, cliente, origen, líneas de variante+cantidad, vencimiento configurable, estado/historial.
+- Pedido enlazado a reserva o creado directamente, con compromisos por variante, precios históricos y entregas parciales.
+- Mensajes WhatsApp preparados para envío manual. No copiar capturas ni datos reales al repositorio.
+
+## 6. Seguridad y tests (propuesta)
+
+RLS/validación servidor sobre datos de cliente y movimiento; operaciones de bloqueo bajo transacción PostgreSQL. Rechazo sin prometer «surtido» en variantes agotadas; edición sin stock negativo; dos administradores concurrentes no reservan la misma última unidad.
+
+## 7. Pendiente antes de construir las reglas
+
+[Cuestionario y tensiones R01–R12](13_CUESTIONARIO_CAPTURA.md), G01, G03-B, G04-01/04-04 y precio por variante/presentación, G05/G07/G08. La composición por talla y precio sigue sin cerrarse.
+
+**No ejecutar código, migraciones o merge en esta fase.**
