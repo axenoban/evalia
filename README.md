@@ -1,10 +1,10 @@
-# EVALIA — Catálogo, reservas y pedidos
+# EVALIA — Catálogo y pedidos confirmados
 
-> **Candidata V1 funcional pública (23-11-2026):** panel administrativo protegido por Supabase Auth, enlace privado de pedido sin cuenta de Vercel, QR y comprobantes privados, pagos verificados, retiros y cierre; además, correcciones auditadas de precio/foto y contacto. **11 migraciones SQL instaladas** en Supabase remoto, 25/25 tablas con RLS. Rama `feature/evalia-release-candidate` ([PR #8 draft](https://github.com/axenoban/evalia/pull/8)); `dev/evalia-core` conserva el baseline previamente aprobado y `main` permanece sin fusionar. [Guía de pruebas](docs/44_CANDIDATA_FUNCIONAL_PUBLICA_V1.md). **No ejecutar pagos ni entregas ficticias en la base comercial.** Esta versión requiere validación manual antes de declararla publicable.
+> **Decisión D6 — solo pedidos (23-11-2026).** EVALIA ya no admite nuevas reservas ni nuevos apartados: el cliente debe **confirmar la compra** para registrar prendas y comprometer inventario. La rama `feature/evalia-solo-pedidos` incorpora el cambio en UI, API y migración SQL 012; Supabase remoto tiene 12 migraciones instaladas. La candidata está disponible en [Vercel Preview](https://evalia-git-feature-evalia-solo-pedidos-galaxian131-9858.vercel.app) para comprobar antes de integrar al baseline `dev/evalia-core`. [Decisión y transición segura](docs/46_DECISION_SOLO_PEDIDOS.md). Los registros de reservas antiguos permanecen para auditoría y vencimiento; no se borran ni se convierten automáticamente. `main` continúa sin modificación.
 
-**Estado:** descubrimiento y documentación v0.2, 22-11-2026. Las selecciones D01–D18 están **registradas, pendientes de ratificación y revisión del PR #1**. No existe aún sistema funcional, base de datos creada ni hosting productivo.
+**Archivo histórico (22-11-2026, superado por D6):** descubrimiento y documentación v0.2.  Las selecciones D01–D18 están **registradas, pendientes de ratificación y revisión del PR #1**. No existe aún sistema funcional, base de datos creada ni hosting productivo.
 
-El primer módulo es **administración** de catálogo, reservas de stock disponible y pedidos; se preparará una arquitectura ampliable a personal y clientes sin implementar prematuramente sus accesos.
+El primer diseño histórico planteaba **administración** de catálogo, reservas de stock y pedidos; actualmente rige D6, solo pedidos confirmados. En aquella fase se preparará una arquitectura ampliable a personal y clientes sin implementar prematuramente sus accesos.
 
 **Herramientas indicadas:** VS Code + Codex; Next.js y Supabase. Cambiar Codex por Claude Code en VS Code no modifica el producto. La arquitectura definitiva y su hospedaje se evalúan después del modelo de datos (D16).
 
