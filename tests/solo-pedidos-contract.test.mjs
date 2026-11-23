@@ -52,8 +52,8 @@ test('Pedidos y pagos mantienen navegación y pagos aprobados',()=>{
 test('Las pantallas comerciales no vuelven a ofrecer reservas como opción',()=>{
  assert.doesNotMatch(page,/reservas y pedidos futuros/i);
  assert.doesNotMatch(page,/una reserva o pedido/i);
- assert.doesNotMatch(page,/\\d+ reservas ·/);
- assert.doesNotMatch(page,/function Reservations\\(/);
+ assert.doesNotMatch(page,/\d+ reservas ·/);
+ assert.doesNotMatch(page,/function Reservations\(/);
  assert.doesNotMatch(page,/name="operationType"/);
  assert.match(page,/buildOrderWhatsAppMessage/);
  assert.match(page,/Copiar mensaje para WhatsApp/);
