@@ -1,18 +1,10 @@
 import {randomUUID} from 'node:crypto';
 import {NextResponse} from 'next/server';
 import {orderFromCookie} from '../../../lib/server-private.js';
+import {inspectMime,validPaymentAmount,validRequestId} from '../../../lib/portal-media.js';
 
 export const runtime='nodejs';
 const maximum=2*1024*1024;
-function inspectMime(bytes){
- if(bytes.length>=3 && bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff)
-  return {mime:'image/jpeg',ext:'jpg'};
- if(bytes.length>=8 && bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))
-  return {mime:'image/png',ext:'png'};
- if(bytes.length>=12&&bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WEBP')
-  return {mime:'image/webp',ext:'webp'};
- return null;
-}
 function reply(body,status=200){return NextResponse.json(body,{
  status,headers:{'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'}
 });}
@@ -36,8 +28,7 @@ export async function POST(request){
   const amount=String(fields.get('amount')??'').trim();
   const requestId=String(fields.get('requestId')??'');
   const receipt=fields.get('receipt');
-  if(!/^\d+(?:\.\d{1,2})?$/.test(amount)||Number(amount)<=0||Number(amount)>999999999999.99||
-    !/^[a-f0-9-]{36}$/i.test(requestId)||!receipt||typeof receipt.arrayBuffer!=='function'||
+  if(!validPaymentAmount(amount)||!validRequestId(requestId)||!receipt||typeof receipt.arrayBuffer!=='function'||
     receipt.size<16||receipt.size>maximum)
    return reply({error:'Importe o archivo inválido. Envía JPG, PNG o WebP de hasta 2 MB.'},400);
   const bytes=Buffer.from(await receipt.arrayBuffer());

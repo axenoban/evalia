@@ -1,5 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
-import {createHash} from 'node:crypto';
+import {tokenDigest} from './portal-token.js';
 import {cookies} from 'next/headers';
 
 export const ORDER_COOKIE='evalia_order_access';
@@ -10,10 +10,6 @@ export function getServiceDb() {
   if (!url || !key) throw new Error('No se ha configurado el backend seguro de EVALIA.');
   // IMPORTANTE: esta función solo se importa desde archivos del servidor.
   return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
-}
-export function tokenDigest(raw) {
-  if(typeof raw!=='string'|| !/^[A-Za-z0-9_-]{43}$/.test(raw))return null;
-  return createHash('sha256').update(raw,'utf8').digest('hex');
 }
 export async function orderFromToken(token,db=getServiceDb()){
   const hash=tokenDigest(token);
