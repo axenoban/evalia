@@ -120,3 +120,6 @@ Nueva invariante: **estado COMPLETADO solo si saldo exigible=0 con pagos APROBAD
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 **Aclaración de fase E1:** G03-B y sus entidades/eventos especializados de cancelación/devolución son **conceptos para fase posterior**, no tablas a crear en V1. Cierre normal conserva saldo comprobado=0 y retiro real; registrar caso resuelto fuera del sistema no puede generar evento de pago/entrega ni liberar disponibilidad inventada. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## Contrato de datos para diseño D0
+El [baseline E1](28_BASELINE_V1_MODULOS_Y_READINESS.md) prioriza modelo+talla fija+color, stock apto S, E exacto, G surtido, F/L reservas, pedidos/entregas, abonos aprobados, enlace de un pedido y comprobantes privados. G03-B y reembolsos son futuro. **No se aprueban SQL, migraciones ni definiciones finales de permisos por este índice.**

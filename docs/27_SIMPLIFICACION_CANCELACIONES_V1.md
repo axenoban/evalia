@@ -41,3 +41,6 @@
 **Cerrado en alcance:** se excluyen cancelaciones/devoluciones del cliente, conciliaciones de esas incidencias y G03-B implementable en E1. **Abierto, no bloqueante:** la mecánica excepcional de cierre sin registro especializado, que requerirá ratificación si se solicita programarla. Mantener documentación histórica sin borrar la decisión conceptual G03-B para futuras versiones.
 
 **Siguiente paso lógico:** verificar qué funcionalidades del núcleo de stock/reservas/pedidos siguen siendo necesarias en E1 y preparar un checklist de readiness documental antes de autorizar SQL o desarrollo. No realizar merges.
+
+## Referencia de alcance consolidado
+[28](28_BASELINE_V1_MODULOS_Y_READINESS.md) refleja que cancelaciones/devoluciones y G03-B quedan **fuera de V1**, con contratos históricos preservados para futuro. Los tests de cancelación no son gate de E1. Las reglas G01 de caducidad y G03-C de cierre verdadero siguen vigentes; no falsificar pagos/entregas en incidencias externas.

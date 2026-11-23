@@ -106,3 +106,6 @@ Pago agregado/informado por el cliente = **PENDIENTE DE VERIFICACIÓN**. Solo **
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 **Última decisión E1:** NO implementar cancelaciones o devoluciones solicitadas por cliente, ni reembolsos/ajustes por incidencias en V1. El dueño resuelve situaciones raras fuera de EVALIA; G03-B conceptual se conserva como backlog futuro y sus QA NO bloquean V1. Cierre normal requiere pago realmente aprobado y retirada; el cierre excepcional con descuadre no autoriza pagos/entregas ficticios y no se programa sin controles específicos. [Alcance](docs/27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## Baseline consolidado de EVALIA V1 (2026-11-22)
+El índice vigente de **14 módulos**, decisiones prioritarias, exclusiones G03-B, dependencias B01–B09, secuencia D0–D5 y **20 QA documentales NO ejecutados** está en [docs/28_BASELINE_V1_MODULOS_Y_READINESS.md](docs/28_BASELINE_V1_MODULOS_Y_READINESS.md). La auditoría identifica que el repositorio **aún no contiene aplicación ni SQL**. Las notas iniciales de dudas superadas son históricas y no prevalecen sobre el contrato de cada dominio. PR #1 continúa DRAFT.

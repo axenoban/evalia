@@ -124,3 +124,6 @@ El propietario **descarta como flujo habitual** la entrega con deuda: cliente no
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 **Decisión posterior:** descartar implementación de devoluciones/cancelaciones por cliente, reembolsos, ajustes y G03-B para E1. Conservar precedente conceptual G03-B como futuro sin bloquear el lanzamiento; pruebas históricas etiquetadas fase futura. **Riesgo abierto:** el cierre externo excepcional expresado por el dueño podría entrar en conflicto con invariante COMPLETADO=pago aprobado+recogida. No implementar bypass/falsear stock o dinero sin contrato de regularización. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## AUDITORÍA POSTERIOR — los pendientes de G01–G09 iniciales son históricos
+[28 — baseline E1](28_BASELINE_V1_MODULOS_Y_READINESS.md) identifica decisiones **resueltas** (modelo talla fija, E/G, n≥6 con .50, F/L, revisión WhatsApp, abonos admin, cliente por enlace, cierre real) y separa **bloqueos técnicos** B01–B09. G03-B quedó DIFERIDO de V1 y sus QA NO bloquean lanzamiento. **No interpretar el listado de dudas del inicio de este documento como estado actualizado**; tampoco crear SQL antes de D0/autorización.

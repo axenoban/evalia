@@ -271,3 +271,6 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 **QA de alcance E1:** no botones/API de devoluciones/cancelaciones del cliente; no implementar G03-B ni su QA ejecutable como condición de V1. Conservar cierre normal solo con pago aprobado y recogida verificada; caso raro externo no crea pagos, entregas o restock ficticios. G01 vencimientos de reserva, G06 aprobación admin y D13 enlace siguen obligatorios. Cierre excepcional con diferencias queda para contrato posterior. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## QA priorizado de lanzamiento según baseline E1
+[28](28_BASELINE_V1_MODULOS_Y_READINESS.md) contiene **T01–T19** para la V1 (stock, concurrencia E/G, precio, F/L, depósitos, acceso cliente, pago aprobado, seguridad y cierre) y **T20 G03-B histórico, FUERA del gate V1**. Estos casos son únicamente documentales, **sin aplicación o tests ejecutados**. No convertir preguntas superadas en blockers.

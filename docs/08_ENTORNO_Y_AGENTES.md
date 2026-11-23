@@ -25,3 +25,6 @@ No comitear archivos .env reales; usar variables de entorno seguras y separar cl
 - https://supabase.com/docs/guides/database/postgres/row-level-security
 
 **D16 sigue abierto:** el hosting y los contratos técnicos finales se definen después del modelo de datos.
+
+## Propuesta de fases D0–D5 de baseline E1
+[28](28_BASELINE_V1_MODULOS_Y_READINESS.md) consolida fases propuestas: D0 arquitectura/modelo lógico y seguridad, D1 catálogo/stock, D2 reserva/precios, D3 pedido/cobros/entrega, D4 enlace cliente/QR, D5 hardening/publicación. **No autoriza implementar ni crear proyecto Supabase, ni fusionar PR #1.**

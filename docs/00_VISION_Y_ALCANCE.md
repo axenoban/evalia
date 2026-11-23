@@ -63,3 +63,6 @@ La primera versión ahora **sí incluye acceso restringido del cliente por enlac
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 La V1 excluye **cancelaciones/devoluciones por cliente y reembolsos/conciliaciones de estas incidencias**. El administrador resuelve casos raros externamente. La regla G03-B de cancelación parcial queda como futuro, no requisito E1. No alterar reservas G01 ni inventar cobros al cerrar. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## Matriz de V1 auditada
+El mapa de alcance, precedencia comercial, exclusiones expresas y bloqueos técnicos está en [baseline E1](28_BASELINE_V1_MODULOS_Y_READINESS.md). **Precio mayorista, E/G, F/L, pagos aprobados y enlace de cliente** están definidos comercialmente; minorista, envíos tarifados y embalaje físico G04-01 aún necesitan decisión si deben estar en la primera salida. No inventar reglas por consolidar.

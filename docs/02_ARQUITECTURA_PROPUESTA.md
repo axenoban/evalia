@@ -37,3 +37,6 @@ Modelo lógico, transiciones de stock (G03), plazos (G01), precios (G04), roles 
 
 ## Refinamiento de cardinalidad por modelo (decisión posterior)
 La talla es **atributo único del modelo**; no modelar tallas como un catálogo seleccionable simultáneamente dentro de un modelo. Variante vendible por **modelo+color**, con talla **derivada del modelo** para filtros, pedidos e inventario. Un surtido se bloquea por modelo sobre las variantes de color aptas; no se necesita cupo intertallas. Consistencia transaccional, historial de talla y precios por modelo/cliente/presentación pendientes de diseño lógico. [Contrato canónico](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).
+
+## D0 sugerido — arquitectura desde baseline V1
+Según [28](28_BASELINE_V1_MODULOS_Y_READINESS.md), antes de SQL definir modelo lógico, transacciones stock exacto/surtido E/G, estados y cron F/L 12:00 zona local, auth admin y token cliente revocable, RLS/ACL servidor y Storage privado, idempotencia de abonos y cierre. Stack Next.js/Supabase indicado, hosting/infraestructura sin elegir. **Solo diseño documental, SQL no aprobado**.
