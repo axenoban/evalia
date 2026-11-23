@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
   createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock,
-  createOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
+  createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
@@ -76,6 +76,31 @@ function Field({title,hint,children,wide=false}){return <label className={'field
 function Notice({type='info',children,onClose}){return <div className={'alert alert-'+type} role={type==='error'?'alert':'status'}>
  <span>{children}</span>{onClose&&<button aria-label="Cerrar mensaje" type="button" onClick={onClose}>×</button>}
  </div>;}
+function ToastNotifications({error,message,onCloseError,onCloseMessage}){
+ useEffect(()=>{
+  if(!message)return;
+  const timer=window.setTimeout(onCloseMessage,6000);
+  return ()=>window.clearTimeout(timer);
+ },[message]);
+ useEffect(()=>{
+  if(!error)return;
+  const timer=window.setTimeout(onCloseError,9000);
+  return ()=>window.clearTimeout(timer);
+ },[error]);
+ if(!error&&!message)return null;
+ return <div className="ev-toast-stack" aria-label="Notificaciones del sistema">
+  {error&&<div className="ev-toast ev-toast-error" role="alert">
+   <span className="ev-toast-glyph" aria-hidden="true">!</span>
+   <div><strong>Revisa esta operación</strong><p>{error}</p></div>
+   <button type="button" onClick={onCloseError} aria-label="Cerrar notificación de error">×</button>
+  </div>}
+  {message&&<div className="ev-toast ev-toast-success" role="status">
+   <span className="ev-toast-glyph" aria-hidden="true">✓</span>
+   <div><strong>Operación realizada</strong><p>{message}</p></div>
+   <button type="button" onClick={onCloseMessage} aria-label="Cerrar notificación de éxito">×</button>
+  </div>}
+ </div>;
+}
 function SummaryCard({label,value,sub,kind='',symbol}){return <div className={'metric '+kind}>
   <div className="ev-metric-heading">{symbol&&<span className="ev-metric-icon" aria-hidden="true">{symbol}</span>}
    <span className="metric-label">{label}</span></div>
@@ -1175,7 +1200,79 @@ function OrderDeliveryEditor({order,customer,onSave,busy}){
   <p className="small-note">Se registra el cambio. Si ya imprimiste una etiqueta, vuelve a imprimirla tras corregir los datos.</p>
  </form>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,busy}){
+function OrderEditPanel({order,data,busy,onSave,onCancel}){
+ const requestId=useRef(null);
+ const [search,setSearch]=useState('');
+ const [error,setError]=useState('');
+ const [portions,setPortions]=useState(()=>Object.fromEntries(order.lines.map(l=>[
+  l.model_id,{dozens:String(l.dozen_count??0),extraColorIds:[...(l.extraColorIds??[])]}
+ ])));
+ const models=data.models.filter(m=>m.is_active);
+ const original=new Map(order.lines.map(l=>[l.model_id,l]));
+ const effectiveStock=Object.fromEntries(models.map(m=>{
+  const s=data.stock[m.id]||{};
+  return [m.id,{...s,available:Number(s.available??0)+Number(original.get(m.id)?.quantity??0)}];
+ }));
+ const selected=models.filter(m=>Object.hasOwn(portions,m.id));
+ const available=models.filter(m=>!Object.hasOwn(portions,m.id)&&
+  (m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+ const preview=selected.reduce((sum,m)=>{
+  const s=portions[m.id];
+  if(!/^(0|[1-9]\d*)$/.test(String(s.dozens)))return sum;
+  const quantity=portionQuantity(Number(s.dozens),s.extraColorIds);
+  if(!Number.isSafeInteger(quantity)||quantity<6)return sum;
+  return sum+subtotalCents(original.get(m.id)?.price_dozen_bs??m.price_dozen_bs,quantity);
+ },0n);
+ function change(id,value){requestId.current=null;setError('');setPortions(p=>({...p,[id]:value}));}
+ function remove(id){requestId.current=null;setError('');setPortions(p=>{const next={...p};delete next[id];return next;});}
+ async function save(e){
+  e.preventDefault();setError('');
+  try{
+   const lines=checkedPortions(models,portions,effectiveStock,data.colors);
+   if(!window.confirm('¿Guardar los cambios del pedido? El inventario y el importe se actualizarán. Debes comunicar los cambios al comprador.'))return;
+   if(!requestId.current)requestId.current=uuid();
+   await onSave({orderId:order.id,lines,expectedRevision:order.revision,requestId:requestId.current});
+  }catch(err){setError(err.message);}
+ }
+ return <form className="ev-order-edit-panel" onSubmit={save} aria-label="Modificar modelos y cantidades del pedido">
+  <div className="ev-order-edit-heading"><h3>Editar modelos y cantidades</h3>
+   <p>Los modelos existentes conservan su precio confirmado; los nuevos usan su precio vigente.
+    Las docenas siguen siendo surtidas y las unidades adicionales exigen colores distintos.</p></div>
+  <label className="search ev-order-edit-search"><span aria-hidden="true">⌕</span>
+   <input type="search" placeholder="Buscar modelo para agregar" aria-label="Buscar modelos para editar pedido"
+    value={search} onChange={e=>setSearch(e.target.value)}/></label>
+  {available.length>0&&<div className="ev-order-edit-add-list" aria-label="Agregar modelos">
+   {available.map(m=>{
+    const count=data.colors.filter(c=>m.colorIds?.includes(c.id)&&c.is_active).length;
+    const allowed=canAddModelToOrder(data.stock[m.id],count);
+    return <button type="button" key={m.id} className="ev-order-edit-add"
+     disabled={busy||!allowed} onClick={()=>{
+      try{change(m.id,initialModelPortion(data.stock[m.id],count));}
+      catch(e){setError(e.message);}
+     }}>
+     <ProductImage model={m}/><span><strong>{m.name}</strong><small>Talla {m.size_label} · {formatAvailableDozens(data.stock[m.id]?.available??0)} libres</small></span>
+     <b aria-hidden="true">＋</b>
+    </button>;
+   })}
+  </div>}
+  <div className="ev-order-edit-selected">
+   {selected.map(m=><PortionEditor key={m.id} model={m} colors={data.colors}
+    stock={effectiveStock[m.id]} selection={portions[m.id]}
+    onChange={v=>change(m.id,v)} onRemove={()=>remove(m.id)}/>)}
+   {!selected.length&&<p className="form-hint">El pedido debe conservar al menos un modelo.</p>}
+  </div>
+  <div className="ev-order-edit-footer">
+   <span>Total propuesto <strong>{formatBs(preview)}</strong></span>
+   <div><button type="button" className="button button-outline" onClick={onCancel}>Cancelar</button>
+    <button type="submit" className="button button-primary" disabled={busy||!selected.length}>
+     {busy?'Guardando…':'Guardar cambios'}</button></div>
+  </div>
+  {error&&<p className="form-error" role="alert">{error}</p>}
+  <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
+ </form>;
+}
+function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,busy}){
+ const [editingId,setEditingId]=useState(null);
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Abre un pedido para consultar sus modelos y gestionar lo necesario."/>
   <LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>
@@ -1188,7 +1285,17 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
     const orderedUnits=o.lines.reduce((sum,l)=>sum+Number(l.quantity||0),0);
     const relatedPayments=data.payments.filter(p=>p.order_id===o.id||
       (o.origin_reservation_id&&p.reservation_id===o.origin_reservation_id));
-    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders">
+    const editReason=o.status!=='active'?'El pedido está completado':
+     o.origin_reservation_id?'Pedido originado en un registro histórico':
+     relatedPayments.length?'Tiene movimientos o avisos de pago':
+     data.deliveries.some(d=>d.order_id===o.id)||Number(delivery.delivered)>0?'Ya registra una entrega':
+     data.links.some(l=>l.order_id===o.id&&!l.revoked_at)?'Tiene un enlace privado activo':
+     o.lines.some(l=>l.dozen_count===null||l.dozen_count===undefined||
+       !data.models.some(m=>m.id===l.model_id&&m.is_active))?'Composición antigua o modelo inactivo':
+     o.lines.some(l=>data.stock[l.model_id]?.blocked)?'Modelo con inventario en revisión':
+     !Number.isSafeInteger(o.revision)?'Falta habilitar la edición en Supabase':null;
+    const sizes=[...new Set(o.lines.map(l=>data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
+    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
      <summary className="ev-order-summary">
       <span className="ev-order-summary-primary">
        <span className="avatar ev-order-avatar" aria-hidden="true">{initials(customer?.name)}</span>
@@ -1199,6 +1306,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       </span>
       <span className="ev-order-summary-facts">
        <span className="ev-order-summary-count">{o.lines.length} {o.lines.length===1?'modelo':'modelos'} · {rup(orderedUnits)} prendas</span>
+       {sizes.length>0&&<span className="ev-order-sizes">{sizes.length===1?'Talla ':'Tallas '}{sizes.join(' · ')}</span>}
        <span className="ev-order-summary-delivery">{deliveryLabel(o.fulfillment_method)}</span>
       </span>
       <span className="ev-order-summary-end">
@@ -1208,6 +1316,16 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
      </summary>
      <div className="ev-order-expanded">
+      {o.status==='active'&&<div className="ev-order-edit-access">
+       <button type="button" className="button button-outline ev-order-edit-button" disabled={busy||Boolean(editReason)}
+        onClick={()=>setEditingId(current=>current===o.id?null:o.id)}>
+        {editingId===o.id?'Cerrar edición':'✎ Editar pedido'}
+       </button>
+       {editReason&&<span className="ev-edit-restriction">{editReason}</span>}
+      </div>}
+      {editingId===o.id&&!editReason&&<OrderEditPanel key={o.id+'-'+o.revision}
+       order={o} data={data} busy={busy} onCancel={()=>setEditingId(null)}
+       onSave={async params=>{const ok=await onEdit(params);if(ok)setEditingId(null);return ok;}}/>}
       {o.status==='active'&&<div className="ev-order-finance-brief" aria-label="Situación del cobro">
        {amountCents(finance.pending)>0n?
         <span className="ev-order-balance-due"><span>Saldo por cobrar</span><strong>{formatBs(amountCents(finance.pending))}</strong></span>:
@@ -1366,6 +1484,7 @@ export default function HomePage(){
  const updateStock=(modelId,operation,units,version,requestId)=>
   mutation(()=>adjustStock({modelId,operation,units,version,requestId:requestId||uuid()}),'Stock actualizado.');
  const order=(customerId,lines,requestId,delivery)=>mutation(()=>createOrder(customerId,lines,requestId||uuid(),delivery),'Pedido confirmado con destino y precios congelados.');
+ const editOrder=(args)=>mutation(()=>reviseOrder(args),'Pedido actualizado con auditoría; verifica el detalle y comunica el cambio al cliente.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Registro anterior convertido en pedido, sin descontar inventario dos veces.');
  const report=(v)=>mutation(()=>reportPayment(v),'Aviso de pago guardado; pendiente de aprobación.');
  const checkoutFast=(details)=>mutation(()=>quickCheckout(details),
@@ -1428,13 +1547,13 @@ export default function HomePage(){
    </header>
    <main id="main" className="main-content">
     {process.env.NEXT_PUBLIC_EVALIA_STATIC_PREVIEW==='1'&&<Notice>Vista administrativa de prueba alojada en GitHub Pages y conectada a Supabase. Los enlaces privados de clientes necesitan un servidor Next.js.</Notice>}
-    {error&&<Notice type="error" onClose={()=>setError('')}>{error}</Notice>}
-    {message&&<Notice type="success" onClose={()=>setMessage('')}>{message}</Notice>}
+    <ToastNotifications error={error} message={message}
+      onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} busy={busy}/>:  
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy}/>:  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
    </main>

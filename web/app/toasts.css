@@ -1,0 +1,21 @@
+/* Toasts: floating messages without changing layout, keyboard-dismissible and auto-dismissed. */
+.ev-toast-stack{position:fixed;z-index:120;right:18px;bottom:24px;
+ display:flex;flex-direction:column;gap:10px;width:min(420px,calc(100vw - 32px));pointer-events:none}
+.ev-toast{pointer-events:auto;display:flex;gap:12px;align-items:flex-start;padding:13px 14px;
+ border:1px solid #d6e8dd;border-radius:14px;background:#f5fcf7;color:#28593f;
+ box-shadow:0 12px 35px #281b2b30;font-size:13px;line-height:1.5;animation:ev-toast-in .2s ease-out}
+.ev-toast-error{border-color:#edcccf;background:#fff7f7;color:#783945}
+.ev-toast-glyph{display:grid;place-items:center;flex:none;width:26px;height:26px;border-radius:50%;
+ background:#d9eee1;color:#28734e;font-size:15px;font-weight:900}
+.ev-toast-error .ev-toast-glyph{background:#f8e0e3;color:#9b4d5b}
+.ev-toast>div{flex:1;min-width:0}
+.ev-toast strong{font-size:13px;font-weight:850}
+.ev-toast p{margin:3px 0 0;overflow-wrap:anywhere;font-size:12px}
+.ev-toast button{flex:none;min-width:32px;min-height:32px;border:0;background:transparent;color:inherit;
+ font-size:21px;line-height:1;cursor:pointer}
+.ev-toast button:focus-visible{outline:2px solid currentColor;border-radius:8px}
+@keyframes ev-toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media(max-width:780px){
+ .ev-toast-stack{right:12px;bottom:calc(85px + env(safe-area-inset-bottom));width:min(420px,calc(100vw - 24px))}
+}
+@media(prefers-reduced-motion:reduce){.ev-toast{animation:none}}
