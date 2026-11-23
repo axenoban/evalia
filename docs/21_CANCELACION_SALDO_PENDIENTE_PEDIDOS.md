@@ -85,3 +85,6 @@ Si pedido 12 tiene **5 entregadas y 7 pendientes**, la cancelación administrati
 
 ## G03-C: cancelar lo no entregado no autoriza liquidación financiera inventada
 El criterio posterior del propietario es **TERMINADO/COMPLETADO solo tras pago real aprobado y retiro de unidades debidas**. En cancelación parcial G03-B conservar snapshot y pagos; el importe a conciliar de unidades canceladas **sigue pendiente**. **No ajustar precio/marcar como pagado automáticamente** para cuadrar el cierre, aunque el pendiente físico pase a cero. Requerir conciliación económica separada y aprobación de admin. Si se entrega excepcionalmente con saldo, mantener pedido abierto/deuda. [Contrato](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).
+
+## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
+**ACTUALIZACIÓN PREVALENTE:** el propietario decidió **NO implementar** cancelaciones parciales, devoluciones o reembolsos de cliente en V1. Esta regla de 12/5/7 sigue documentada **para futuro**, pero sus QA son **no bloqueantes de E1**. El administrador resolverá casos raros fuera de EVALIA; completar no puede inventar cobros ni salidas y cerrar excepciones con descuadres exigiría controles posteriores. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).

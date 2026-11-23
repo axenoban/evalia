@@ -108,3 +108,6 @@ Un enlace privado de un pedido permite consultar saldo/QR/declarar comprobantes 
 
 ## G03-C — flujo de cierre habitual con pago al retirar (decisión prevalente)
 La práctica aprobada es **no entregar normalmente antes de completar pago**. Al recoger, el admin verifica y registra el **abono efectivamente recibido**; solo pagos APROBADOS/RECIBIDOS cuentan para saldo. Registrar retirada física de unidades restantes y entonces admin marca **TERMINADO/COMPLETADO** **solo si saldo exigible=0 y retiro total**. **Nunca crear un pago ficticio por botón COMPLETADO**. Si muy excepcionalmente hubo retirada real sin pagar, mantener pedido **ACTIVO/CON SALDO PENDIENTE**, sin módulo especial de crédito por ahora. El enlace D13 sigue activo hasta cierre admin o revocación. No cerrar por pago total si hay pendientes físicos. [G03-C](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).
+
+## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
+En E1 **no implementar** flujo de cancelaciones/devoluciones por el cliente ni reajustes automáticos de stock/dinero; G03-B queda para fase futura. Casos raros se gestionan externamente; COMPLETADO normal continúa exigiendo retiro y pago real aprobado. Cierre excepcional con diferencias aún sin diseño seguro, no bypass. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).

@@ -117,3 +117,6 @@ Conceptualmente el token secreto único se asocia a un pedido y necesita verific
 
 ## G03-C/G06-C — precondiciones de COMPLETADO (conceptual)
 Nueva invariante: **estado COMPLETADO solo si saldo exigible=0 con pagos APROBADOS/RECIBIDOS y no quedan unidades pendientes de entrega**, con confirmación admin. Conservar **eventos separados**: pago real verificado, salida/recogida física y cierre; **no registrar cobro automático al cambiar estado**. Si físicamente se entregó con deuda, guardar entrega verdadera y saldo abierto, sin cerrar; no requiere fase de crédito especial en E1. El enlace D13 se desactiva en cierre válido; pago total sin recogida no lo desactiva. Si cancelación parcial G03-B genera discrepancia económica, exigir conciliación previa sin inventar valor de parte cancelada. No SQL. [G03-C](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).
+
+## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
+**Aclaración de fase E1:** G03-B y sus entidades/eventos especializados de cancelación/devolución son **conceptos para fase posterior**, no tablas a crear en V1. Cierre normal conserva saldo comprobado=0 y retiro real; registrar caso resuelto fuera del sistema no puede generar evento de pago/entrega ni liberar disponibilidad inventada. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).

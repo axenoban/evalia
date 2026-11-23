@@ -268,3 +268,6 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - Cancelación parcial G03-B deja conciliación monetaria sin resolver → no cerrar automáticamente ni redondear/remover deuda inventando precio.
 - Cerrar válido y petición concurrente de comprobante desde enlace ya desactivado → petición denegada y datos históricos intactos.
 [Contrato cierre](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).
+
+## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
+**QA de alcance E1:** no botones/API de devoluciones/cancelaciones del cliente; no implementar G03-B ni su QA ejecutable como condición de V1. Conservar cierre normal solo con pago aprobado y recogida verificada; caso raro externo no crea pagos, entregas o restock ficticios. G01 vencimientos de reserva, G06 aprobación admin y D13 enlace siguen obligatorios. Cierre excepcional con diferencias queda para contrato posterior. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).

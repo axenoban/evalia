@@ -90,3 +90,6 @@ Propuesta de ficha de pedido: indicar **enlace cliente ACTIVO/REVOCADO/DESACTIVA
 
 ## Admin — botón COMPLETADO con validaciones de recogida y saldo
 **Propuesta UI/contrato:** indicar por separado **unidades aún pendientes de entrega**, **total abonado aprobado** y **saldo por pagar**; la acción **TERMINADO/COMPLETADO** solo la ejecuta un admin después de recoger todo y **saldo 0 con dinero real registrado y verificado**. Si pago pendiente en revisión o deuda, mostrar razón de bloqueo; no crear ingreso ficticio mediante botón. Un pago al retirar se agrega desde el panel y se aprueba tras comprobar recepción, antes de cerrar. Si ocurrió entrega excepcional con deuda, mostrar **ACTIVO / SALDO PENDIENTE**, no cerrar ni revocar enlace por completado. Historial intacto. [Contrato](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).
+
+## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
+V1 muestra acciones necesarias para reservar, confirmar, cobrar, entregar y completar normalmente; **sin botones de cancelación de pedido por cliente, devolución, reembolso ni cancelación parcial G03-B**. Casos excepcionales se acuerdan fuera del sistema. Un cierre excepcional con saldo/stock pendiente NO ajusta ni elimina movimientos automáticamente; necesita contrato posterior si se implementa. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).

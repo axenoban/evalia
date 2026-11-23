@@ -76,3 +76,6 @@ El cliente accede **mediante enlace privado de un pedido concreto**, sin cuenta,
 
 ## G06-C — nunca inventar ingreso para poder completar pedido
 La práctica comercial exige **pago completo antes de retiro normal**. Para que admin marque **TERMINADO/COMPLETADO**, el saldo **exigible** debe ser Bs 0 derivado **solo de abonos APROBADOS/RECIBIDOS**, y las prendas deben estar retiradas. Si paga al recoger, admin registra dinero efectivo y lo verifica antes de completar; **no crear asiento falso o autoaprobar una captura pendiente** para aparentar saldo cero. Si se retira excepcionalmente con deuda, mantener deuda y pedido activos. Conciliación de cancelaciones G03-B y excesos aún separadas. [Contrato](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).
+
+## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
+En E1 **no ofrecer** procesos de reembolso/crédito/descuento por cancelaciones o devoluciones del cliente. Dinero efectivamente recibido y aprobado se conserva como historia; resolver incidencias fuera no transforma pagos pendientes en aprobados ni ajusta saldo por inferencia. G03-B de cancelación queda para futuro. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).

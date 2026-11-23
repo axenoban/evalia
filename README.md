@@ -103,3 +103,6 @@ Pago agregado/informado por el cliente = **PENDIENTE DE VERIFICACIÓN**. Solo **
 
 ## G03-C/G06-C — cierre de pedido con recogida y pago comprobado
 **Regla posterior aprobada:** el cliente **normalmente no retira hasta terminar de pagar**. Pedido solo **TERMINADO/COMPLETADO** si el **administrador registra recogida total y pagos efectivamente recibidos/aprobados con saldo Bs 0**. No convertir un cambio de estado en un pago ficticio: si el cliente abona al retirar, el admin registra ese cobro real y lo aprueba, después entrega y cierra. **Excepción rara de entrega sin liquidar:** mantener pedido **ACTIVO/CON SALDO PENDIENTE**, sin desarrollar módulo especial E1 ni desactivar enlace por estado completado. No se cambia G03-B monetario. [Contrato de cierre](docs/26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).
+
+## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
+**Última decisión E1:** NO implementar cancelaciones o devoluciones solicitadas por cliente, ni reembolsos/ajustes por incidencias en V1. El dueño resuelve situaciones raras fuera de EVALIA; G03-B conceptual se conserva como backlog futuro y sus QA NO bloquean V1. Cierre normal requiere pago realmente aprobado y retirada; el cierre excepcional con descuadre no autoriza pagos/entregas ficticios y no se programa sin controles específicos. [Alcance](docs/27_SIMPLIFICACION_CANCELACIONES_V1.md).
