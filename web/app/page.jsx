@@ -1292,6 +1292,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
      data.links.some(l=>l.order_id===o.id&&!l.revoked_at)?'Tiene un enlace privado activo':
      o.lines.some(l=>l.dozen_count===null||l.dozen_count===undefined||
        !data.models.some(m=>m.id===l.model_id&&m.is_active))?'Composición antigua o modelo inactivo':
+     o.lines.some(l=>data.stock[l.model_id]?.blocked)?'Modelo con inventario en revisión':
      !Number.isSafeInteger(o.revision)?'Falta habilitar la edición en Supabase':null;
     const sizes=[...new Set(o.lines.map(l=>data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
     return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
