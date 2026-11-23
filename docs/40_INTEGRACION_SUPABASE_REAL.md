@@ -2,6 +2,8 @@
 
 **Estado:** estructura SQL inicial instalada y auditada en el proyecto remoto **evalia**. La aplicación Next.js continúa en rama feature, sin merge ni publicación web.
 
+> **Actualización de fase:** se agregaron y aplicaron las migraciones **006–009** en el mismo proyecto, con historial remoto alineado: **9 migraciones, 23 tablas con RLS y cron F/L activo**. La fuente vigente del ciclo completo (cobros, entregas, portal privado y QR) es [docs/41](41_CICLO_OPERATIVO_PAGOS_PORTAL.md); este documento mantiene la trazabilidad de la instalación inicial 001–005.
+
 ## 1. Identidad y baseline verificable
 
 - Repositorio: \`axenoban/evalia\`
