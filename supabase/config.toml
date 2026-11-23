@@ -3,7 +3,7 @@ project_id = "evalia"
 # Configuración de Auth para entornos locales de prueba. El proyecto remoto requiere la misma política en Dashboard.
 [auth]
 enable_signup = false
-minimum_password_length = 15
+minimum_password_length = 8
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/cuenta"]
 
