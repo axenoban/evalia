@@ -6,7 +6,10 @@ import {checkedPortions} from '../web/lib/domain.js';
 
 const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
 const style=readFileSync(new URL('../web/app/booking.css',import.meta.url),'utf8');
-const portion=page.slice(page.indexOf('function PortionEditor('),page.indexOf('function ExtraColorSummary('));
+const portionStart=page.indexOf('function PortionEditor(');
+const portionEnd=page.indexOf('\nfunction ',portionStart+10);
+assert.ok(portionStart>0&&portionEnd>portionStart,'PortionEditor debe existir en el módulo');
+const portion=page.slice(portionStart,portionEnd);
 const register=page.slice(page.indexOf('function BookingPanel('),page.indexOf('function LineComposition('));
 
 test('el progreso compacto informa etapa actual sin ocultar las secciones del registro',()=>{

@@ -535,6 +535,7 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
  const showExtras=extrasOpen||noDozen;
  function setDozens(value){
   if(String(value)==='0')setExtrasOpen(true);
+  else if(dozens===0&&extras.length===0)setExtrasOpen(false);
   onChange({...selection,dozens:String(value)});
  }
  function toggleColor(id){
