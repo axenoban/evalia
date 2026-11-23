@@ -658,3 +658,25 @@ button.express-secondary:hover:not(:disabled){background:#e5f3ea}
  .express-checkout{padding:13px}
  .express-actions button{width:100%}
  .order-advanced summary{flex-direction:column}}
+
+/* D8 - envíos y comprobantes: jerarquía visible, sin tocar el diseño aprobado del flujo */
+.delivery-preference-fields,.order-delivery-choice,.order-delivery-editor{
+ padding:14px;border:1px solid #e0d2dc;background:#faf6f9;border-radius:11px;
+ margin:12px 0;display:grid;gap:12px}
+.delivery-preference-fields .field,.order-delivery-choice .field{min-width:0}
+.order-delivery-choice{background:#f2f7fb;border:2px solid #a4c4d9}
+.order-shipping-panel{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+ margin:13px 16px;padding:14px;border-radius:11px;border:1px solid #d9cbd7;background:#faf6f9}
+.order-shipping-panel>div{flex:1;min-width:190px}
+.order-shipping-panel strong{font-size:13px;color:#58394f}
+.order-shipping-panel p{font-size:12px;line-height:1.5;overflow-wrap:anywhere;margin:5px 0}
+.order-shipping-panel>.button{white-space:normal;text-align:center}
+.order-delivery-details{width:100%;border-top:1px solid #e6dce4;padding-top:10px}
+.order-delivery-details summary{cursor:pointer;font-size:12px;font-weight:700;color:#5a3c51;padding:6px 0}
+.order-delivery-editor{background:#fff;margin:7px 0}
+.checkout-delivery{border-top:1px solid #e4d9e0;padding:12px 0;display:grid;gap:5px}
+.checkout-delivery span{font-size:11px;color:#746371}
+.checkout-delivery strong{font-size:13px;color:#493549}
+.checkout-delivery small{font-size:11px;overflow-wrap:anywhere}
+@media(max-width:640px){.order-shipping-panel{margin:10px 0}
+ .order-shipping-panel>.button{width:100%}}

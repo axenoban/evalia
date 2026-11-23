@@ -2,7 +2,7 @@ name: EVALIA · Aplicación operativa
 
 on:
   push:
-    branches: [feature/evalia-panel-operativo, feature/evalia-captura-docenas-colores, feature/evalia-ciclo-cobros-entregas, feature/evalia-vercel-preview, feature/evalia-release-candidate, feature/evalia-solo-pedidos, feature/evalia-ux-cierre-y-whatsapp, feature/evalia-selector-cobro-express]
+    branches: [feature/evalia-panel-operativo, feature/evalia-captura-docenas-colores, feature/evalia-ciclo-cobros-entregas, feature/evalia-vercel-preview, feature/evalia-release-candidate, feature/evalia-solo-pedidos, feature/evalia-ux-cierre-y-whatsapp, feature/evalia-selector-cobro-express, feature/evalia-envios-impresion]
   pull_request:
     branches: [feature/skills-formularios-evalia, feature/evalia-panel-operativo, feature/evalia-captura-docenas-colores]
   workflow_dispatch:
