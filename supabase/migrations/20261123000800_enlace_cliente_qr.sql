@@ -170,7 +170,7 @@ begin
  select image_path into v_qr from public.payment_qr
   where id=true and reusable_verified=true;
  return jsonb_build_object(
-  'reference',substring(v_order.id::text,1,8),'status',v_order.status,
+  'order_id',v_order.id,'reference',substring(v_order.id::text,1,8),'status',v_order.status,
   'total',v_total,'approved',v_paid,'pending',greatest(v_total-v_paid,0),
   'excess',greatest(v_paid-v_total,0),'lines',v_lines,'payments',v_payments,
   'qr_path',v_qr);
