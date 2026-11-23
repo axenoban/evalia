@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
+  authUser, adminAllowed, signIn, signOut, loadWorkspace, reviseReservation, createColor,
   createCustomer, createModel, uploadPhoto, adjustStock, createReservation,
   createOrder, confirmReservation
 } from '../lib/api.js';
@@ -390,12 +390,14 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
   </div>
  </article>;
 }
-function BookingPanel({data,onReservation,onOrder,onCreateClient,busy}){
- const [customerId,setCustomerId]=useState('');
+function BookingPanel({data,onReservation,onOrder,onUpdate,onCloseEdit,editReservation,onCreateClient,busy}){
+ const [customerId,setCustomerId]=useState(editReservation?.customer_id||'');
  const [customerSearch,setCustomerSearch]=useState('');
  const [productSearch,setProductSearch]=useState('');
- const [portions,setPortions]=useState({});
- const [mode,setMode]=useState('reservation'),[localError,setLocalError]=useState('');
+ const [portions,setPortions]=useState(()=>editReservation?
+  Object.fromEntries(editReservation.lines.filter(l=>l.dozen_count!==null&&l.dozen_count!==undefined)
+   .map(l=>[l.model_id,{dozens:String(l.dozen_count),extraColorIds:l.extraColorIds||[]}])):{});
+ const [mode,setMode]=useState(editReservation?'edit':'reservation'),[localError,setLocalError]=useState('');
  const [addClient,setAddClient]=useState(false);
  const requestId=useRef(null);
  const models=data.models.filter(m=>m.is_active);
@@ -429,13 +431,15 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy}){
    if(!customerId)throw new Error('Selecciona un cliente antes de continuar.');
    const lines=checkedPortions(models,portions,data.stock,data.colors);
    if(!requestId.current)requestId.current=uuid();
-   const ok=mode==='reservation'?await onReservation(customerId,lines,requestId.current):await onOrder(customerId,lines,requestId.current);
-   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');}
+   const ok=mode==='edit'?await onUpdate(editReservation.id,lines,requestId.current):
+    mode==='reservation'?await onReservation(customerId,lines,requestId.current):await onOrder(customerId,lines,requestId.current);
+   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');if(editReservation)onCloseEdit();}
   }catch(err){setLocalError(err.message);}
  }
  return <>
-  <SectionHead eyebrow="VENTAS MAYORISTAS" title="Arma la reserva o el pedido."
-   description="Agrega modelos, indica las docenas surtidas y elige los colores para cada prenda adicional. La disponibilidad se controla por modelo."/>
+  <SectionHead eyebrow="VENTAS MAYORISTAS" title={editReservation?'Editar reserva':'Arma la reserva o el pedido.'}
+   description={editReservation?'Modifica los modelos, docenas y colores elegidos. El sistema compara con el cupo reservado anterior y guarda historial.':'Agrega modelos, indica las docenas surtidas y elige los colores para cada prenda adicional. La disponibilidad se controla por modelo.'}
+   actions={editReservation&&<button className="button button-outline" type="button" onClick={onCloseEdit}>← Volver a reservas</button>}/>
   <div className="booking-layout">
    <div className="surface booking-form">
     <section className="form-section">
@@ -448,14 +452,14 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy}){
         onChange={e=>setCustomerSearch(e.target.value)}/></label>
       <div className="client-selection"><Field title="Cliente para esta operación">
        <select name="customerId" value={customerId} required
-        onChange={e=>{setCustomerId(e.target.value);requestId.current=null;}}>
+        disabled={Boolean(editReservation)} onChange={e=>{setCustomerId(e.target.value);requestId.current=null;}}>
         <option value="">Selecciona un cliente…</option>
         {chosenCustomer&&!matchedCustomers.some(c=>c.id===chosenCustomer.id)&&
           <option value={chosenCustomer.id}>{chosenCustomer.name} · {chosenCustomer.whatsapp}</option>}
         {matchedCustomers.map(c=><option key={c.id} value={c.id}>{c.name} · {c.whatsapp}</option>)}
        </select></Field>
-       <button type="button" className="button button-outline" onClick={()=>setAddClient(x=>!x)}>
-        {addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>
+       {!editReservation&&<button type="button" className="button button-outline" onClick={()=>setAddClient(x=>!x)}>
+        {addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>}
       </div>
      </div>
      {chosenCustomer&&<div className="selected-client">
@@ -488,7 +492,7 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy}){
     <section className="form-section">
      <div className="form-section-title"><span className="step">3</span><div><h2>Guardar como reserva o pedido</h2>
       <p>Antes de confirmar, revisa los colores individuales y el precio por modelo.</p></div></div>
-     <div className="mode-choice">
+     {editReservation?<Notice>Editar no libera cupo hasta guardar. Cada cambio queda registrado en el historial de reserva.</Notice>:<div className="mode-choice">
       <label className={mode==='reservation'?'selected':''}>
        <input type="radio" name="operationType" value="reservation" checked={mode==='reservation'}
         onChange={()=>{setMode('reservation');requestId.current=null;}}/>
@@ -499,7 +503,7 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy}){
         onChange={()=>{setMode('order');requestId.current=null;}}/>
        <span><b>Pedido directo</b><small>Congela los importes y conserva las prendas pendientes de entrega.</small></span>
       </label>
-     </div>
+     </div>}
     </section>
     {localError&&<p className="form-error" role="alert" tabIndex={-1} id="operation-error">{localError}</p>}
    </div>
@@ -519,7 +523,7 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy}){
     <p className="checkout-note">Las docenas son surtidas. Se registran los colores de las prendas adicionales, una por color. La disponibilidad física por color se verifica fuera del sistema.</p>
     <form id="booking-submit" onSubmit={submit}>
      <button className="button button-primary full" type="submit" disabled={busy||!chosen.length}>
-      {busy?'Registrando…':mode==='reservation'?'Guardar reserva':'Confirmar pedido'}
+      {busy?'Guardando…':mode==='edit'?'Guardar cambios de la reserva':mode==='reservation'?'Guardar reserva':'Confirmar pedido'}
      </button>
     </form>
    </aside>
@@ -551,7 +555,7 @@ function reservationMessage(res,customer,data){
    '\nVence: '+displayDate(res.expires_at)+
    '\nLas docenas son surtidas. Los colores individuales elegidos se verifican físicamente antes de confirmarlos.';
 }
-function Reservations({data,onConvert,busy}){
+function Reservations({data,onConvert,onEdit,busy}){
  const [copied,setCopied]=useState('');
  async function copyDetails(r,customer){
   try{
@@ -575,11 +579,17 @@ function Reservations({data,onConvert,busy}){
     </div>})}</div>
     <footer className="record-actions">
       <button type="button" className="button button-outline" onClick={()=>copyDetails(r,c)}>▣ Copiar para WhatsApp</button>
+      {canConvert&&r.lines.every(l=>l.dozen_count!==null&&l.dozen_count!==undefined)&&
+        <button disabled={busy} className="button button-outline" onClick={()=>onEdit(r)}>✎ Editar</button>}
       {canConvert&&<button disabled={busy} className="button button-primary" onClick={()=>onConvert(r.id)}>
         {busy?'Procesando…':'Confirmar como pedido'}</button>}
     </footer>
     {copied===r.id&&<p className="small-note" role="status">Texto copiado. Puedes enviarlo manualmente por WhatsApp.</p>}
     {copied==='error:'+r.id&&<p className="form-error" role="alert">No se pudo copiar; verifica los permisos del navegador.</p>}
+    {data.revisions?.some(x=>x.reservation_id===r.id)&&<p className="small-note">
+      Modificaciones auditadas: {data.revisions.filter(x=>x.reservation_id===r.id).length} ·
+      Última: {displayDate(data.revisions.find(x=>x.reservation_id===r.id)?.created_at)}
+    </p>}
     {r.status==='in_review'&&<p className="small-note">Requiere revisión administrativa; no se libera el cupo automáticamente.</p>}
    </article>})}</div>:<Empty title="Aún no hay reservas" detail="Guarda una reserva desde Nueva operación."/>}
  </>;
@@ -625,6 +635,7 @@ function Login({onLogin,busy,error}){
 }
 export default function HomePage(){
  const [tab,setTab]=useState('home'),[data,setData]=useState(null),[ready,setReady]=useState(false);
+ const [editingReservation,setEditingReservation]=useState(null);
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const refreshGeneration=useRef(0);
@@ -650,6 +661,7 @@ export default function HomePage(){
   });
   return ()=>{active=false;listener.subscription.unsubscribe();};
  },[db,refresh]);
+ useEffect(()=>{if(tab!=='booking'&&editingReservation)setEditingReservation(null);},[tab,editingReservation]);
  useEffect(()=>{
   if(!authenticated)return;
   const timer=setInterval(()=>{
@@ -683,6 +695,9 @@ export default function HomePage(){
  const reserve=(customerId,lines,requestId)=>mutation(()=>createReservation(customerId,lines,requestId||uuid()),'Reserva guardada y cupo comprometido.');
  const order=(customerId,lines,requestId)=>mutation(()=>createOrder(customerId,lines,requestId||uuid()),'Pedido confirmado con precios congelados.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Reserva convertida en pedido sin doble descuento de stock.');
+ const revise=(id,lines,requestId)=>mutation(()=>reviseReservation(id,lines,requestId),'Reserva actualizada; historial y cupo revisados.');
+ const openEdit=(reservation)=>{setEditingReservation(reservation);setTab('booking');};
+ const closeEdit=()=>{setEditingReservation(null);setTab('reservations');};
  if(!configured)return <main className="setup-screen"><section className="setup-card">
   <span className="brand-icon">E</span><h1>Configuración de EVALIA</h1>
   <p>La aplicación operativa no tiene conexión a Supabase. Configura <code>NEXT_PUBLIC_SUPABASE_URL</code> y <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> según <code>web/.env.example</code>, aplica y valida las migraciones.</p>
@@ -715,8 +730,9 @@ export default function HomePage(){
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} busy={busy}/>:
-      tab==='booking'?<BookingPanel data={data} onReservation={reserve} onOrder={order} onCreateClient={addClient} setTab={setTab} busy={busy}/>:
-      tab==='reservations'?<Reservations data={data} onConvert={convert} busy={busy}/>:
+      tab==='booking'?<BookingPanel key={editingReservation?.id||'new'} data={data} editReservation={editingReservation}
+       onReservation={reserve} onOrder={order} onUpdate={revise} onCloseEdit={closeEdit} onCreateClient={addClient} busy={busy}/>: 
+      tab==='reservations'?<Reservations data={data} onConvert={convert} onEdit={openEdit} busy={busy}/>: 
       tab==='orders'?<Orders data={data}/>:
       <ClientPanel data={data} onCreate={addClient} busy={busy}/>}
    </main>
