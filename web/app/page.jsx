@@ -856,6 +856,7 @@ function Login({onLogin,busy,error}){
   <div className="brand brand-large"><span className="brand-icon">E</span><div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
   <p className="eyebrow">ACCESO ADMINISTRATIVO</p><h1>Tu catálogo, tus pedidos, tu control.</h1>
   <p className="description">Inicia sesión para trabajar con información real de tu base de datos Supabase.</p>
+  {process.env.NEXT_PUBLIC_EVALIA_STATIC_PREVIEW==='1'&&<Notice>Vista administrativa en GitHub Pages. El portal privado del cliente requiere alojamiento Next.js con servidor.</Notice>}
   <form onSubmit={e=>{e.preventDefault();onLogin(email,password);}}>
    <Field title="Correo del administrador"><input type="email" name="email" required autoComplete="username"
     value={email} onChange={e=>setEmail(e.target.value)} placeholder="Correo de acceso…"/></Field>
@@ -978,6 +979,7 @@ export default function HomePage(){
      <button className="button button-ghost" onClick={async()=>{await signOut();setAuthenticated(false);setData(null);}}>Salir</button></div>
    </header>
    <main id="main" className="main-content">
+    {process.env.NEXT_PUBLIC_EVALIA_STATIC_PREVIEW==='1'&&<Notice>Vista administrativa de prueba alojada en GitHub Pages y conectada a Supabase. Los enlaces privados de clientes necesitan un servidor Next.js.</Notice>}
     {error&&<Notice type="error" onClose={()=>setError('')}>{error}</Notice>}
     {message&&<Notice type="success" onClose={()=>setMessage('')}>{message}</Notice>}
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:

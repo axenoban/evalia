@@ -151,6 +151,8 @@ function unwrapStorage(result,action){
  return result.data;
 }
 export async function issueOrderLink(orderId){
+ if(process.env.NEXT_PUBLIC_EVALIA_STATIC_PREVIEW==='1')
+  throw new Error('GitHub Pages no ejecuta las rutas privadas. Para enlaces de clientes se necesita el despliegue completo de Next.js con servidor.');
  const status=await fetch('/api/portal-estado',{cache:'no-store',credentials:'same-origin'});
  const state=await status.json().catch(()=>({ready:false}));
  if(!status.ok||!state.ready)
