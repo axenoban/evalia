@@ -20,7 +20,7 @@ export async function signOut(){
 export async function loadWorkspace(){
   const db=client();
   const [modelData,colorData,modelColorData,customerData,reservationData,
-    reservationLineData,orderData,orderLineData,reservationColorData,orderColorData]=await Promise.all([
+    reservationLineData,orderData,orderLineData,reservationColorData,orderColorData,revisionData]=await Promise.all([
     db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at').order('created_at',{ascending:false}),
     db.from('colors').select('id,name,hex_code,is_active').order('name'),
     db.from('model_colors').select('model_id,color_id'),
@@ -30,14 +30,16 @@ export async function loadWorkspace(){
     db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at').order('confirmed_at',{ascending:false}).limit(200),
     db.from('order_lines').select('id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs'),
     db.from('reservation_extra_colors').select('reservation_line_id,color_id,position').order('position'),
-    db.from('order_extra_colors').select('order_line_id,color_id,position').order('position')
+    db.from('order_extra_colors').select('order_line_id,color_id,position').order('position'),
+    db.from('reservation_revisions').select('reservation_id,created_at,actor_id').order('created_at',{ascending:false}).limit(500)
   ]);
   const models=unwrap(modelData,'Modelos'),colors=unwrap(colorData,'Colores'),
    modelColors=unwrap(modelColorData,'Colores de modelo'),customers=unwrap(customerData,'Clientes'),
    reservations=unwrap(reservationData,'Reservas'),reservationLines=unwrap(reservationLineData,'Líneas de reserva'),
    orders=unwrap(orderData,'Pedidos'),orderLines=unwrap(orderLineData,'Líneas de pedido'),
    reservationColors=unwrap(reservationColorData,'Colores de unidades reservadas'),
-   orderColors=unwrap(orderColorData,'Colores de unidades pedidas');
+   orderColors=unwrap(orderColorData,'Colores de unidades pedidas'),
+   revisions=unwrap(revisionData,'Historial de ediciones de reserva');
   // Cada consulta usa RLS. Refrescar después de toda escritura, sin calcular cupos desde datos del cliente.
   const [stocks,images]=await Promise.all([
     Promise.all(models.map(async model=>{
@@ -51,7 +53,7 @@ export async function loadWorkspace(){
     }))
   ]);
   return {models:models.map(m=>({...m,colorIds:modelColors.filter(x=>x.model_id===m.id).map(x=>x.color_id),imageUrl:images.find(x=>x[0]===m.id)?.[1]})),
-   colors,customers,stock:Object.fromEntries(stocks),
+   colors,customers,stock:Object.fromEntries(stocks),revisions,
    reservations:reservations.map(r=>({...r,lines:reservationLines.filter(x=>x.reservation_id===r.id).map(l=>({...l,
       extraColorIds:reservationColors.filter(c=>c.reservation_line_id===l.id).map(c=>c.color_id)}))})),
    orders:orders.map(o=>({...o,lines:orderLines.filter(x=>x.order_id===o.id).map(l=>({...l,
@@ -101,4 +103,9 @@ export async function confirmReservation(reservationId,requestId){
   return unwrap(await client().rpc('confirm_evalia_reservation',{
     p_reservation_id:reservationId,p_request_id:requestId
   }),'Convertir reserva');
+}
+export async function reviseReservation(reservationId,lines,requestId){
+  return unwrap(await client().rpc('revise_evalia_reservation',{
+    p_reservation_id:reservationId,p_lines:lines,p_request_id:requestId
+  }),'Editar reserva');
 }
