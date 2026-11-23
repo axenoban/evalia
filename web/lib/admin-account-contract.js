@@ -16,7 +16,7 @@ export function accountAction(body){
  if(body.action==='recovery'&&Object.keys(body).every(k=>['action','userId'].includes(k))&&validUserId(body.userId))return {action:'recovery',userId:body.userId};
  return null;
 }
-export function passwordValid(value){return typeof value==='string'&&Array.from(value).length>=15&&value.length<=128;}
+export function passwordValid(value){return typeof value==='string'&&Array.from(value).length>=8&&value.length<=128;}
 export function accountFragment(hash){
  const p=new URLSearchParams(String(hash||'').replace(/^#/,''));
  const type=p.get('type'),access_token=p.get('access_token'),refresh_token=p.get('refresh_token');
