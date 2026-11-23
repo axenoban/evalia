@@ -71,7 +71,7 @@ language plpgsql stable security definer set search_path=''
 as $$
 declare
  v_line jsonb; v_model_ids uuid[]:=array[]::uuid[];
- v_raw text; v_colors jsonb; v_unique integer; v_color uuid;
+ v_raw text; v_colors jsonb; v_color uuid; v_model uuid;
 begin
  if not public.is_evalia_admin() then
    raise exception 'Acceso administrativo requerido' using errcode='42501';
@@ -95,7 +95,8 @@ begin
   if dozen_count>178956969 then
    raise exception 'Exceso de docenas' using errcode='22003';
   end if;
-  model_id:=(v_line->>'modelId')::uuid;
+  v_model:=(v_line->>'modelId')::uuid;
+  model_id:=v_model;
   if model_id=any(v_model_ids) then
    raise exception 'No se puede repetir un modelo en el pedido' using errcode='23505';
   end if;
@@ -116,7 +117,7 @@ begin
    if not exists(
      select 1 from public.model_colors mc
      join public.colors c on c.id=mc.color_id
-     where mc.model_id=model_id and mc.color_id=v_color and c.is_active
+     where mc.model_id=v_model and mc.color_id=v_color and c.is_active
    ) then
     raise exception 'El color % no está ofrecido en este modelo',v_color
     using errcode='23514';
@@ -124,7 +125,7 @@ begin
    color_ids:=pg_catalog.array_append(color_ids,v_color);
   end loop;
   if not exists(select 1 from public.models m
-                where m.id=model_id and m.is_active) then
+                where m.id=v_model and m.is_active) then
    raise exception 'El modelo está inactivo o no existe' using errcode='23514';
   end if;
   quantity:=dozen_count*12+extra_units;
