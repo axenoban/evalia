@@ -158,3 +158,24 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - **Media docena vs docena:** ambas con mismo día de guardado vencen al mismo momento si no hay depósito; sin trato especial por volumen.
 - **Concurrencia en 12:00:** operación depósito/expiración no puede liberar simultáneamente cupo protegido ni asignar dos veces mismas prendas; mantener auditoría.
 **G01 parcial:** faltan fechas de otros días y fin de vigencia con depósito; depósitos externos sin pasarela; G03-B cancelaciones/parciales sigue abierto. [Regla](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
+
+## QA G01 — matriz completa de los siete días (decisión posterior)
+**Pruebas documentadas; NO ejecutadas contra software.** En una semana de ejemplo (timezone local candidato `America/La_Paz`):
+| Guardar reserva sin depósito | Vencimiento esperado |
+| --- | --- |
+| Domingo 2026-11-22 | Miércoles 2026-11-25, 12:00 |
+| Lunes 2026-11-23 | Miércoles 2026-11-25, 12:00 |
+| Martes 2026-11-24 | Sábado 2026-11-28, 12:00 |
+| Miércoles 2026-11-25 | Sábado 2026-11-28, 12:00 |
+| Jueves 2026-11-26 | Sábado 2026-11-28, 12:00 |
+| Viernes 2026-11-27 | Miércoles 2026-12-02, 12:00 |
+| Sábado 2026-11-28 | Miércoles 2026-12-02, 12:00 |
+
+**Regresiones/limites:**
+- **Jueves 2026-12-31** → sábado **2027-01-02 a las 12:00**; cruce de año correcto; **martes 2026-12-29** también llega a sábado **2027-01-02**, sin modificar regla previa.
+- Domingo 2026-11-22 a las **09:00** y a las **22:00** → ambos miércoles 2026-11-25 12:00; elegir por día local, no por suma de horas fijas.
+- Reserva sin depósito creada el martes: comprobar que no vence miércoles inmediato por extrapolar «próxima feria» (debe vencer **sábado**), y una creada el viernes no vence sábado inmediato (debe vencer **miércoles**).
+- Exactamente a las **12:00** del día de vencimiento, una **reserva sin depósito y sin confirmación** es elegible para caducidad; a las **11:59:59** no lo es. Si hay un depósito registrado como efectivamente recibido antes del corte, no caducar automáticamente; depósitos simultáneos con proceso de expiración requieren consistencia transaccional.
+- En los siete días: sin depósito al vencimiento libera G/E pendiente una sola vez sin modificar físico S; con depósito recibido a tiempo mantiene cupo; reserva confirmada no se vence; borrador no bloquea inventario; reintentos idempotentes.
+- **No probar como funcionalidad aprobada** prórroga indefinida con depósito, restitución automática tras pago tardío, cambio por feriado, cancelación de entrega parcial o notificaciones WhatsApp automáticas.
+**La regla de días G01 ya no es bloqueante**. El plazo de protección del depósito, excepciones por feria suspendida y G03-B permanecen pendientes. [Contrato](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).

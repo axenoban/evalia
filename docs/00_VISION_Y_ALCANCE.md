@@ -45,3 +45,6 @@ La reserva sigue siendo **solo mayorista**. Cada modelo de talla única define *
 
 ## Vencimiento por feria y depósito posterior (nueva regla G01)
 Reserva mayorista guardada sin depósito: **martes/miércoles → sábado mediodía**; **viernes/sábado → miércoles siguiente mediodía**. Se permite **registrar un depósito después de guardar** para protegerla del vencimiento ordinario; destino posterior no aprobado. Días **lunes/jueves/domingo** sin regla; pago/penalización/cancelación con depósito también pendientes. La expiración no altera mercancía física ni libera pedidos ya confirmados. [Política documentada](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
+
+## G01 — calendario resuelto también para domingos, lunes y jueves
+La selección posterior cubre **los siete días**: **domingo/lunes → miércoles 12:00**, **martes/miércoles → sábado 12:00**, **jueves → sábado 12:00**, **viernes/sábado → miércoles siguiente 12:00**. Los días nuevos siguen la feria futura más cercana; se conservan las reglas previas de martes/miércoles y viernes/sábado. **No hay días de alta de reserva pendientes**. El depósito puede registrarse posteriormente y exceptúa la caducidad ordinaria si se recibió a tiempo; nueva vigencia con depósito y G03-B continúan por decidir. [Contrato](20_VENCIMIENTO_FERIAS_Y_DEPOSITOS.md).
