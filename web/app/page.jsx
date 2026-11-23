@@ -401,6 +401,17 @@ function BookingPanel({data,onReservation,onOrder,onUpdate,onCloseEdit,editReser
  const [addClient,setAddClient]=useState(false);
  const requestId=useRef(null);
  const models=data.models.filter(m=>m.is_active);
+ // La edición recupera temporalmente el cupo de esta misma reserva.
+ // No modifica la disponibilidad pública ni la de otros clientes.
+ const editingStock=useMemo(()=>{
+  if(!editReservation)return data.stock;
+  const stocks={...data.stock};
+  for(const line of editReservation.lines){
+   const old=stocks[line.model_id];
+   if(old)stocks[line.model_id]={...old,available:Number(old.available)+Number(line.quantity)};
+  }
+  return stocks;
+ },[editReservation,data.stock]);
  const chosen=models.filter(m=>Object.hasOwn(portions,m.id));
  const availableModels=models.filter(m=>!Object.hasOwn(portions,m.id)&&
    (m.name+' '+m.size_label).toLocaleLowerCase().includes(productSearch.toLocaleLowerCase()));
@@ -418,7 +429,7 @@ function BookingPanel({data,onReservation,onOrder,onUpdate,onCloseEdit,editReser
  useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
  function editPortion(id,value){requestId.current=null;setPortions(v=>({...v,[id]:value}));setLocalError('');}
  function addModel(model){requestId.current=null;
-  const stock=data.stock[model.id]||{},available=Number(stock.available)||0;
+  const stock=editingStock[model.id]||{},available=Number(stock.available)||0;
   setPortions(v=>({...v,[model.id]:{dozens:available>=12?'1':'0',extraColorIds:[]}}));
   setLocalError('');
  }
@@ -429,7 +440,7 @@ function BookingPanel({data,onReservation,onOrder,onUpdate,onCloseEdit,editReser
   e.preventDefault();setLocalError('');
   try{
    if(!customerId)throw new Error('Selecciona un cliente antes de continuar.');
-   const lines=checkedPortions(models,portions,data.stock,data.colors);
+   const lines=checkedPortions(models,portions,editingStock,data.colors);
    if(!requestId.current)requestId.current=uuid();
    const ok=mode==='edit'?await onUpdate(editReservation.id,lines,requestId.current):
     mode==='reservation'?await onReservation(customerId,lines,requestId.current):await onOrder(customerId,lines,requestId.current);
@@ -475,7 +486,7 @@ function BookingPanel({data,onReservation,onOrder,onUpdate,onCloseEdit,editReser
       <input type="search" aria-label="Buscar modelos para añadir" placeholder="Buscar modelo o talla…"
        value={productSearch} onChange={e=>setProductSearch(e.target.value)}/></label>
      {availableModels.length?<div className="product-picker">{availableModels.map(m=>{
-      const st=data.stock[m.id]||{},available=Number(st.available)||0;
+      const st=editingStock[m.id]||{},available=Number(st.available)||0;
       return <div key={m.id} className="picker-item">
        <ProductImage model={m}/>
        <div className="picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small>
@@ -485,7 +496,7 @@ function BookingPanel({data,onReservation,onOrder,onUpdate,onCloseEdit,editReser
       </div>})}</div>:<p className="muted">{models.length?'Todos los modelos coincidentes están agregados.':'Todavía no hay productos activos.'}</p>}
      <div className="cart-subhead"><h3>Modelos en la operación</h3><span>{chosen.length} modelo(s) · {totalItems} prendas</span></div>
      {chosen.length?<div className="cart-models">{chosen.map(m=>
-      <PortionEditor key={m.id} model={m} colors={data.colors} stock={data.stock[m.id]||{}}
+      <PortionEditor key={m.id} model={m} colors={data.colors} stock={editingStock[m.id]||{}}
        selection={portions[m.id]} onChange={v=>editPortion(m.id,v)} onRemove={()=>removeModel(m.id)}/>
      )}</div>:<Empty title="Aún no agregaste modelos" detail="Elige uno o varios productos del catálogo superior."/>}
     </section>
