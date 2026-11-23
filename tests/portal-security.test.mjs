@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inspectMime,validPaymentAmount,validRequestId} from '../web/lib/portal-media.js';
 import {tokenDigest} from '../web/lib/portal-token.js';
+import {amountCents,formatBs} from '../web/lib/domain.js';
 
 test('JWT-less private capability uses 43-char base64url secret',()=>{
  const token='A'.repeat(43);
@@ -40,4 +41,14 @@ test('WebP RIFF and WEBP headers are detected',()=>{
 test('svg, executable, truncated and spoofed files are rejected',()=>{
  for(const bytes of [Buffer.from('<svg/>'),Buffer.from('MZ'),Buffer.from([255,216]),
   Buffer.from('RIFF1234'),Buffer.alloc(0)]) assert.equal(inspectMime(bytes),null);
+});
+
+test('zero balance and partial receipts can be displayed without price validation failure',()=>{
+ assert.equal(amountCents('0'),0n);
+ assert.equal(amountCents('0.00'),0n);
+ assert.equal(formatBs(amountCents('0')),'0,00 Bs');
+ assert.equal(formatBs(amountCents('610.50')),'610,50 Bs');
+});
+test('money parser rejects negative values and extra decimal positions',()=>{
+ for(const raw of ['-0.50','NaN','Infinity','0.999','100x'])assert.throws(()=>amountCents(raw));
 });
