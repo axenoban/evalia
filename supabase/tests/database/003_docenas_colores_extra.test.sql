@@ -1,0 +1,26 @@
+begin;
+create schema if not exists extensions;
+create extension if not exists pgtap with schema extensions;
+set local search_path=public,extensions;
+select plan(18);
+
+select has_column('public','reservation_lines','dozen_count','reserva distingue docenas');
+select has_column('public','reservation_lines','extra_units','reserva distingue extras');
+select has_column('public','order_lines','dozen_count','pedido distingue docenas');
+select has_column('public','order_lines','extra_units','pedido distingue extras');
+select has_table('public','reservation_extra_colors','colores extras de reserva');
+select has_table('public','order_extra_colors','colores extras de pedido');
+select has_function('public','evalia_validate_portions',array['jsonb'],'validador de porciones');
+select ok((select relrowsecurity from pg_class where oid='public.reservation_extra_colors'::regclass),'RLS reserva colores');
+select ok((select relrowsecurity from pg_class where oid='public.order_extra_colors'::regclass),'RLS pedido colores');
+select ok(not has_table_privilege('anon','public.reservation_extra_colors','SELECT'),'anon sin lectura de selecciones');
+select ok(not has_table_privilege('anon','public.order_extra_colors','SELECT'),'anon sin lectura de selecciones pedidas');
+select ok(not has_table_privilege('authenticated','public.reservation_extra_colors','INSERT'),'admin debe pasar por RPC');
+select ok(not has_table_privilege('authenticated','public.order_extra_colors','INSERT'),'sin escritura directa');
+select ok(not has_function_privilege('anon','public.evalia_validate_portions(jsonb)','EXECUTE'),'validador no expuesto a anónimos');
+select ok(not has_function_privilege('authenticated','public.evalia_validate_portions(jsonb)','EXECUTE'),'validador interno solamente');
+select ok(has_function_privilege('authenticated','public.create_evalia_order(uuid,jsonb,uuid)','EXECUTE'),'orden usa RPC admin');
+select ok(has_function_privilege('authenticated','public.create_evalia_reservation(uuid,jsonb,uuid)','EXECUTE'),'reserva usa RPC admin');
+select ok(has_function_privilege('authenticated','public.confirm_evalia_reservation(uuid,uuid)','EXECUTE'),'conversión usa RPC admin');
+select * from finish();
+rollback;
