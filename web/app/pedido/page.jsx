@@ -14,12 +14,8 @@ export default async function PrivateOrderPage(){
   <h1>Este enlace no está disponible</h1>
   <p>Puede haber sido revocado o el pedido ya está completado. Contacta con EVALIA para solicitar un enlace válido.</p>
  </section></main>;
- const {order,db}=session;
- let qr=null;
- if(order.qr_path){
-  const {data,error}=await db.storage.from('evalia-qr').createSignedUrl(order.qr_path,120);
-  if(!error) qr=data?.signedUrl||null;
- }
+ const {order}=session;
+ const qr=Boolean(order.qr_path);
  return <main className="private-portal"><div className="private-container">
   <header className="private-brand"><b>EVALIA</b><span>Consulta privada de pedido</span></header>
   <section className="private-card">
@@ -42,8 +38,8 @@ export default async function PrivateOrderPage(){
   </section>
   <section className="private-card">
    <h2>Realizar pago externo</h2>
-   {qr?<div className="portal-qr"><img src={qr} alt="Código QR bancario vigente proporcionado por EVALIA"/>
-     <a href={qr} download="evalia-qr.png" referrerPolicy="no-referrer">Descargar QR</a></div>:
+   {qr?<div className="portal-qr"><img src="/api/cliente-qr" alt="Código QR bancario vigente proporcionado por EVALIA"/>
+     <a href="/api/cliente-qr?download=1" referrerPolicy="no-referrer">Descargar QR</a></div>:
     <p>El QR bancario todavía no está disponible. Comunícate con EVALIA para obtener los datos de pago válidos.</p>}
    <h2>Informar un pago</h2>
    <ClientPaymentForm/>
