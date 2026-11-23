@@ -151,6 +151,10 @@ function unwrapStorage(result,action){
  return result.data;
 }
 export async function issueOrderLink(orderId){
+ const status=await fetch('/api/portal-estado',{cache:'no-store',credentials:'same-origin'});
+ const state=await status.json().catch(()=>({ready:false}));
+ if(!status.ok||!state.ready)
+  throw new Error('El backend privado del cliente no está configurado. Configura SUPABASE_SECRET_KEY solo en el servidor antes de emitir enlaces.');
  const bytes=crypto.getRandomValues(new Uint8Array(32));
  const raw=btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
  const hashBytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw)));
