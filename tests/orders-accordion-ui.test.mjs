@@ -21,14 +21,16 @@ test('listado de pedidos usa acordeones nativos cerrados de inicio',()=>{
 test('detalle abierto mantiene todos los módulos operativos anteriores',()=>{
  for(const fragment of [
   '<LegacyCommitments','<LineComposition','<OrderQuickActions','<OrderDeliveryEditor',
-  '<PaymentHistory','<PaymentForm','<DeliveryForm','<OrderLinkPanel',
-  'onReport','onDeliver','onComplete(o.id)','onQuick','onIssueLink','onRevokeLink',
+  '<PaymentHistory','<PaymentForm','<OrderLinkPanel',
+  'onReport','onComplete(o.id)','onQuick','onIssueLink','onRevokeLink',
   'onUpdateFulfillment','onPrint(o,customer)','busy||Number(finance.pending)!==0'
  ])assert.ok(orders.includes(fragment),'falta función '+fragment);
 });
 test('operaciones secundarias están plegadas sin deshabilitar el flujo express',()=>{
  assert.match(orders,/<details className="ev-order-management"/);
  assert.match(orders,/<details className="order-advanced"/);
+ assert.match(orders,/<details className="ev-order-link-details"/);
+ assert.match(orders,/<details className="ev-order-print-details"/);
  assert.match(orders,/o.status==='active'&&<OrderQuickActions/);
  assert.match(orders,/o.status==='active'&&<button className="button button-primary" type="button"/);
 });
@@ -43,5 +45,39 @@ test('estilos se aíslan del resto del panel y son responsive',()=>{
  assert.match(style,/\.ev-order-accordion\[open\]/);
  assert.match(style,/@media\(max-width:780px\)/);
  assert.match(style,/@media\(max-width:410px\)/);
- assert.match(style,/\.ev-order-stat-strip\{/);
+ assert.match(style,/\.ev-order-finance-brief\{/);
+});
+
+test('entregas parciales desaparecen del listado, sin borrar lógica de base ni cierre total',()=>{
+ assert.doesNotMatch(orders,/<DeliveryForm\b/);
+ assert.doesNotMatch(orders,/Retiradas físicas|Prendas entregadas|entregas parciales/i);
+ assert.match(page,/function DeliveryForm\(/); // preserva compatibilidad, aunque no se invoca desde Pedidos
+ assert.match(page,/onDeliver=\{deliver\}/); // el backend autorizado no se modifica
+ assert.match(orders,/<OrderQuickActions\b/);
+ const quickStart=page.indexOf('function OrderQuickActions(');
+ const quickEnd=page.indexOf('\nfunction ',quickStart+10);
+ const quick=page.slice(quickStart,quickEnd);
+ assert.match(quick,/onQuick\(\{orderId:order.id,action/);
+ assert.match(quick,/run\('pay_deliver'\)/);
+ assert.match(quick,/run\('deliver'\)/);
+ assert.doesNotMatch(quick,/entregas parciales siguen disponibles/);
+});
+
+test('no repite el total ni los importes por docena en líneas de una docena',()=>{
+ assert.equal((orders.match(/formatBs\(total\)/g)||[]).length,1);
+ assert.doesNotMatch(orders,/<footer className="order-total"/);
+ assert.match(orders,/Number\(l.quantity\)!==12&&<small>/);
+ assert.doesNotMatch(orders,/Talla \{m\?\.size_label\|\|'—'\} · \{rup\(l.quantity\)\} prendas/);
+ assert.match(orders,/<LineComposition line=\{l\}/);
+});
+
+test('muestra únicamente el dato de pago útil y oculta destinos e impresión por defecto',()=>{
+ assert.match(orders,/o.status==='active'&&<div className="ev-order-finance-brief"/);
+ assert.match(orders,/amountCents\(finance.pending\)>0n/);
+ assert.match(orders,/amountCents\(finance.approved\)>0n/);
+ assert.match(orders,/<details className="ev-order-print-details"/);
+ assert.match(orders,/<details className="ev-order-link-details"/);
+ assert.doesNotMatch(orders,/ev-order-stat-strip|Abonado y aprobado|Prendas entregadas/);
+ assert.match(orders,/o.fulfillment_method==='legacy'/);
+ assert.match(orders,/onPrint\(o,customer\)/);
 });
