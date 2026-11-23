@@ -25,6 +25,8 @@
 
 **Correcciones de datos:** RPC auditadas con idempotencia y bloqueo optimista; permiten corregir precio/fotografía del modelo para operaciones futuras y nombre/WhatsApp de ficha cliente. El precio del pedido confirmado sigue congelado. No se modifican los colores ya comprometidos ni la talla, ni se fusionan fichas automáticamente.
 
+**Última validación automatizada:** GitHub Actions completó correctamente **83/83 pruebas Node**, **194/194 pruebas pgTAP** en PostgreSQL local y compilación Next.js 16. El workflow público independiente verificó HTTP 200 de web/backend sin credenciales Vercel y HTTP 404 de token/QR inválidos. Supabase remoto guarda las migraciones 001–011 con versiones iguales a los archivos; el esquema no contiene datos QA sintéticos.
+
 ## 3. Pruebas para pasar a baseline
 
 ### Automatizadas
