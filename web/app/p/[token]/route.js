@@ -10,7 +10,7 @@ export async function GET(request,{params}){
   const redirect=NextResponse.redirect(new URL('/pedido',request.url),303);
   redirect.cookies.set(ORDER_COOKIE,(await params).token,{
     httpOnly:true,secure:process.env.NODE_ENV==='production',
-    sameSite:'strict',path:'/' // cookie de sesión; el cierre/revocación invalida la BD
+    sameSite:'lax',path:'/' // enlace abierto desde WhatsApp: Lax permite GET tras redirección externa; POST exige Origin
   });
   redirect.headers.set('Referrer-Policy','no-referrer');
   redirect.headers.set('Cache-Control','private, no-store');
