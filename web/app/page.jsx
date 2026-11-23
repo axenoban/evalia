@@ -531,56 +531,63 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
  const noDozen=validDozens&&dozens===0;
  const validLine=validDozens&&Number.isSafeInteger(quantity)&&quantity>=6&&!insufficient&&!stock.blocked;
  const maximumDozens=Math.max(0,Math.floor((available-extras.length)/12));
+ const [extrasOpen,setExtrasOpen]=useState(()=>extras.length>0||Number(selection.dozens)===0);
+ const showExtras=extrasOpen||noDozen;
  function setDozens(value){
-   onChange({...selection,dozens:String(value)});
+  if(String(value)==='0')setExtrasOpen(true);
+  else if(dozens===0&&extras.length===0)setExtrasOpen(false);
+  onChange({...selection,dozens:String(value)});
  }
  function toggleColor(id){
   if(extras.includes(id))onChange({...selection,extraColorIds:extras.filter(x=>x!==id)});
   else if(extras.length<11&&quantity<available&&!stock.blocked)
    onChange({...selection,extraColorIds:[...extras,id]});
  }
- return <article className={'cart-model '+(validLine?'complete':'incomplete')}>
+ return <article className={'cart-model ev-portion-model '+(validLine?'complete':'incomplete')}>
   <div className="cart-model-head">
    <ProductImage model={model}/>
    <div className="cart-model-info"><h3>{model.name}</h3>
     <span>Talla {model.size_label} · {formatBs(centsFromBs(model.price_dozen_bs))} por docena</span>
-    <small>{stock.blocked?'BLOQUEADO':available+' prendas libres de '+stock.on_hand+' publicadas'}</small>
+    <small>{stock.blocked?'BLOQUEADO':formatAvailableDozens(available)+' libres'}</small>
    </div>
    <button type="button" className="remove-model" title="Quitar modelo" aria-label={'Quitar '+model.name}
     onClick={onRemove}>×</button>
   </div>
-  <div className="portion-controls">
-   <div className="dozen-panel">
-    <div className="portion-label"><b>Docenas completas</b><span>Surtidas · 12 prendas cada una</span></div>
-    <div className="dozen-entry"><button type="button" aria-label={'Quitar docena de '+model.name}
+  <div className="ev-portion-primary">
+   <div className="ev-portion-dozens">
+    <div className="portion-label"><b>Docenas surtidas</b><span>12 prendas por docena</span></div>
+    <div className="dozen-entry">
+     <button type="button" aria-label={'Quitar docena de '+model.name}
       onClick={()=>setDozens(Math.max(0,dozens-1))} disabled={!validDozens||dozens<=0}>−</button>
-      <input type="number" min="0" max={Math.min(maximumDozens,178956969)} step="1" inputMode="numeric"
-       name={'dozens-'+model.id} aria-label={'Docenas de '+model.name} value={selection.dozens}
-       onChange={e=>setDozens(e.target.value)}/>
-      <button type="button" aria-label={'Añadir docena a '+model.name}
-       onClick={()=>setDozens(dozens+1)} disabled={!validDozens||dozens>=maximumDozens||stock.blocked}>＋</button>
+     <input type="number" min="0" max={Math.min(maximumDozens,178956969)} step="1" inputMode="numeric"
+      name={'dozens-'+model.id} aria-label={'Docenas de '+model.name} value={selection.dozens}
+      onChange={e=>setDozens(e.target.value)}/>
+     <button type="button" aria-label={'Añadir docena a '+model.name}
+      onClick={()=>setDozens(dozens+1)} disabled={!validDozens||dozens>=maximumDozens||stock.blocked}>＋</button>
     </div>
    </div>
-   <div className="extra-panel">
-    <div className="portion-label"><b>Prendas adicionales</b>
-     <span>{extras.length} de 11 · un solo ejemplar de cada color</span></div>
-    <div className="extra-count">{extras.length}<small>colores</small></div>
-   </div>
+   <button type="button" className={'ev-units-toggle '+(showExtras?'expanded':'')}
+    aria-expanded={showExtras} aria-controls={'extra-colors-'+model.id}
+    onClick={()=>{if(!noDozen)setExtrasOpen(current=>!current);}}>
+    <span className="ev-units-leading"><strong>{extras.length?extras.length+' unidades por color':'＋ Agregar unidades'}</strong>
+     <small>{noDozen?'Mínimo 6 colores diferentes (media docena)':'Opcional · hasta 11 unidades por color'}</small></span>
+    <span className="ev-units-chevron" aria-hidden="true">{showExtras?'⌃':'⌄'}</span>
+   </button>
   </div>
-  <div className="extra-color-panel">
+  <div id={'extra-colors-'+model.id} hidden={!showExtras} className="extra-color-panel ev-extra-colors">
    <div className="portion-instructions">
-    <b>{noDozen?'Elige de 6 a 11 colores':'Agrega hasta 11 prendas por color'}</b>
-    <p>{noDozen?'Sin docena, necesitas al menos 6 prendas y cada una debe tener un color diferente.':
-      'Las docenas completas son surtidas; los colores elegidos aquí corresponden solo a las prendas adicionales.'}</p>
+    <b>{noDozen?'Media docena o unidades: selecciona de 6 a 11 colores':'Selecciona unidades adicionales (máximo 11)'}</b>
+    <p>{noDozen?'Sin docenas completas, cada unidad lleva un color diferente y el mínimo es de 6.':
+     'Cada color representa exactamente una prenda adicional. Las docenas completas siguen siendo surtidas.'}</p>
    </div>
    <div className="color-select-grid extra-select-grid">
     {allowedColors.map(color=><ColorChip key={color.id} color={color}
-       selected={extras.includes(color.id)} onClick={() => toggleColor(color.id)}
-       disabled={!extras.includes(color.id)&&(extras.length>=11||quantity>=available||stock.blocked)}/>)}
+     selected={extras.includes(color.id)} onClick={()=>toggleColor(color.id)}
+     disabled={!extras.includes(color.id)&&(extras.length>=11||quantity>=available||stock.blocked)}/>)}
    </div>
    {!allowedColors.length&&<p className="form-hint">No hay colores activos asignados a este modelo.</p>}
    {noDozen&&extras.length<6&&<p className="portion-warning" role="status">
-     Selecciona {6-extras.length} {6-extras.length===1?'color más':'colores más'} para alcanzar el mínimo mayorista.
+    Selecciona {6-extras.length} {6-extras.length===1?'color más':'colores más'} para alcanzar el mínimo mayorista.
    </p>}
    {insufficient&&<p className="form-error" role="alert">Stock insuficiente: {quantity} seleccionadas, {available} disponibles.</p>}
    {stock.blocked&&<p className="form-error">Modelo con incidencia de inventario.</p>}
@@ -593,17 +600,18 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
  </article>;
 }
 function OrderStepHeader({number,title,description,state}){
- return <div className="form-section-title">
-  <span className="step" aria-hidden="true">{state==='done'?'✓':number}</span>
+ return <div className="form-section-title ev-booking-section-title">
+  <span className="step" aria-hidden="true">{number===1?'♙':number===2?'▧':'✓'}</span>
   <div className="order-step-heading"><h2>{title}</h2><p>{description}</p></div>
-  <span className={'order-step-badge '+state}>
-   {state==='done'?'Completado':state==='current'?'Paso actual':'Pendiente'}
-  </span>
+  {state==='done'&&<span className="ev-section-complete" aria-label="Sección lista">✓</span>}
  </div>;
 }
 function BookingPanel({data,onOrder,onCreateClient,busy}){
  const [customerId,setCustomerId]=useState('');
  const [customerSearch,setCustomerSearch]=useState('');
+ const [customerListOpen,setCustomerListOpen]=useState(false);
+ const [highlightedCustomer,setHighlightedCustomer]=useState(0);
+ const customerPickerRef=useRef(null);
  const [productSearch,setProductSearch]=useState('');
  const [portions,setPortions]=useState({});
  const [localError,setLocalError]=useState('');
@@ -618,6 +626,21 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
    (m.name+' '+m.size_label).toLocaleLowerCase().includes(productSearch.toLocaleLowerCase()));
  const matchedCustomers=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(customerSearch.toLocaleLowerCase()));
  const chosenCustomer=data.customers.find(c=>c.id===customerId);
+ const visibleCustomers=matchedCustomers.slice(0,8);
+ useEffect(()=>{
+  const dismiss=e=>{if(!customerPickerRef.current?.contains(e.target))setCustomerListOpen(false);};
+  document.addEventListener('pointerdown',dismiss);
+  return ()=>document.removeEventListener('pointerdown',dismiss);
+ },[]);
+ function selectCustomer(customer){
+  setCustomerId(customer.id);
+  setMethod(customer.delivery_preference==='unclassified'?'':(customer.delivery_preference??''));
+  setDestination(customer.shipping_destination??'');
+  setCustomerListOpen(false);
+  setCustomerSearch('');
+  setHighlightedCustomer(0);
+  requestId.current=null;
+ }
  const amount=chosen.reduce((total,m)=>{
   const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds);
   const valid=/^(0|[1-9]\d*)$/.test(String(s.dozens));
@@ -665,57 +688,83 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
    const delivery=validateDelivery(method,destination);
    if(!requestId.current)requestId.current=uuid();
    const ok=await onOrder(customerId,lines,requestId.current,delivery);
-   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');setMethod('');setDestination('');}
+   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');setCustomerListOpen(false);setMethod('');setDestination('');}
   }catch(err){setLocalError(err.message);}
  }
- return <>
+ return <div className="ev-booking">
   <SectionHead eyebrow="VENTAS MAYORISTAS" title="Registrar pedido confirmado"
-   description="Selecciona el cliente y los modelos que comprará. Las docenas son surtidas y las prendas extra llevan colores individuales sin repetir."/>
-  <nav className="order-progress" aria-label="Progreso del registro de pedido">
-   {[['Cliente','Identificación'],['Productos','Cantidad y colores'],['Confirmación','Registro final']].map(([label,desc],index)=>{
-    const number=index+1,state=number<stage?'done':number===stage?'current':'next';
-    return <div className={'order-progress-item '+state} key={number} aria-current={state==='current'?'step':undefined}>
-     <span className="order-progress-number" aria-hidden="true">{state==='done'?'✓':number}</span>
-     <div><strong>{label}</strong><small>{desc}</small></div>
-     <span className="order-progress-state">{state==='done'?'Listo':state==='current'?'En curso':'Siguiente'}</span>
-    </div>;
-   })}
+   description="Selecciona comprador y modelos; las docenas son surtidas y las unidades por color se detallan cuando las agregas."/>
+  <nav className="order-progress ev-order-progress" aria-label="Progreso del registro de pedido">
+   <div className="ev-progress-caption">
+    <strong>Progreso del pedido</strong>
+    <span>Paso {stage} de 3</span>
+   </div>
+   <div className="ev-progress-bar" role="progressbar" aria-label="Progreso del pedido"
+    aria-valuemin={1} aria-valuemax={3} aria-valuenow={stage}>
+    <span style={{width:(stage*100/3)+'%'}}/>
+   </div>
+   <div className="ev-progress-labels">
+    {['Cliente','Modelos','Confirmación'].map((label,index)=>
+     <span key={label} className={index+1<stage?'done':index+1===stage?'current':'next'}>
+      <span aria-hidden="true">{index+1<stage?'✓':index+1}</span>{label}
+     </span>)}
+   </div>
   </nav>
   <div className="booking-layout">
    <div className="surface booking-form">
     <section className={'form-section order-step-card '+(1<stage?'done':1===stage?'current':'next')}>
      <OrderStepHeader number={1} title="Elegir comprador" description="Busca por nombre o WhatsApp, o registra un cliente nuevo." state={1<stage?'done':1===stage?'current':'next'}/>
-     <div className="customer-chooser">
-      <label className="search"><span aria-hidden="true">⌕</span>
-       <input type="search" aria-label="Buscar clientes por nombre o WhatsApp" autoComplete="off"
-        placeholder="Buscar cliente por WhatsApp…" value={customerSearch}
-        onChange={e=>setCustomerSearch(e.target.value)}/></label>
-      <div className="client-selection"><Field title="Cliente del pedido">
-       <select name="customerId" value={customerId} required
-        onChange={e=>{
-         const customer=data.customers.find(c=>c.id===e.target.value);
-         setCustomerId(e.target.value);
-         setMethod(customer?.delivery_preference==='unclassified'?'':(customer?.delivery_preference??''));
-         setDestination(customer?.shipping_destination??'');
-         requestId.current=null;
-        }}>
-        <option value="">Selecciona un cliente…</option>
-        {chosenCustomer&&!matchedCustomers.some(c=>c.id===chosenCustomer.id)&&
-          <option value={chosenCustomer.id}>{chosenCustomer.name} · {chosenCustomer.whatsapp}</option>}
-        {matchedCustomers.map(c=><option key={c.id} value={c.id}>{c.name} · {c.whatsapp}</option>)}
-       </select></Field>
-       <button type="button" className="button button-outline" onClick={()=>setAddClient(x=>!x)}>
-        {addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>
+     <div className="customer-chooser ev-customer-chooser">
+      <div className="ev-client-picker-row">
+       <div className="ev-client-field" ref={customerPickerRef}>
+        <label htmlFor="ev-client-search" className="field-label">Cliente del pedido</label>
+        <div className="search ev-client-search">
+         <span aria-hidden="true">⌕</span>
+         <input id="ev-client-search" type="search" role="combobox"
+          aria-label="Buscar y seleccionar cliente por nombre o WhatsApp" aria-autocomplete="list"
+          aria-expanded={customerListOpen} aria-controls="ev-client-results"
+          aria-activedescendant={customerListOpen&&visibleCustomers[highlightedCustomer]?'ev-client-option-'+visibleCustomers[highlightedCustomer].id:undefined}
+          autoComplete="off" placeholder="Nombre o número de WhatsApp…"
+          value={customerSearch} onFocus={()=>setCustomerListOpen(true)}
+          onChange={e=>{setCustomerSearch(e.target.value);setCustomerListOpen(true);setHighlightedCustomer(0);}}
+          onKeyDown={e=>{
+           if(e.key==='ArrowDown'){e.preventDefault();setCustomerListOpen(true);setHighlightedCustomer(i=>Math.min(visibleCustomers.length-1,Math.max(0,i+1)));}
+           else if(e.key==='ArrowUp'){e.preventDefault();setCustomerListOpen(true);setHighlightedCustomer(i=>Math.max(0,i-1));}
+           else if(e.key==='Enter'&&customerListOpen&&visibleCustomers.length){e.preventDefault();selectCustomer(visibleCustomers[Math.min(highlightedCustomer,visibleCustomers.length-1)]);}
+           else if(e.key==='Escape'){setCustomerListOpen(false);}
+          }}/>
+        </div>
+        <div id="ev-client-results" role="listbox" aria-label="Resultados de clientes"
+         className="ev-client-results" hidden={!customerListOpen}>
+         {visibleCustomers.length?visibleCustomers.map((c,index)=>
+          <button type="button" key={c.id} id={'ev-client-option-'+c.id}
+           role="option" aria-selected={customerId===c.id}
+           className={'ev-client-option '+(index===highlightedCustomer?'highlighted':'')}
+           onMouseDown={e=>e.preventDefault()} onClick={()=>selectCustomer(c)}>
+           <span className="avatar">{initials(c.name)}</span>
+           <span className="ev-client-meta"><strong>{c.name}</strong><small>{c.whatsapp}</small></span>
+           <span className="ev-client-type">{c.delivery_preference==='shipping'?'Envío':c.delivery_preference==='pickup'?'Retiro':'Sin clasificar'}</span>
+           {customerId===c.id&&<span className="ev-client-selected-icon" aria-label="Seleccionado">✓</span>}
+          </button>):
+          <p className="ev-client-empty">No se encontraron clientes. Puedes registrar uno nuevo.</p>}
+         {matchedCustomers.length>visibleCustomers.length&&
+          <p className="ev-client-more">Mostrando 8 de {matchedCustomers.length}. Escribe para filtrar.</p>}
+        </div>
+       </div>
+       <button type="button" className="button button-outline ev-new-client" aria-expanded={addClient}
+        onClick={()=>setAddClient(x=>!x)}>{addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>
       </div>
      </div>
-     {chosenCustomer&&<div className="selected-client">
-       <span className="avatar small">{initials(chosenCustomer.name)}</span><div>
-         <b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp}</small></div></div>}
+     {chosenCustomer&&<div className="selected-client ev-selected-client">
+       <span className="avatar small">{initials(chosenCustomer.name)}</span>
+       <div><b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp}</small></div>
+       <span className="ev-chosen-tag">✓ Seleccionado</span>
+      </div>}
      {addClient&&<div className="inline-client"><ClientForm compact busy={busy}
-       onCreate={async(payload)=>{const ok=await onCreateClient(payload);if(ok){setAddClient(false);setCustomerSearch(payload.whatsapp);}return ok;}}/></div>}
+       onCreate={async(payload)=>{const ok=await onCreateClient(payload);if(ok){setAddClient(false);setCustomerSearch(payload.whatsapp);setCustomerListOpen(true);setHighlightedCustomer(0);}return ok;}}/></div>}
     </section>
     <section className={'form-section order-step-card '+(2<stage?'done':2===stage?'current':'next')}>
-     <OrderStepHeader number={2} title="Seleccionar productos" description="Toca cualquier tarjeta para añadirla y configurar sus cantidades." state={2<stage?'done':2===stage?'current':'next'}/>
+     <OrderStepHeader number={2} title="Seleccionar productos" description="Agrega modelos y elige docenas; despliega unidades y colores solo cuando lo necesites." state={2<stage?'done':2===stage?'current':'next'}/>
      <label className="search model-search"><span aria-hidden="true">⌕</span>
       <input type="search" aria-label="Buscar modelos para añadir" placeholder="Buscar modelo o talla…"
        value={productSearch} onChange={e=>setProductSearch(e.target.value)}/></label>
@@ -729,7 +778,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
        <ProductImage model={m}/>
        <div className="picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small>
         <span className={!canAdd?'error-text':'positive-text'}>{st.blocked?'Incidencia · bloqueado':
-          !canAdd?'Sin cupo suficiente para el mínimo mayorista':available+' prendas disponibles'}</span>
+          !canAdd?'Sin cupo suficiente para el mínimo mayorista':formatAvailableDozens(available)+' disponibles'}</span>
        </div><span className="picker-add-action" aria-hidden="true">＋ Agregar</span>
       </button>})}</div>:<p className="muted">{models.length?'Todos los modelos coincidentes están agregados.':'Todavía no hay productos activos.'}</p>}
      <div className="cart-subhead"><h3>Modelos agregados al pedido</h3><span aria-live="polite">{chosen.length} modelo(s) · {totalItems} prendas</span></div>
@@ -784,7 +833,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
     </form>
    </aside>
   </div>
- </>;
+ </div>;
 }
 function LineComposition({line,colors,compact=false}){
  const hasBreakdown=line.dozen_count!==null&&line.dozen_count!==undefined;
