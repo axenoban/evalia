@@ -325,6 +325,7 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
    const n=Number(quantities[m.id]);
    return s+(Number.isSafeInteger(n)&&n>=6?subtotalCents(m.price_dozen_bs,n):0n);
  },0n);
+ useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
  function changeQuantity(id,value){setQuantities(prev=>({...prev,[id]:value}));setLocalError('');}
  async function submit(e){
   e.preventDefault();setLocalError('');
@@ -335,14 +336,13 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
    if(ok){setQuantities({});setCustomerId('');}
   }catch(err){
    setLocalError(err.message);
-   document.getElementById('operation-error')?.focus();
   }
  }
  return <>
   <SectionHead eyebrow="VENTAS MAYORISTAS" title="Prepara la operación."
    description="Elige un cliente, agrega modelos y revisa cantidades por docena, media docena o prendas adicionales."/>
   <div className="booking-layout">
-   <form className="surface booking-form" onSubmit={submit}>
+   <div className="surface booking-form">
     <section className="form-section">
      <div className="form-section-title"><span className="step">1</span><div><h2>Cliente</h2><p>Vincula la operación a una ficha.</p></div></div>
      <div className="client-selection"><Field title="Comprador registrado"><select name="customerId" value={customerId}
@@ -398,7 +398,7 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
      </div>
     </section>
     {localError&&<p className="form-error" role="alert" tabIndex={-1} id="operation-error">{localError}</p>}
-   </form>
+   </div>
    <aside className="surface checkout">
     <p className="eyebrow">REVISIÓN ANTES DE GUARDAR</p><h2>Resumen de la operación</h2>
     <div className="checkout-customer"><span className="label-dim">Cliente</span>
@@ -409,10 +409,9 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
      </div>}):<p className="muted">Los modelos seleccionados aparecerán aquí.</p>}</div>
     <div className="checkout-total"><span>Importe total</span><strong>{formatBs(amount)}</strong></div>
     <p className="checkout-note">Precios calculados por modelo y sin descuento. Los colores son una referencia visual del surtido.</p>
-    <button className="button button-primary full" type="button" disabled={busy||!selection.length}
-     onClick={()=>document.querySelector('.booking-form')?.requestSubmit()}>
+    <form id="booking-submit" onSubmit={submit}><button className="button button-primary full" type="submit" disabled={busy||!selection.length}>
       {busy?'Registrando…':mode==='reservation'?'Guardar reserva':'Confirmar pedido'}
-    </button>
+    </button></form>
    </aside>
   </div>
  </>;
@@ -552,7 +551,7 @@ export default function HomePage(){
    <main id="main" className="main-content">
     {error&&<Notice type="error" onClose={()=>setError('')}>{error}</Notice>}
     {message&&<Notice type="success" onClose={()=>setMessage('')}>{message}</Notice>}
-    {!data?<div className="loading">Cargando productos y registros…</div>:
+    {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} busy={busy}/>:
       tab==='booking'?<BookingPanel data={data} onReservation={reserve} onOrder={order} onCreateClient={addClient} setTab={setTab} busy={busy}/>:
