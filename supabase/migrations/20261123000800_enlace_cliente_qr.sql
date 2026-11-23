@@ -202,11 +202,15 @@ begin
   if not found then raise exception 'Enlace revocado' using errcode='42501'; end if;
   return v_prior.id;
  end if;
+ -- Orden de locks compartido con emitir/revocar enlace: pedido primero, token después.
  select * into v_link from public.order_access_links
-  where token_hash=p_token_hash and revoked_at is null for update;
+  where token_hash=p_token_hash and revoked_at is null;
  if not found then raise exception 'Acceso inválido' using errcode='42501'; end if;
  select * into v_order from public.orders where id=v_link.order_id for update;
  if not found or v_order.status<>'active' then raise exception 'Pedido cerrado' using errcode='42501'; end if;
+ select * into v_link from public.order_access_links
+  where order_id=v_order.id and token_hash=p_token_hash and revoked_at is null for update;
+ if not found then raise exception 'Enlace revocado durante la operación' using errcode='42501'; end if;
  if p_receipt_path is null or p_receipt_path !~ '^receipts/[a-f0-9-]{36}/[a-f0-9-]{36}\.(jpg|jpeg|png|webp)$'
    or split_part(p_receipt_path,'/',2)<>v_order.id::text then
   raise exception 'Comprobante ajeno a este pedido' using errcode='42501';
