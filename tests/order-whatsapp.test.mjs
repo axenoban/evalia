@@ -19,6 +19,7 @@ test('Mensaje confirmado incluye modelos, colores adicionales, total y enlace, s
  assert.match(txt,/Pagos aprobados: 100,00 Bs/);
  assert.match(txt,/Saldo pendiente: 500,50 Bs/);
  assert.ok(txt.includes(url));
+ assert.match(txt,/Referencia: order1/);
  assert.match(txt,/sujetos a verificación/);
  assert.doesNotMatch(txt,/pago recibido|pago confirmado|reserva/i);
 });

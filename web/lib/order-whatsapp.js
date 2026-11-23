@@ -42,6 +42,7 @@ export function buildOrderWhatsAppMessage({order,customer,models=[],colors=[],fi
   '',
   'Hola'+(plain(customer?.name)?', '+plain(customer.name):'')+'.',
   'Tu pedido fue registrado con estos detalles:',
+  ...(plain(order.id)?['Referencia: '+plain(order.id)]:[]),
   '',
   ...items.map(x=>x+'\n'),
   '*Total del pedido: '+formatBs(total)+'*'
