@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
   createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock,
-  createOrder, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
+  createOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
+import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
+import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
 import {
   centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
@@ -76,13 +78,34 @@ function Notice({type='info',children,onClose}){return <div className={'alert al
 function SummaryCard({label,value,sub,kind=''}){return <div className={'metric '+kind}>
  <span className="metric-label">{label}</span><strong>{value}</strong><small>{sub}</small>
  </div>;}
+function DeliveryPreferenceFields({method,setMethod,destination,setDestination,namePrefix='delivery'}) {
+ return <div className="delivery-preference-fields">
+  <Field title="Modalidad habitual de entrega">
+   <select aria-label="Categoría de entrega del cliente" value={method} required
+    onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');}}>
+    <option value="">Selecciona una categoría…</option>
+    <option value="pickup">Retiro local</option>
+    <option value="shipping">Cliente con envíos nacionales / interdepartamentales</option>
+   </select>
+  </Field>
+  {method==='shipping'&&<Field title="Destino habitual del envío (obligatorio)">
+   <input aria-label="Destino habitual" value={destination} required minLength={2} maxLength={200}
+    placeholder="Ciudad, departamento y agencia de envío"
+    onChange={e=>setDestination(e.target.value)}/>
+  </Field>}
+ </div>;
+}
 function ClientForm({onCreate,busy,compact=false}){
  const [name,setName]=useState(''),[phone,setPhone]=useState('');
+ const [method,setMethod]=useState(''),[destination,setDestination]=useState(''),[error,setError]=useState('');
  async function submit(e){
-  e.preventDefault();
-  if(!name.trim()||!phone.trim())return;
-  const ok=await onCreate(name.trim(),phone.trim());
-  if(ok){setName('');setPhone('');}
+  e.preventDefault();setError('');
+  try{
+   if(!name.trim()||!phone.trim())throw new Error('Nombre y WhatsApp obligatorios.');
+   const delivery=validateDelivery(method,destination);
+   const ok=await onCreate({name:name.trim(),whatsapp:phone.trim(),...delivery});
+   if(ok){setName('');setPhone('');setMethod('');setDestination('');}
+  }catch(e){setError(e.message);}
  }
  return <form className={'customer-form '+(compact?'mini-form':'')} onSubmit={submit}>
   <div className="form-inline">
@@ -91,6 +114,9 @@ function ClientForm({onCreate,busy,compact=false}){
    <Field title="WhatsApp"><input name="clientPhone" type="tel" value={phone} required maxLength={30}
     autoComplete="tel" inputMode="tel" placeholder="Número de WhatsApp…" onChange={e=>setPhone(e.target.value)}/></Field>
   </div>
+  <DeliveryPreferenceFields method={method} setMethod={setMethod}
+   destination={destination} setDestination={setDestination}/>
+  {error&&<p className="form-error" role="alert">{error}</p>}
   <div className="form-actions"><button className="button button-primary" disabled={busy} type="submit">
    {busy?'Guardando…':'Guardar cliente'}
   </button></div>
@@ -327,28 +353,36 @@ function ModelForm({colors,onCreate,busy}){
  </form>;
 }
 function ClientEditForm({customer,onSave,onCancel,busy}){
- const [name,setName]=useState(customer.name),[phone,setPhone]=useState(customer.whatsapp),[error,setError]=useState('');
+ const [name,setName]=useState(customer.name),[phone,setPhone]=useState(customer.whatsapp);
+ const [method,setMethod]=useState(customer.delivery_preference==='unclassified'?'':customer.delivery_preference);
+ const [destination,setDestination]=useState(customer.shipping_destination??'');
+ const [error,setError]=useState('');
  const requestId=useRef(null);
  async function submit(e){
   e.preventDefault();setError('');
-  const newName=name.trim(),newPhone=phone.trim();
-  if(!newName||!newPhone){setError('Nombre y WhatsApp obligatorios.');return;}
-  if(newName===customer.name&&newPhone===customer.whatsapp)return;
-  if(!requestId.current)requestId.current=uuid();
-  const ok=await onSave({customer,name:newName,whatsapp:newPhone,requestId:requestId.current});
-  if(ok){requestId.current=null;onCancel();}
+  try{
+   const delivery=validateDelivery(method,destination);
+   if(!name.trim()||!phone.trim())throw new Error('Nombre y WhatsApp obligatorios.');
+   if(!requestId.current)requestId.current=uuid();
+   const ok=await onSave({customer,name:name.trim(),whatsapp:phone.trim(),...delivery,requestId:requestId.current});
+   if(ok){requestId.current=null;onCancel();}
+  }catch(e){setError(e.message);}
  }
+ const touched=name.trim()!==customer.name||phone.trim()!==customer.whatsapp||
+  method!==customer.delivery_preference||((method==='shipping'?destination.trim():'')!==(customer.shipping_destination??''));
  return <form className="customer-edit" onSubmit={submit}>
-  <p className="small-note">Corrige esta ficha sin fusionarla con otros clientes ni cambiar sus pedidos.</p>
+  <p className="small-note">La categoría y el destino habitual se reutilizan al crear pedidos. Los pedidos anteriores conservan su destino registrado.</p>
   <div className="form-inline">
    <Field title="Nombre"><input value={name} maxLength={130} required
     onChange={e=>{setName(e.target.value);requestId.current=null;}}/></Field>
    <Field title="WhatsApp"><input value={phone} maxLength={30} type="tel" inputMode="tel" required
     onChange={e=>{setPhone(e.target.value);requestId.current=null;}}/></Field>
   </div>
+  <DeliveryPreferenceFields method={method} setMethod={v=>{setMethod(v);requestId.current=null;}}
+   destination={destination} setDestination={v=>{setDestination(v);requestId.current=null;}}/>
   {error&&<p role="alert" className="form-error">{error}</p>}
   <div className="form-actions">
-   <button type="submit" disabled={busy||name.trim()===customer.name&&phone.trim()===customer.whatsapp} className="button button-primary">Guardar corrección</button>
+   <button type="submit" disabled={busy||!touched} className="button button-primary">Guardar ficha y destino</button>
    <button type="button" className="button button-outline" onClick={onCancel}>Cancelar</button>
   </div>
  </form>;
@@ -361,7 +395,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
     description="Registra y actualiza los datos de contacto de tus compradores. El teléfono no fusiona fichas."/>
   <div className="two-columns customer-layout">
    <section className="surface pad"><h2>Registrar cliente</h2>
-    <p className="muted">Solo los datos necesarios para reconocer el pedido y contactar por WhatsApp.</p>
+    <p className="muted">Indica si compra para retiro o para envíos. Si recibe envíos, registra siempre su destino habitual.</p>
     <ClientForm onCreate={onCreate} busy={busy}/></section>
    <section className="surface pad"><h2>{data.customers.length} fichas registradas</h2>
     <label className="search"><span aria-hidden>⌕</span><input type="search" aria-label="Buscar cliente"
@@ -370,7 +404,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
       const reservations=data.reservations.filter(r=>r.customer_id===c.id).length;
       const orders=data.orders.filter(o=>o.customer_id===c.id).length;
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
-       <div><strong>{c.name}</strong><small>{c.whatsapp}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span></div>
+       <div><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}{c.shipping_destination?' · '+c.shipping_destination:''}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span></div>
        <button className="button button-outline" type="button" disabled={busy}
         onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button></div>
        {editing===c.id&&<ClientEditForm key={c.id+'-'+c.updated_at} customer={c}
@@ -481,6 +515,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
  const [localError,setLocalError]=useState('');
  const [recentlyAdded,setRecentlyAdded]=useState(null);
  const [addClient,setAddClient]=useState(false);
+ const [method,setMethod]=useState(''),[destination,setDestination]=useState('');
  const requestId=useRef(null);
  const models=data.models.filter(m=>m.is_active);
  const stock=data.stock;
@@ -499,6 +534,9 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
   return n+(Number.isSafeInteger(q)&&q>=0?q:0);
  },0);
  const clientReady=Boolean(chosenCustomer);
+ const deliveryReady=(()=>{
+  try{validateDelivery(method,destination);return true;}catch{return false;}
+ })();
  const productsReady=chosen.length>0&&(()=>{
   try{return checkedPortions(models,portions,stock,data.colors).length===chosen.length;}
   catch{return false;}
@@ -530,9 +568,10 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
   try{
    if(!customerId)throw new Error('Selecciona un cliente antes de continuar.');
    const lines=checkedPortions(models,portions,stock,data.colors);
+   const delivery=validateDelivery(method,destination);
    if(!requestId.current)requestId.current=uuid();
-   const ok=await onOrder(customerId,lines,requestId.current);
-   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');}
+   const ok=await onOrder(customerId,lines,requestId.current,delivery);
+   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');setMethod('');setDestination('');}
   }catch(err){setLocalError(err.message);}
  }
  return <>
@@ -559,7 +598,13 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
         onChange={e=>setCustomerSearch(e.target.value)}/></label>
       <div className="client-selection"><Field title="Cliente del pedido">
        <select name="customerId" value={customerId} required
-        onChange={e=>{setCustomerId(e.target.value);requestId.current=null;}}>
+        onChange={e=>{
+         const customer=data.customers.find(c=>c.id===e.target.value);
+         setCustomerId(e.target.value);
+         setMethod(customer?.delivery_preference==='unclassified'?'':(customer?.delivery_preference??''));
+         setDestination(customer?.shipping_destination??'');
+         requestId.current=null;
+        }}>
         <option value="">Selecciona un cliente…</option>
         {chosenCustomer&&!matchedCustomers.some(c=>c.id===chosenCustomer.id)&&
           <option value={chosenCustomer.id}>{chosenCustomer.name} · {chosenCustomer.whatsapp}</option>}
@@ -573,7 +618,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
        <span className="avatar small">{initials(chosenCustomer.name)}</span><div>
          <b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp}</small></div></div>}
      {addClient&&<div className="inline-client"><ClientForm compact busy={busy}
-       onCreate={async(n,p)=>{const ok=await onCreateClient(n,p);if(ok){setAddClient(false);setCustomerSearch(p);}return ok;}}/></div>}
+       onCreate={async(payload)=>{const ok=await onCreateClient(payload);if(ok){setAddClient(false);setCustomerSearch(payload.whatsapp);}return ok;}}/></div>}
     </section>
     <section className={'form-section order-step-card '+(2<stage?'done':2===stage?'current':'next')}>
      <OrderStepHeader number={2} title="Seleccionar productos" description="Toca cualquier tarjeta para añadirla y configurar sus cantidades." state={2<stage?'done':2===stage?'current':'next'}/>
@@ -602,6 +647,22 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
     <section className={'form-section order-step-card '+(3<stage?'done':3===stage?'current':'next')}>
      <OrderStepHeader number={3} title="Revisar y confirmar" description="Comprueba los importes antes de comprometer inventario." state={3<stage?'done':3===stage?'current':'next'}/>
      <div className="order-confirmation-note"><strong>Compra confirmada</strong><p>Registra únicamente pedidos aceptados por el cliente. Al confirmar, las prendas quedan comprometidas para su entrega y el precio queda fijado.</p></div>
+     <div className="order-delivery-choice">
+      <Field title="¿Cómo recibirá este pedido?">
+       <select aria-label="Modalidad de entrega del pedido" value={method} required
+        onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');requestId.current=null;}}>
+        <option value="">Selecciona retiro o envío…</option>
+        <option value="pickup">Retiro en local</option>
+        <option value="shipping">Envío nacional / interdepartamental</option>
+       </select>
+      </Field>
+      {method==='shipping'&&<Field title="Destino exacto para este pedido">
+       <input aria-label="Destino del pedido" value={destination} required maxLength={200} minLength={2}
+        placeholder="Ciudad / departamento / agencia"
+        onChange={e=>{setDestination(e.target.value);requestId.current=null;}}/>
+      </Field>}
+      <p className="small-note">El pedido guarda su destino propio, aunque después se modifique la ficha del cliente.</p>
+     </div>
     </section>
     {localError&&<p className="form-error" role="alert" tabIndex={-1} id="operation-error">{localError}</p>}
    </div>
@@ -618,9 +679,12 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
       <strong>{valid?formatBs(subtotalCents(m.price_dozen_bs,q)):'—'}</strong>
      </div>;}):<p className="muted">Los modelos seleccionados aparecerán aquí.</p>}</div>
     <div className="checkout-total"><span>Total del pedido</span><strong>{formatBs(amount)}</strong></div>
+    <div className="checkout-delivery"><span>Entrega</span>
+     <strong>{deliveryLabel(method)}</strong>{method==='shipping'&&destination.trim()&&<small>{destination.trim()}</small>}
+    </div>
     <p className="checkout-note">Las docenas son surtidas. Se registran los colores de las prendas adicionales, una por color. La disponibilidad física por color se verifica fuera del sistema.</p>
     <form id="booking-submit" onSubmit={submit}>
-     <button className="button button-primary full" type="submit" disabled={busy||!clientReady||!productsReady}>
+     <button className="button button-primary full" type="submit" disabled={busy||!clientReady||!productsReady||!deliveryReady}>
       {busy?'Guardando…':'Confirmar y registrar pedido'}
      </button>
     </form>
@@ -937,7 +1001,38 @@ function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
   <p className="express-disclaimer">Las acciones de cobro exigen que el dinero haya sido recibido y comprobado. Las de entrega exigen que las prendas hayan sido entregadas físicamente. Se guardan con auditoría e impiden duplicados.</p>
  </section>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,busy}){
+function OrderDeliveryEditor({order,customer,onSave,busy}){
+ const [method,setMethod]=useState(order.fulfillment_method==='legacy'?'':order.fulfillment_method);
+ const [destination,setDestination]=useState(order.shipping_destination??customer?.shipping_destination??'');
+ const [error,setError]=useState('');
+ const requestId=useRef(null);
+ async function save(e){
+  e.preventDefault();setError('');
+  try{
+   const delivery=validateDelivery(method,destination);
+   if(!requestId.current)requestId.current=uuid();
+   const ok=await onSave({orderId:order.id,...delivery,requestId:requestId.current});
+   if(ok)requestId.current=null;
+  }catch(e){setError(e.message);}
+ }
+ return <form className="order-delivery-editor" onSubmit={save}>
+  <Field title="Modalidad de este pedido">
+   <select value={method} required aria-label="Clasificar entrega del pedido"
+    onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');requestId.current=null;}}>
+    <option value="">Selecciona…</option><option value="pickup">Retiro local</option>
+    <option value="shipping">Envío nacional / interdepartamental</option>
+   </select>
+  </Field>
+  {method==='shipping'&&<Field title="Destino de este pedido">
+   <input value={destination} aria-label="Cambiar destino del pedido" required minLength={2} maxLength={200}
+    onChange={e=>{setDestination(e.target.value);requestId.current=null;}}/>
+  </Field>}
+  {error&&<p className="form-error" role="alert">{error}</p>}
+  <button className="button button-outline" type="submit" disabled={busy}>Guardar entrega y destino</button>
+  <p className="small-note">Se registra el cambio. Si ya imprimiste una etiqueta, vuelve a imprimirla tras corregir los datos.</p>
+ </form>;
+}
+function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,busy}){
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Cada modelo conserva docenas, prendas individuales con sus colores y el importe histórico confirmado."/>
   <LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>
@@ -950,6 +1045,18 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
     <header className="record-head"><div className="record-name"><span className="avatar">{initials(customer?.name)}</span>
       <div><strong>{customer?.name||'Cliente'}</strong><small>{customer?.whatsapp||'—'} · {displayDate(o.confirmed_at)}</small></div></div>
       <Status value={o.status}/></header>
+    <section className="order-shipping-panel">
+     <div><strong>{deliveryLabel(o.fulfillment_method)}</strong>
+      {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
+      {o.fulfillment_method==='legacy'&&<p>Este pedido es anterior a la clasificación de entregas. Indica cómo se entregará para habilitar la impresión.</p>}
+     </div>
+     {o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
+       onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Imprimir etiqueta de envío':'Imprimir detalle y total'}</button>}
+     {o.status==='active'&&<details className="order-delivery-details">
+      <summary>{o.fulfillment_method==='legacy'?'Clasificar entrega para imprimir':'Corregir destino o modalidad'}</summary>
+      <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={busy}/>
+     </details>}
+    </section>
     <div className="order-lines">{o.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);return <div className="order-product" key={l.model_id}>
      {m&&<ProductImage model={m}/>}<div className="order-product-data"><strong>{m?.name||'Modelo'}</strong>
       <small>Talla {m?.size_label||'—'} · {l.quantity} prendas</small>
@@ -1068,13 +1175,14 @@ export default function HomePage(){
  },'Precio/fotografía actualizados; los pedidos históricos no cambiaron.');
  const saveCustomerEdit=(params)=>mutation(()=>updateCustomer({
   customerId:params.customer.id,name:params.name,whatsapp:params.whatsapp,
+  method:params.method,destination:params.destination,
   expectedUpdatedAt:params.customer.updated_at,requestId:params.requestId
- }),'Ficha corregida y registrada en auditoría.');
+ }),'Ficha y destino corregidos con auditoría.');
  const addColor=(name,hex)=>mutation(()=>createColor(name,hex),'Color registrado.');
- const addClient=(name,phone)=>mutation(()=>createCustomer(name,phone),'Cliente registrado.');
+ const addClient=(payload)=>mutation(()=>createCustomer(payload),'Cliente registrado con categoría de entrega.');
  const updateStock=(modelId,operation,units,version,requestId)=>
   mutation(()=>adjustStock({modelId,operation,units,version,requestId:requestId||uuid()}),'Stock actualizado.');
- const order=(customerId,lines,requestId)=>mutation(()=>createOrder(customerId,lines,requestId||uuid()),'Pedido confirmado con precios congelados.');
+ const order=(customerId,lines,requestId,delivery)=>mutation(()=>createOrder(customerId,lines,requestId||uuid(),delivery),'Pedido confirmado con destino y precios congelados.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Registro anterior convertido en pedido, sin descontar inventario dos veces.');
  const report=(v)=>mutation(()=>reportPayment(v),'Aviso de pago guardado; pendiente de aprobación.');
  const checkoutFast=(details)=>mutation(()=>quickCheckout(details),
@@ -1100,6 +1208,13 @@ export default function HomePage(){
   finally{setBusy(false);}
  }
  const revokeLink=(orderId)=>mutation(()=>revokeOrderLink(orderId),'Enlace privado revocado.');
+
+ const updateFulfillment=(args)=>mutation(()=>updateOrderDelivery(args),'Modalidad y destino del pedido actualizados.');
+ const printSelected=(order,customer)=>{
+  try{return printOrder({order,customer,models:data.models,colors:data.colors},window.open.bind(window));}
+  catch(e){setError(e.message);return false;}
+ };
+
 
 
  if(!configured)return <main className="setup-screen"><section className="setup-card">
@@ -1136,7 +1251,7 @@ export default function HomePage(){
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} busy={busy}/>:  
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy}/>:  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
    </main>
