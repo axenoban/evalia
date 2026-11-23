@@ -7,6 +7,12 @@ on:
     branches: [feature/skills-formularios-evalia, feature/evalia-panel-operativo]
   workflow_dispatch:
 
+# El proveedor de runners comparte puertos de Docker entre ejecuciones simultáneas.
+# Serializar el workflow evita choques de Supabase local (puerto 54324).
+concurrency:
+  group: evalia-operativa-supabase-local
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
