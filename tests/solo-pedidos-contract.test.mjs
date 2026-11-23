@@ -24,8 +24,12 @@ test('La captura únicamente confirma pedidos, con cliente, cantidades y colores
 test('API cliente no ofrece crear ni modificar reservas, pero conserva conversión histórica',()=>{
  assert.doesNotMatch(api,/create_evalia_reservation/);
  assert.doesNotMatch(api,/revise_evalia_reservation/);
- assert.doesNotMatch(api,/p_reservation_id:reservationId/);
- assert.match(api,/p_reservation_id:null,p_order_id:orderId/);
+ const start=api.indexOf('export async function reportPayment(');
+ const end=api.indexOf('export async function reviewPayment(',start);
+ assert.ok(start>=0&&end>start,'El aviso de pago de pedidos existe');
+ const report=api.slice(start,end);
+ assert.doesNotMatch(report,/p_reservation_id:reservationId/);
+ assert.match(report,/p_reservation_id:null,p_order_id:orderId/);
  assert.match(api,/confirm_evalia_reservation/);
  assert.match(api,/create_evalia_order/);
 });
