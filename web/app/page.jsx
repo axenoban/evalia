@@ -527,8 +527,8 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
           <option value={chosenCustomer.id}>{chosenCustomer.name} · {chosenCustomer.whatsapp}</option>}
         {matchedCustomers.map(c=><option key={c.id} value={c.id}>{c.name} · {c.whatsapp}</option>)}
        </select></Field>
-       {<button type="button" className="button button-outline" onClick={()=>setAddClient(x=>!x)}>
-        {addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>}
+       <button type="button" className="button button-outline" onClick={()=>setAddClient(x=>!x)}>
+        {addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>
       </div>
      </div>
      {chosenCustomer&&<div className="selected-client">
