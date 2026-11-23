@@ -76,3 +76,7 @@ Por tanto:
 - **C-G03-B queda abierto**: las reglas exactas de cancelación/reversión tras entrega parcial todavía necesitan aprobación.
 - **G04-01 y C-G04-A/B/C no cambian**; esta aclaración no define presentaciones, mezcla de tallas dentro de una presentación ni precios.
 - Ver [contrato conceptual](11_CONTRATO_INVENTARIO.md) y [panel administrativo](10_PANEL_STOCK_ADMIN.md).
+
+## Observación de producción y surtido posterior (2026-11-22)
+El propietario **prefiere asignar colores después de registrar un surtido**, debido a prendas defectuosas por costuras o manchas y a variaciones reales por color. Lotes habituales aproximados de **6 a 6,5 docenas por modelo**, **once colores con negro repetido** para completar una docena, sin poder garantizar composición final exacta. Esto **no fija** disponibilidad ni obliga a vender surtidos completos.
+Se mantiene mínimo mayorista de 6 por modelo, pero el efecto de una solicitud de surtido sin color en el **stock disponible** sigue pendiente de decisión: simple solicitud sin garantía o **cupo agregado bloqueado** (sin prometer un tono). Leer [producción](15_PRODUCCION_CALIDAD_SURTIDO.md) y [A/B de bloqueo](16_DECISION_BLOQUEO_SURTIDO.md). Esta observación supera cualquier recomendación anterior de escoger colores *antes del registro inicial*.
