@@ -76,6 +76,31 @@ function Field({title,hint,children,wide=false}){return <label className={'field
 function Notice({type='info',children,onClose}){return <div className={'alert alert-'+type} role={type==='error'?'alert':'status'}>
  <span>{children}</span>{onClose&&<button aria-label="Cerrar mensaje" type="button" onClick={onClose}>×</button>}
  </div>;}
+function ToastNotifications({error,message,onCloseError,onCloseMessage}){
+ useEffect(()=>{
+  if(!message)return;
+  const timer=window.setTimeout(onCloseMessage,6000);
+  return ()=>window.clearTimeout(timer);
+ },[message]);
+ useEffect(()=>{
+  if(!error)return;
+  const timer=window.setTimeout(onCloseError,9000);
+  return ()=>window.clearTimeout(timer);
+ },[error]);
+ if(!error&&!message)return null;
+ return <div className="ev-toast-stack" aria-label="Notificaciones del sistema">
+  {error&&<div className="ev-toast ev-toast-error" role="alert">
+   <span className="ev-toast-glyph" aria-hidden="true">!</span>
+   <div><strong>Revisa esta operación</strong><p>{error}</p></div>
+   <button type="button" onClick={onCloseError} aria-label="Cerrar notificación de error">×</button>
+  </div>}
+  {message&&<div className="ev-toast ev-toast-success" role="status">
+   <span className="ev-toast-glyph" aria-hidden="true">✓</span>
+   <div><strong>Operación realizada</strong><p>{message}</p></div>
+   <button type="button" onClick={onCloseMessage} aria-label="Cerrar notificación de éxito">×</button>
+  </div>}
+ </div>;
+}
 function SummaryCard({label,value,sub,kind='',symbol}){return <div className={'metric '+kind}>
   <div className="ev-metric-heading">{symbol&&<span className="ev-metric-icon" aria-hidden="true">{symbol}</span>}
    <span className="metric-label">{label}</span></div>
@@ -1188,7 +1213,8 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
     const orderedUnits=o.lines.reduce((sum,l)=>sum+Number(l.quantity||0),0);
     const relatedPayments=data.payments.filter(p=>p.order_id===o.id||
       (o.origin_reservation_id&&p.reservation_id===o.origin_reservation_id));
-    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders">
+    const sizes=[...new Set(o.lines.map(l=>data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
+    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
      <summary className="ev-order-summary">
       <span className="ev-order-summary-primary">
        <span className="avatar ev-order-avatar" aria-hidden="true">{initials(customer?.name)}</span>
@@ -1199,6 +1225,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       </span>
       <span className="ev-order-summary-facts">
        <span className="ev-order-summary-count">{o.lines.length} {o.lines.length===1?'modelo':'modelos'} · {rup(orderedUnits)} prendas</span>
+       {sizes.length>0&&<span className="ev-order-sizes">{sizes.length===1?'Talla ':'Tallas '}{sizes.join(' · ')}</span>}
        <span className="ev-order-summary-delivery">{deliveryLabel(o.fulfillment_method)}</span>
       </span>
       <span className="ev-order-summary-end">
@@ -1428,8 +1455,8 @@ export default function HomePage(){
    </header>
    <main id="main" className="main-content">
     {process.env.NEXT_PUBLIC_EVALIA_STATIC_PREVIEW==='1'&&<Notice>Vista administrativa de prueba alojada en GitHub Pages y conectada a Supabase. Los enlaces privados de clientes necesitan un servidor Next.js.</Notice>}
-    {error&&<Notice type="error" onClose={()=>setError('')}>{error}</Notice>}
-    {message&&<Notice type="success" onClose={()=>setMessage('')}>{message}</Notice>}
+    <ToastNotifications error={error} message={message}
+      onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} busy={busy}/>: 

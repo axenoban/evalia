@@ -134,3 +134,39 @@
  .ev-order-shipping .button{width:100%;margin-left:0}
  .ev-order-finance-brief{padding:10px}
 }
+
+/* Estado completado: diferenciación discreta dentro de la identidad EVALIA. */
+.ev-order-accordion[data-order-status="completed"]{
+ border-color:#cfdfd6;
+ background:#fcfffd;
+}
+.ev-order-accordion[data-order-status="completed"]>.ev-order-summary{
+ background:linear-gradient(118deg,#fbfefb,#edf6f0);
+}
+.ev-order-accordion[data-order-status="completed"]>.ev-order-summary:hover{
+ background:linear-gradient(118deg,#f8fdf9,#e7f3eb);
+}
+.ev-order-accordion[data-order-status="completed"][open]>.ev-order-summary{
+ background:linear-gradient(118deg,#f3f9f5,#e7f3eb);
+ border-bottom-color:#cfdfd6;
+}
+.ev-order-accordion[data-order-status="completed"] .ev-order-avatar{
+ background:#e4f0e9;color:#51765f;
+}
+.ev-order-sizes{
+ display:inline-flex;align-items:center;border-radius:99px;padding:3px 9px;
+ background:#f1e3ed;color:#774c68;font-size:11px;font-weight:850;white-space:nowrap;
+}
+.ev-order-accordion[data-order-status="completed"] .ev-order-sizes{
+ background:#e4f1e8;color:#4a735d;
+}
+.ev-order-identification strong{font-size:16px}
+@media(max-width:780px){
+ .ev-order-identification strong{font-size:14px}
+ .ev-order-sizes{font-size:10px;padding:3px 7px}
+}
+@media(max-width:410px){
+ .ev-order-identification strong{font-size:13px}
+ .ev-order-summary-facts{gap:4px 8px}
+ .ev-order-sizes{font-size:10px}
+}
