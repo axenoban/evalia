@@ -89,3 +89,6 @@ En EVALIA el modelo tiene una sola talla, precio mayorista propio de docena y co
 
 ## D0-A — confirmar pedido manteniendo cupo G del modelo, sin color previo
 **El propietario aprobó** confirmar pedido surtido con **cantidad garantizada** y colores pendientes. Cada modelo conserva su única talla y un G agregado respaldado en stock apto; la conversión reserva→pedido mueve titularidad del mismo cupo sin duplicarlo, mientras pedido directo crea G tras validar A. Definir colores **antes de retirar prendas reales**, convirtiendo G→E por variante con `ΔA=0, ΔS=0`. Ningún requisito de composición por colores es inferido; el precio mayorista se calcula por modelo sin esperar colores. [D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+D0-C1 aprobado: el modelo conserva talla fija y permite **cupo agregado surtido inicial sin desglose por color**, con margen físico externo: ejemplo 78→72 aptas comprometibles y seis sin publicar. Color listado en catálogo no garantiza unidades de ese color. D0-C2 exactos pendiente. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

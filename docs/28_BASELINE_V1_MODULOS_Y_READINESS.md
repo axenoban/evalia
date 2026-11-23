@@ -123,3 +123,6 @@
 
 ## D0-A — confirmación de pedidos surtidos con G sin colores: APROBADO
 **Decisión comercial posterior:** confirmar pedido surtido **sin asignar colores** está permitido si G corresponde a cantidad real de stock apto garantizada. Transferir compromiso desde reserva sin contar dos veces; pedido directo con G requiere validar y apartar una sola vez. Antes de la entrega, asignar variantes reales mediante G→E; entrega reduce S/E, no confirmación. Este requisito ahora integra el alcance M07/M08 de V1 y tiene QA de aceptación documental A01–A14 en [D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md). **D0-C mermas/defectos sobre cupos garantizados queda como la próxima política pendiente**. No autoriza SQL ni aplicación.
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+D0-C1 actualiza M04 de V1: stock surtido **conservador por modelo**, sin registro individual de defectos ni módulo de merma; 78 fabricadas→72 aptas publicadas, seis excluidas. Si faltan buenas, menor cupo real; ajuste agregado/incidencia solo cuando afecta unidades prometidas. **B06 no exige QC pieza por pieza**. D0-C2 debe resolver saldo por color exacto antes de diseñar SQL. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

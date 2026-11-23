@@ -61,3 +61,6 @@ No retiro y cancelación no requieren regla distinta solo por ser media docena o
 
 ## Una talla por modelo: alcance del lote y surtido
 Los lotes, conteos aptos, rechazos, color y producción por modelo pertenecen a **una talla fija propia del modelo**. Un lote de modelo M no puede completar una reserva de modelo XL, aunque sean similares o tengan colores coincidentes. El cupo surtido garantizado se contabiliza por modelo, sin compartir entre tallas diferentes. En Guardar reserva debe conocerse cantidad; color pendiente se asignará después desde el lote/stock apto real del mismo modelo. [Regla canónica](17_MODELO_TALLA_UNICA_Y_SURTIDO.md).
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+D0-C1 PREVALENTE: el propietario no quiere registrar cada prenda fallada/manchada ni un módulo QC en V1. Se descartarán externamente. Si hay 78 producidas, podrá publicar solo 72 aptas como cupo surtido, dejando seis fuera de sistema para fallas o venta física apta y libre. Si realmente hay menos de 72 buenas, reducir cupo desde el inicio; nunca prometer stock ficticio. **Las propuestas anteriores de lote/QC individual de este documento quedan fuera de V1**, salvo nueva autorización. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

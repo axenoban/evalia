@@ -69,3 +69,6 @@ Al crear modelo, seleccionar **una talla fija** como atributo del modelo (M, XL,
 
 ## Sugerencias reutilizables en alta rápida de modelos
 Al crear modelos (unos seis o más por feria), permitir usar **selección de colores del modelo anterior** y **plantillas por talla**, siempre con revisión/edición por administrador antes de guardar. Son **copias de selección** desde el catálogo maestro global, no relaciones vivas que modifiquen modelos antiguos; no copiar stock, reservas ni movimientos. Cada nuevo modelo requiere su fotografía y precio propio, que puede partir de **sugerido por talla** sin ser obligatorio. El usuario quiere diferenciar paletas habituales entre modelos M y XL; construirlo como preferencia **configurable** basada en historial/plantilla, no inferir colores de la edad de compradores. [Flujo detallado](19_ALTA_RAPIDA_MODELOS_FERIA.md).
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+D0-C1: catálogo de colores por modelo sigue, pero el alta de stock surtido **NO requiere contar unidades iniciales por color**. Un color listado no equivale a saldo positivo verificable de ese color. R04 per-variante se contradice parcialmente con nuevo alta por modelo; **D0-C2** definirá cómo dar garantía de pedidos exactos sin double counting. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

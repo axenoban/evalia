@@ -79,3 +79,6 @@ Modelo `S=10,E=2,G=0,A=8`. Confirmar pedido surtido **6** sin reserva anterior: 
 **Regla de precedencia:** esta aprobación posterior sustituye toda frase histórica de [16](16_DECISION_BLOQUEO_SURTIDO.md), [29](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) o [30](30_D0_SEGURIDAD_Y_QA_TRANSACCIONES.md) que mantuviera abierta la pregunta **confirmación de pedido con G sin colores**. El resto del documento continúa vigente en su contexto.
 
 **Estado:** solo documentación en la rama feature, PR #1 DRAFT, no SQL ni aplicación.
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+D0-C1 posterior: G de surtido confirmado puede respaldarse con **stock agregado conservador registrado por modelo**, sin desglose inicial de colores. Ejemplo 78 producidas, 72 aptas declaradas, seis fuera de cupo. No cambia D0-A (colores antes de entregar), y no permite prometer tonalidades exactas sin D0-C2. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

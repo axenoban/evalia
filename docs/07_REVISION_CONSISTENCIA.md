@@ -133,3 +133,6 @@ Se proponen [29](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md) y [30](30_D0_SEGURIDAD_
 
 ## D0-A RESUELTO — confirmar G sin color, exigencia de variante antes de entregar
 La última decisión explícita aprobó **pedido surtido CONFIRMADO con colores pendientes**, siempre que su cantidad esté garantizada con cupo G sobre stock apto. Prevalece sobre listas anteriores de «confirmar antes de asignar tonos pendiente»: reserva→pedido conserva G; pedido directo crea G una sola vez; asignación G→E atómica sin segundo bloqueo y entrega física solo desde color asignado. No equivale a habilitar devolución/cancelación G03-B en V1. **D0-C merma/defectos tras comprometer stock continúa abierto**. [D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+AUDITORÍA D0-C1: dueño revoca necesidad operativa de registrar merma prenda por prenda, eligiendo cupo de modelo **surtido y conservador** (78→72), con excedente fuera de sistema. Supera propuestas de fábrica/QC de docs/15 para V1. **Conflicto D0-C2 no resuelto**: R04 exige stock por color y esta alta no conoce S_c, por lo que no se puede prometer variante exacta ni sumar dos inventarios sobre mismas prendas. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

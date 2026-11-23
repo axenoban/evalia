@@ -129,3 +129,6 @@ El [baseline E1](28_BASELINE_V1_MODULOS_Y_READINESS.md) prioriza modelo+talla fi
 
 ## D0-A — titularidad de cupo G en pedidos confirmados
 **Regla aprobada:** un compromiso genérico G puede pertenecer a **reserva guardada o pedido confirmado**, aunque todavía no tenga color. La **conversión reserva→pedido** mueve titularidad sin duplicar unidades; el **pedido directo surtido** aparta G solo al validar stock apto. Al asignar colores, convertir cantidad del G de ese pedido a E por variantes del mismo modelo, en transacción; S/A no varían hasta entrega. Registrar pendientes por pedido, variantización antes de cada entrega, idempotencia y auditoría. **No inventar tablas/enums SQL**; política de merma posterior todavía por resolver. [Contrato D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+D0-C1 autoriza **cupo de inventario comprometible agregado por modelo** sin desglose inicial de colores ni fichas de calidad. Ej.: 78 físicamente producidas, 72 aptas registradas, seis excluidas. No duplicar un S genérico junto con S_c sobre el mismo físico. La anterior `S_m=ΣS_c` presupone desglose conocido y **no se puede usar** si solo se capturó total de modelo. D0-C2 pendiente antes de SQL: validación de color exacto. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

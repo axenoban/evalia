@@ -78,3 +78,6 @@ El cupo surtido G aprobado **compite por el mismo disponible A del modelo** que 
 
 ## DECISIÓN POSTERIOR D0-A: la confirmación NO exige colores
 **Aprobado por el propietario:** el surtido G garantizado puede **pasar de reserva a pedido confirmado sin definir tonos**. Los colores se asignan sobre existencias aptas del mismo modelo **antes de la entrega física**. La reserva y el pedido confirmado no duplican G; pedido directo comprueba A y crea G una vez. Transición G→E atómica y sin segundo descuento, ver [D0-A](31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md). La duda anterior «confirmar antes de asignar tonos» **está RESUELTA**, pero dividir surtido/forma exacta de asignación parcial y resolución de déficit por merma siguen sujetas a diseño/política posterior.
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+D0-C1: G surtido se garantiza sobre total **publicado prudente por modelo**, no sobre toda producción. Ej. 78 físicas, 72 cargadas, seis excluidas. D0-A confirmó que colores pueden asignarse antes de entrega, no antes de pedido. No requiere ficha de defecto individual. Falta decidir D0-C2 exactos si el cupo se cargó sin S_c; evitar doble conteo. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

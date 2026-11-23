@@ -93,3 +93,6 @@ Propuesta de ficha de pedido: indicar **enlace cliente ACTIVO/REVOCADO/DESACTIVA
 
 ## Aclaración prevalente E1: sin módulo de devoluciones/cancelaciones
 V1 muestra acciones necesarias para reservar, confirmar, cobrar, entregar y completar normalmente; **sin botones de cancelación de pedido por cliente, devolución, reembolso ni cancelación parcial G03-B**. Casos excepcionales se acuerdan fuera del sistema. Un cierre excepcional con saldo/stock pendiente NO ajusta ni elimina movimientos automáticamente; necesita contrato posterior si se implementa. [Alcance](27_SIMPLIFICACION_CANCELACIONES_V1.md).
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+E1 D0-C1: permitir **entrada rápida de cantidad apta comprometible por modelo surtido**, sin cargar cada color ni cada mancha. Mostrar total registrado, G/E comprometido y disponible agregado; no sumar el margen de seis fuera del sistema. El ejemplo 78→72 es elección del admin, nunca descuento automático. Para exactos por color aún no existe S_c verificable: D0-C2 pendiente. [Canon](32_D0_C1_STOCK_CONSERVADOR.md).

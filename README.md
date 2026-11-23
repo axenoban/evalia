@@ -115,3 +115,6 @@ Se documentaron [ADR-D0-01: modelo lógico/transacciones](docs/29_D0_MODELO_LOGI
 
 ## D0-A aprobado: pedido surtido confirmado sin definir colores
 El propietario aprobó **confirmar un pedido con cantidad surtida G ya garantizada sin elegir colores todavía**; se deben definir los **colores reales antes de entregar las prendas**. Transferir reserva→pedido conserva el mismo G (sin doble descuento) y al elegir colores trasladar G→E atómicamente, con S y A invariantes. Pedido directo solo crea G una vez tras validar stock. El pago y el precio no cambian por repartir colores. **D0-C mermas/defectos después de compromiso sigue pendiente**. [Contrato canónico D0-A](docs/31_D0_A_CONFIRMACION_SURTIDO_SIN_COLORES.md).
+
+## D0-C1 — decisión posterior de inventario conservador (2026-11-23)
+D0-C1 APROBADO: alta conservadora de **stock surtido por modelo**, sin fichas de manchas. Ej.: producir 78, cargar 72 aptas comprometibles y mantener seis fuera de catálogo para fallas o venta física si libres; no es resta obligatoria por lote. Si solo quedan 68 buenas, no registrar 72. **D0-C2**: falta definir cómo garantizar colores exactos con alta sin S_c. [Contrato](docs/32_D0_C1_STOCK_CONSERVADOR.md).
