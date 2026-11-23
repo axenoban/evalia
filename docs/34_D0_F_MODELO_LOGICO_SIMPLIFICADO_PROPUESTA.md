@@ -1,6 +1,6 @@
-# EVALIA — D0-F: reconciliación del modelo lógico V1 simplificado (PROPUESTA, sin SQL)
+# EVALIA — D0-F: reconciliación del modelo lógico V1 simplificado (APROBADO)
 
-**Fecha:** 2026-11-23. **Estado:** propuesta de implementación para aprobación técnica; **no es un esquema SQL aprobado**. Se deriva de [D0-C2/D/E aprobados](33_D0_C2_D_E_INVENTARIO_SIMPLE_APROBADO.md) y de los contratos comerciales preexistentes. Refina [ADR D0-01](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md), que hoy todavía describe compromisos `E_c` por color y `G_m` surtido: **en la V1 actual solo hay cupos surtidos por modelo**.
+**Fecha:** 2026-11-23. **Estado:** aprobado expresamente el 2026-11-23 para comenzar migraciones en rama feature, sin autorizar despliegue o merge. Las migraciones siguen sujetas a pruebas. Se deriva de [D0-C2/D/E aprobados](33_D0_C2_D_E_INVENTARIO_SIMPLE_APROBADO.md) y de los contratos comerciales preexistentes. Refina [ADR D0-01](29_D0_MODELO_LOGICO_Y_TRANSACCIONES.md), que hoy todavía describe compromisos `E_c` por color y `G_m` surtido: **en la V1 actual solo hay cupos surtidos por modelo**.
 
 ## 1. Principio estructural
 
@@ -67,4 +67,4 @@ Por **cada modelo** `n≥6`: `subtotal_exacto = precio_docena × n / 12`. Redond
 | F11 | Modelo con 13 colores y S72 | No hay cantidades ni reservas exactas por color |
 | F12 | Precio Bs381 ×6 + Bs420 ×12 | Total Bs610,50 exacto |
 
-**D0-F pendiente de aprobación:** ratificar esta simplificación del modelo lógico y de sus transacciones **antes de redactar migraciones SQL**. Aprobados D0-C2/D/E son definitivos en alcance, pero no equivalen a aprobación de todos los nombres de tablas y decisiones técnicas aquí propuestas.
+**D0-F APROBADO el 2026-11-23:** el propietario ratificó esta arquitectura lógica para comenzar la base de datos. D1-A queda documentado en [35](35_D1_A_SUPABASE_PRIMER_BLOQUE.md); no autoriza integración en main ni despliegue sin QA.

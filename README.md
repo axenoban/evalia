@@ -124,3 +124,8 @@ D0-C1 APROBADO: alta conservadora de **stock surtido por modelo**, sin fichas de
 - [D0-F — reconciliación de entidades/operaciones Supabase, PROPUESTA sin SQL](docs/34_D0_F_MODELO_LOGICO_SIMPLIFICADO_PROPUESTA.md).
 
 Estas decisiones posteriores prevalecen sobre cualquier exigencia histórica de stock/compromisos por color para la V1. El PR sigue en borrador y **no hay aplicación ni migraciones**.
+
+## Implementación D1-A: Supabase (pendiente de QA)
+- [Esquema, seguridad, operaciones y pasos de prueba](docs/35_D1_A_SUPABASE_PRIMER_BLOQUE.md).
+- Migraciones SQL en supabase/migrations/ y 20 tests de seguridad pgTAP en supabase/tests/database/.
+- Ejecutar localmente supabase start, supabase db reset, supabase test db. No se ha desplegado.
