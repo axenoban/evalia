@@ -139,3 +139,7 @@ La aplicación con persistencia en PostgreSQL está en `web/`, separada de la de
 - Ejecución local: `cd web && npm install && npm run dev` después de configurar un Supabase de pruebas y aplicar migraciones.
 - Validación de código: `npm run check` desde la raíz, luego `cd web && npm run build`.
 - Estado: PR #3 borrador, independiente de los PR #1/#2; sin autorización para fusionar `main`.
+
+## Captura por docenas y colores individuales — PR #4
+
+En `feature/evalia-captura-docenas-colores` se prepara el formulario multímodelo: docenas surtidas completas más 0–11 prendas individuales con **un color distinto por prenda**; sin docenas, seleccionar entre 6 y 11 colores. La solicitud cromática se guarda con reservas/pedidos, manteniendo stock total por modelo. Hay edición de reservas vigentes con auditoría y texto manual para WhatsApp. Leer [contrato, QA y matriz de módulos pendientes](docs/39_CAPTURA_DOCENAS_COLORES_INDIVIDUALES.md). No desplegar ni mezclar antes de ejecutar migraciones y validar.
