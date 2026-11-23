@@ -920,6 +920,11 @@ function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
     Hay un comprobante o aviso de pago sin resolver. Revísalo en Pagos antes de registrar un cobro total para evitar duplicarlo.
    </p>}
   {excess>0n&&<p className="express-warning" role="alert">Existe un exceso de dinero aprobado. Concílialo antes de usar el cierre rápido.</p>}
+  {(canPay||canDeliver)&&<label className="express-note">
+   <span>Nota o referencia de operación (opcional)</span>
+   <input type="text" maxLength={1000} value={note} placeholder="Ej. efectivo, QR verificado…"
+    onChange={e=>{setNote(e.target.value);attempt.current=null;}}/>
+   </label>}
   {(canPay||canDeliver)&&<div className="express-actions">
    {canPay&&remaining>0&&<button type="button" className="button express-primary" disabled={busy}
       onClick={()=>run('pay_deliver')}>
@@ -929,11 +934,6 @@ function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
    {canDeliver&&<button type="button" className="button express-primary" disabled={busy}
       onClick={()=>run('deliver')}>✓ Entregar todo y completar</button>}
   </div>}
-  {(canPay||canDeliver)&&<label className="express-note">
-   <span>Referencia o medio de pago (opcional)</span>
-   <input type="text" maxLength={1000} value={note} placeholder="Ej. efectivo, QR verificado…"
-    onChange={e=>{setNote(e.target.value);attempt.current=null;}}/>
-   </label>}
   <p className="express-disclaimer">Las acciones de cobro exigen que el dinero haya sido recibido y comprobado. Las de entrega exigen que las prendas hayan sido entregadas físicamente. Se guardan con auditoría e impiden duplicados.</p>
  </section>;
 }
@@ -1079,8 +1079,10 @@ export default function HomePage(){
  const report=(v)=>mutation(()=>reportPayment(v),'Aviso de pago guardado; pendiente de aprobación.');
  const checkoutFast=(details)=>mutation(()=>quickCheckout(details),
   details.action==='pay'
-   ?'Saldo total aprobado. El pedido permanece pendiente de recogida.'
-   :'Pago y retirada registrados correctamente; pedido COMPLETADO.');
+   ?'Pago total registrado y aprobado. El pedido queda pendiente de recogida.'
+   :details.action==='deliver'
+    ?'Entrega física total registrada. El pedido está COMPLETADO.'
+    :'Pago y entrega total registrados. El pedido está COMPLETADO.');
 
  const approve=(id,action,note)=>mutation(()=>reviewPayment({reportId:id,action,requestId:uuid(),note}),
   action==='approve'?'Pago aprobado después de verificar su recepción.':'Revisión registrada sin mover dinero.');
