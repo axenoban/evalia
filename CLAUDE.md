@@ -1,5 +1,7 @@
 # Claude Code — EVALIA
 
+**Antes de otros documentos:** leer [Documento maestro EVALIA](docs/50_DOCUMENTO_MAESTRO_EVALIA.md), verificar HEAD de `dev/evalia-core` y el estado de GitHub. Las reglas históricas de reservas nuevas y PRs pendientes ya no describen la V1 vigente.
+
 Claude Code en VS Code es un **agente alternativo a Codex**, no un cambio de framework, arquitectura, producto ni base de datos.
 
 Leer [AGENTS.md](AGENTS.md), [decisiones](docs/04_REGISTRO_DE_DECISIONES.md), [modelo conceptual](docs/06_MODELO_CONCEPTUAL_DATOS.md), [pendientes](docs/07_REVISION_CONSISTENCIA.md) y [entorno](docs/08_ENTORNO_Y_AGENTES.md).
