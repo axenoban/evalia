@@ -25,7 +25,7 @@ Solo se permite edición de **modelos y cantidades** de pedidos directos `active
 2. Verificar en móvil y PC la distinción completado/activo, tallas mixtas, toasts de error/éxito y cierre manual.
 3. Probar edición con pedido **de laboratorio aislado** de 1 a 2 docenas, de 2 a 1, agregar/quitar modelo, media docena de 6 colores, agotamiento de stock, cambios concurrentes y reintentos.
 4. Verificar rechazo de pedidos completados, con pagos, entregas, enlaces activos o versiones obsoletas; cada edición debe generar exactamente una auditoría.
-5. No enviar pruebas ficticias a Supabase real. La migración se aplicó tras superar 23 verificaciones SQL aisladas y respetando las 14 migraciones anteriores. Se comprobó rol administrativo, rechazo de `anon`/`service_role` y auditoría vacía antes de ofrecer la Preview; no se modificaron pedidos.
+5. No enviar pruebas ficticias a Supabase real. La migración se aplicó tras superar verificaciones SQL aisladas, incluyendo aumento, reducción y eliminación de modelos y respetando las 14 migraciones anteriores. Se comprobó rol administrativo, rechazo de `anon`/`service_role` y auditoría vacía antes de ofrecer la Preview; no se modificaron pedidos.
 6. La impresión y política de edición de pedidos ya cobrados se posponen a decisiones posteriores.
 
 **Nota:** no se desactiva la RPC histórica de entregas parciales ni se borra información previamente registrada. Solo se oculta su formulario en Pedidos, conforme al bloque anterior.

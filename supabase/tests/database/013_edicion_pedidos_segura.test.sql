@@ -2,7 +2,7 @@ begin;
 create schema if not exists extensions;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(23);
+select plan(29);
 -- Fixture independiente: nunca llega al proyecto comercial (rollback pgTAP).
 insert into auth.users(id,email)
 values('11110000-0000-4000-8000-000000000001','evalia-d9@example.invalid');
@@ -87,10 +87,27 @@ select is((select price_dozen_bs from public.order_lines
 select is((select sum(subtotal_bs) from public.order_lines
  where order_id=(select id from public.orders where request_id='51110000-0000-4000-8000-000000000001')),970::numeric,'total nuevo 760+210');
 select is((select count(*)::integer from public.order_extra_colors),6,'colores extra registrados sin duplicación');
+select lives_ok($q$select public.revise_evalia_order(
+ (select id from public.orders where request_id='51110000-0000-4000-8000-000000000001'),
+ '[{"modelId":"21110000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]'::jsonb,
+ 2,'61110000-0000-4000-8000-000000000006'::uuid)$q$,
+ 'reducir a una docena y retirar modelo XL en una transacción');
+select is((select count(*)::integer from public.order_lines
+ where order_id=(select id from public.orders where request_id='51110000-0000-4000-8000-000000000001')),1,
+ 'se elimina la línea XL sin afectar a otros pedidos');
+select is((public.get_model_stock('21110000-0000-4000-8000-000000000001'::uuid)->>'available')::integer,60,
+ 'reducir 2 a 1 docenas libera 12 prendas de M');
+select is((public.get_model_stock('21110000-0000-4000-8000-000000000002'::uuid)->>'available')::integer,72,
+ 'quitar XL libera las seis prendas para otros pedidos');
+select is((select count(*)::integer from public.order_extra_colors),0,
+ 'se limpian colores de una línea eliminada');
+select is((select count(*)::integer from public.order_revisions),3,
+ 'una auditoría por cada edición verdadera');
+
 select throws_ok($q$select public.revise_evalia_order(
  (select id from public.orders where request_id='51110000-0000-4000-8000-000000000001'),
  '[{"modelId":"21110000-0000-4000-8000-000000000001","dozens":7,"extraColorIds":[]}]'::jsonb,
- 2,'61110000-0000-4000-8000-000000000004'::uuid)$q$,
+ 3,'61110000-0000-4000-8000-000000000004'::uuid)$q$,
  '23514','La modificación excede el stock libre del modelo 21110000-0000-4000-8000-000000000001','no sobreventa');
 
 select lives_ok($q$select public.report_evalia_payment(null,
@@ -101,7 +118,7 @@ select lives_ok($q$select public.report_evalia_payment(null,
 select throws_ok($q$select public.revise_evalia_order(
  (select id from public.orders where request_id='51110000-0000-4000-8000-000000000001'),
  '[{"modelId":"21110000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]'::jsonb,
- 2,'61110000-0000-4000-8000-000000000005'::uuid)$q$,
+ 3,'61110000-0000-4000-8000-000000000005'::uuid)$q$,
  '23514','No se puede editar un pedido con pagos, entregas, enlace activo o histórico previo',
  'ningún pedido con actividad de pago admite edición');
 
