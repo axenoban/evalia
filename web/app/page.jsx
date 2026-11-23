@@ -490,7 +490,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
  useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
  function editPortion(id,value){requestId.current=null;setPortions(v=>({...v,[id]:value}));setLocalError('');}
  function addModel(model){requestId.current=null;
-  const stock=stock[model.id]||{},available=Number(stock.available)||0;
+  const modelStock=stock[model.id]||{},available=Number(modelStock.available)||0;
   setPortions(v=>({...v,[model.id]:{dozens:available>=12?'1':'0',extraColorIds:[]}}));
   setLocalError('');
  }
