@@ -9,6 +9,7 @@ import {
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
+import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
 import {
   centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
 } from '../lib/domain.js';
@@ -463,12 +464,22 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
   </div>
  </article>;
 }
+function OrderStepHeader({number,title,description,state}){
+ return <div className="form-section-title">
+  <span className="step" aria-hidden="true">{state==='done'?'✓':number}</span>
+  <div className="order-step-heading"><h2>{title}</h2><p>{description}</p></div>
+  <span className={'order-step-badge '+state}>
+   {state==='done'?'Completado':state==='current'?'Paso actual':'Pendiente'}
+  </span>
+ </div>;
+}
 function BookingPanel({data,onOrder,onCreateClient,busy}){
  const [customerId,setCustomerId]=useState('');
  const [customerSearch,setCustomerSearch]=useState('');
  const [productSearch,setProductSearch]=useState('');
  const [portions,setPortions]=useState({});
  const [localError,setLocalError]=useState('');
+ const [recentlyAdded,setRecentlyAdded]=useState(null);
  const [addClient,setAddClient]=useState(false);
  const requestId=useRef(null);
  const models=data.models.filter(m=>m.is_active);
@@ -487,13 +498,30 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
   const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds);
   return n+(Number.isSafeInteger(q)&&q>=0?q:0);
  },0);
+ const clientReady=Boolean(chosenCustomer);
+ const productsReady=chosen.length>0&&(()=>{
+  try{return checkedPortions(models,portions,stock,data.colors).length===chosen.length;}
+  catch{return false;}
+ })();
+ const stage=!clientReady?1:!productsReady?2:3;
  useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
  function editPortion(id,value){requestId.current=null;setPortions(v=>({...v,[id]:value}));setLocalError('');}
- function addModel(model){requestId.current=null;
-  const modelStock=stock[model.id]||{},available=Number(modelStock.available)||0;
-  setPortions(v=>({...v,[model.id]:{dozens:available>=12?'1':'0',extraColorIds:[]}}));
-  setLocalError('');
+ function addModel(model){
+  requestId.current=null;
+  const modelStock=stock[model.id]||{};
+  const colorCount=data.colors.filter(c=>model.colorIds?.includes(c.id)&&c.is_active).length;
+  try{
+   const selection=initialModelPortion(modelStock,colorCount);
+   setPortions(v=>({...v,[model.id]:selection}));
+   setRecentlyAdded(model.id);
+   setLocalError('');
+  }catch(e){setLocalError(e.message);}
  }
+ useEffect(()=>{
+  if(recentlyAdded){
+   document.getElementById('order-model-'+recentlyAdded)?.scrollIntoView({block:'nearest'});
+  }
+ },[recentlyAdded]);
  function removeModel(id){requestId.current=null;setPortions(current=>{
   const copy={...current};delete copy[id];return copy;
  });setLocalError('');}
@@ -510,11 +538,20 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
  return <>
   <SectionHead eyebrow="VENTAS MAYORISTAS" title="Registrar pedido confirmado"
    description="Selecciona el cliente y los modelos que comprará. Las docenas son surtidas y las prendas extra llevan colores individuales sin repetir."/>
+  <nav className="order-progress" aria-label="Progreso del registro de pedido">
+   {[['Cliente','Identificación'],['Productos','Cantidad y colores'],['Confirmación','Registro final']].map(([label,desc],index)=>{
+    const number=index+1,state=number<stage?'done':number===stage?'current':'next';
+    return <div className={'order-progress-item '+state} key={number} aria-current={state==='current'?'step':undefined}>
+     <span className="order-progress-number" aria-hidden="true">{state==='done'?'✓':number}</span>
+     <div><strong>{label}</strong><small>{desc}</small></div>
+     <span className="order-progress-state">{state==='done'?'Listo':state==='current'?'En curso':'Siguiente'}</span>
+    </div>;
+   })}
+  </nav>
   <div className="booking-layout">
    <div className="surface booking-form">
-    <section className="form-section">
-     <div className="form-section-title"><span className="step">1</span><div><h2>Identificar cliente</h2>
-      <p>Busca por WhatsApp o por nombre. El registro es administrativo.</p></div></div>
+    <section className={'form-section order-step-card '+(1<stage?'done':1===stage?'current':'next')}>
+     <OrderStepHeader number={1} title="Elegir comprador" description="Busca por nombre o WhatsApp, o registra un cliente nuevo." state={1<stage?'done':1===stage?'current':'next'}/>
      <div className="customer-chooser">
       <label className="search"><span aria-hidden="true">⌕</span>
        <input type="search" aria-label="Buscar clientes por nombre o WhatsApp" autoComplete="off"
@@ -538,30 +575,32 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
      {addClient&&<div className="inline-client"><ClientForm compact busy={busy}
        onCreate={async(n,p)=>{const ok=await onCreateClient(n,p);if(ok){setAddClient(false);setCustomerSearch(p);}return ok;}}/></div>}
     </section>
-    <section className="form-section">
-     <div className="form-section-title"><span className="step">2</span><div><h2>Agregar modelos</h2>
-      <p>Un mismo pedido puede contener modelos con cantidades y tallas diferentes.</p></div></div>
+    <section className={'form-section order-step-card '+(2<stage?'done':2===stage?'current':'next')}>
+     <OrderStepHeader number={2} title="Seleccionar productos" description="Toca cualquier tarjeta para añadirla y configurar sus cantidades." state={2<stage?'done':2===stage?'current':'next'}/>
      <label className="search model-search"><span aria-hidden="true">⌕</span>
       <input type="search" aria-label="Buscar modelos para añadir" placeholder="Buscar modelo o talla…"
        value={productSearch} onChange={e=>setProductSearch(e.target.value)}/></label>
-     {availableModels.length?<div className="product-picker">{availableModels.map(m=>{
+     {availableModels.length?<div className="product-picker" aria-label="Productos disponibles para el pedido">{availableModels.map(m=>{
       const st=stock[m.id]||{},available=Number(st.available)||0;
-      return <div key={m.id} className="picker-item">
+      const activeColors=data.colors.filter(c=>m.colorIds?.includes(c.id)&&c.is_active).length;
+      const canAdd=canAddModelToOrder(st,activeColors);
+      return <button key={m.id} type="button" className="picker-item picker-add"
+       disabled={!canAdd} aria-label={'Agregar '+m.name+' al pedido'}
+       onClick={()=>addModel(m)}>
        <ProductImage model={m}/>
        <div className="picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small>
-        <span className={st.blocked?'error-text':'positive-text'}>{st.blocked?'Incidencia · bloqueado':available+' prendas disponibles'}</span>
-       </div><button type="button" className="button button-outline" disabled={!available||st.blocked}
-        onClick={()=>addModel(m)}>＋ Agregar</button>
-      </div>})}</div>:<p className="muted">{models.length?'Todos los modelos coincidentes están agregados.':'Todavía no hay productos activos.'}</p>}
-     <div className="cart-subhead"><h3>Modelos del pedido</h3><span>{chosen.length} modelo(s) · {totalItems} prendas</span></div>
+        <span className={!canAdd?'error-text':'positive-text'}>{st.blocked?'Incidencia · bloqueado':
+          !canAdd?'Sin cupo suficiente para el mínimo mayorista':available+' prendas disponibles'}</span>
+       </div><span className="picker-add-action" aria-hidden="true">＋ Agregar</span>
+      </button>})}</div>:<p className="muted">{models.length?'Todos los modelos coincidentes están agregados.':'Todavía no hay productos activos.'}</p>}
+     <div className="cart-subhead"><h3>Modelos agregados al pedido</h3><span aria-live="polite">{chosen.length} modelo(s) · {totalItems} prendas</span></div>
      {chosen.length?<div className="cart-models">{chosen.map(m=>
-      <PortionEditor key={m.id} model={m} colors={data.colors} stock={stock[m.id]||{}}
-       selection={portions[m.id]} onChange={v=>editPortion(m.id,v)} onRemove={()=>removeModel(m.id)}/>
+      <div key={m.id} id={'order-model-'+m.id} className="order-model-anchor"><PortionEditor model={m} colors={data.colors} stock={stock[m.id]||{}}
+       selection={portions[m.id]} onChange={v=>editPortion(m.id,v)} onRemove={()=>removeModel(m.id)}/></div>
      )}</div>:<Empty title="Aún no agregaste modelos" detail="Elige uno o varios productos del catálogo superior."/>}
     </section>
-    <section className="form-section">
-     <div className="form-section-title"><span className="step">3</span><div><h2>Confirmar la compra</h2>
-      <p>Comprueba los modelos, cantidades, colores e importe antes de registrar la venta.</p></div></div>
+    <section className={'form-section order-step-card '+(3<stage?'done':3===stage?'current':'next')}>
+     <OrderStepHeader number={3} title="Revisar y confirmar" description="Comprueba los importes antes de comprometer inventario." state={3<stage?'done':3===stage?'current':'next'}/>
      <div className="order-confirmation-note"><strong>Compra confirmada</strong><p>Registra únicamente pedidos aceptados por el cliente. Al confirmar, las prendas quedan comprometidas para su entrega y el precio queda fijado.</p></div>
     </section>
     {localError&&<p className="form-error" role="alert" tabIndex={-1} id="operation-error">{localError}</p>}
@@ -581,7 +620,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
     <div className="checkout-total"><span>Total del pedido</span><strong>{formatBs(amount)}</strong></div>
     <p className="checkout-note">Las docenas son surtidas. Se registran los colores de las prendas adicionales, una por color. La disponibilidad física por color se verifica fuera del sistema.</p>
     <form id="booking-submit" onSubmit={submit}>
-     <button className="button button-primary full" type="submit" disabled={busy||!chosen.length}>
+     <button className="button button-primary full" type="submit" disabled={busy||!clientReady||!productsReady}>
       {busy?'Guardando…':'Confirmar y registrar pedido'}
      </button>
     </form>
