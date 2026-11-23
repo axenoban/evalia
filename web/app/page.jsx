@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, reviseReservation, createColor,
   createCustomer, createModel, uploadPhoto, adjustStock, createReservation,
-  createOrder, confirmReservation
+  createOrder, confirmReservation, reportPayment, reviewPayment, recordDelivery, completeOrder
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import {
@@ -17,6 +17,7 @@ const MENU=[
   ['booking','Nueva operación','＋'],
   ['reservations','Reservas','◇'],
   ['orders','Pedidos','▤'],
+  ['payments','Pagos','₿'],
   ['customers','Clientes','♙']
 ];
 const today=()=>new Date().toISOString();
@@ -566,7 +567,124 @@ function reservationMessage(res,customer,data){
    '\nVence: '+displayDate(res.expires_at)+
    '\nLas docenas son surtidas. Los colores individuales elegidos se verifican físicamente antes de confirmarlos.';
 }
-function Reservations({data,onConvert,onEdit,busy}){
+function PaymentForm({targetId,kind='order',onSubmit,busy}){
+ const [amount,setAmount]=useState(''),[note,setNote]=useState('');
+ const requestId=useRef(null);
+ async function submit(e){
+  e.preventDefault();
+  const parsed=amount.trim().replace(',','.');
+  if(!/^\d+(?:\.\d{1,2})?$/.test(parsed)||Number(parsed)<=0)return;
+  if(!requestId.current)requestId.current=uuid();
+  const ok=await onSubmit({
+   reservationId:kind==='reservation'?targetId:null,
+   orderId:kind==='order'?targetId:null,
+   amount:parsed,requestId:requestId.current,note:note.trim()||null
+  });
+  if(ok){requestId.current=null;setAmount('');setNote('');}
+ }
+ return <form className="money-form" onSubmit={submit}>
+  <p className="small-note">Registrar aviso de pago externo. <strong>No reduce el saldo</strong> hasta que el administrador compruebe la recepción y lo apruebe.</p>
+  <div className="form-inline">
+   <Field title="Monto informado (Bs)">
+    <input type="text" name={'payment-'+targetId} inputMode="decimal" placeholder="Ej. 150,50"
+     value={amount} onChange={e=>{setAmount(e.target.value);requestId.current=null;}} required/></Field>
+   <Field title="Referencia u observación (opcional)">
+    <input type="text" maxLength={1000} name="paymentNote" placeholder="Transferencia, efectivo…"
+     value={note} onChange={e=>{setNote(e.target.value);requestId.current=null;}}/></Field>
+  </div>
+  <button className="button button-outline" type="submit" disabled={busy||!amount.trim()}>
+   {busy?'Registrando…':'＋ Informar pago para revisión'}</button>
+ </form>;
+}
+function PaymentHistory({items=[],compact=false}){
+ return items.length?<div className={'payment-history '+(compact?'compact':'')}>
+  {items.map(p=><div key={p.id} className="payment-history-line">
+   <span>{formatBs(centsFromBs(p.amount_bs))} · {displayDate(p.created_at)}</span>
+   <strong className={'pay-state pay-'+p.status}>{
+    {pending:'Pendiente',observed:'En observación',rejected:'Rechazado',approved:'Aprobado'}[p.status]||p.status
+   }</strong>
+   {p.public_note&&<small>{p.public_note}</small>}
+  </div>)}
+ </div>:<p className="small-note">Todavía no hay pagos informados.</p>;
+}
+function PaymentReview({data,onReview,busy}){
+ const [notes,setNotes]=useState({});
+ const [filter,setFilter]=useState('pending');
+ const pending=['pending','observed'];
+ const list=data.payments.filter(p=>filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter));
+ return <><SectionHead eyebrow="CONCILIACIÓN MANUAL" title="Verifica los pagos recibidos."
+  description="Un aviso o comprobante NO confirma dinero ingresado. Comprueba la recepción fuera del sistema antes de aprobar."/>
+  <div className="toolbar"><label className="field"><span className="field-label">Filtrar estado</span>
+   <select value={filter} onChange={e=>setFilter(e.target.value)}>
+    <option value="pending">Pendientes y en observación</option>
+    <option value="approved">Aprobados</option><option value="rejected">Rechazados</option>
+    <option value="all">Todos</option></select></label>
+   <span className="muted">{list.length} declaración(es)</span></div>
+  <div className="record-list">{list.map(p=>{
+   const order=data.orders.find(o=>o.id===p.order_id);
+   const res=data.reservations.find(r=>r.id===p.reservation_id);
+   const customer=data.customers.find(c=>c.id===(order?.customer_id||res?.customer_id));
+   return <article className="record" key={p.id}>
+    <header className="record-head"><div><h3>{customer?.name||'Cliente'} · {formatBs(centsFromBs(p.amount_bs))}</h3>
+      <small>{order?'Pedido':'Reserva'} · {displayDate(p.created_at)} · {p.origin==='client'?'Aviso del cliente':'Registrado por administración'}</small></div>
+      <span className={'pay-state pay-'+p.status}>{p.status}</span></header>
+    <p className="small-note">{p.note||'Sin observación inicial'}</p>
+    {p.receipt_path&&<p className="small-note">Comprobante privado adjunto (revisión mediante acceso autorizado).</p>}
+    {['pending','observed'].includes(p.status)&&<div className="payment-review-actions">
+      <Field title="Observación (visible al cliente si tiene enlace)">
+       <input value={notes[p.id]??''} maxLength={1000} placeholder="Detalle de revisión…"
+        onChange={e=>setNotes(prev=>({...prev,[p.id]:e.target.value}))}/></Field>
+      <div className="form-actions">
+       <button className="button button-primary" type="button" disabled={busy}
+        onClick={()=>onReview(p.id,'approve',notes[p.id]||null)}>✓ Aprobar solo si fue recibido</button>
+       <button className="button button-outline" type="button" disabled={busy}
+        onClick={()=>onReview(p.id,'observe',notes[p.id]||null)}>En observación</button>
+       <button className="button button-outline" type="button" disabled={busy}
+        onClick={()=>onReview(p.id,'reject',notes[p.id]||null)}>Rechazar</button>
+      </div>
+    </div>}
+    {data.paymentReviews.filter(v=>v.report_id===p.id).map(v=><small className="small-note" key={v.id}>
+      {displayDate(v.created_at)} · {v.action} {v.note?' · '+v.note:''}</small>)}
+   </article>;
+  })}</div>
+  {!list.length&&<Empty title="Sin declaraciones con este estado" detail="Los pagos que informen los clientes o el administrador aparecerán aquí."/>}
+ </>;
+}
+function DeliveryForm({order,data,onSave,busy}){
+ const [lines,setLines]=useState({});
+ const requestId=useRef(null);
+ const remaining=order.lines.map(l=>{
+  const sent=data.deliveryLines.filter(d=>d.order_line_id===l.id).reduce((n,d)=>n+Number(d.quantity),0);
+  return {...l,remaining:Math.max(0,Number(l.quantity)-sent)};
+ }).filter(l=>l.remaining>0);
+ function change(id,value){setLines(v=>({...v,[id]:value}));requestId.current=null;}
+ async function submit(e){
+  e.preventDefault();
+  const selected=[];
+  for(const l of remaining){
+   const raw=String(lines[l.id]??'0').trim();
+   if(!/^\d+$/.test(raw))return;
+   const qty=Number(raw);
+   if(!Number.isSafeInteger(qty)||qty<0||qty>l.remaining)return;
+   if(qty>0)selected.push({orderLineId:l.id,quantity:qty});
+  }
+  if(!selected.length)return;
+  if(!requestId.current)requestId.current=uuid();
+  const ok=await onSave(order.id,selected,requestId.current);
+  if(ok){requestId.current=null;setLines({});}
+ }
+ if(!remaining.length)return <p className="small-note">Entrega completa registrada. Puedes cerrar el pedido cuando el saldo aprobado sea cero.</p>;
+ return <form className="delivery-form" onSubmit={submit}>
+  <p className="small-note">Registra solo las prendas físicamente retiradas. Se descuentan de stock físico y de pendientes de entrega, sin cambiar dos veces el disponible.</p>
+  {remaining.map(l=>{const model=data.models.find(m=>m.id===l.model_id);return <div key={l.id} className="delivery-line">
+    <span>{model?.name||'Modelo'} · Pendientes: <b>{l.remaining}</b></span>
+    <input type="number" min="0" step="1" max={l.remaining} inputMode="numeric"
+     aria-label={'Unidades entregadas de '+(model?.name||'modelo')} value={lines[l.id]??'0'}
+     onChange={e=>change(l.id,e.target.value)}/></div>})}
+  <button type="submit" className="button button-outline" disabled={busy}>Registrar retirada real</button>
+ </form>;
+}
+function Reservations({data,onConvert,onEdit,onReport,busy}){
  const [copied,setCopied]=useState('');
  async function copyDetails(r,customer){
   try{
@@ -577,7 +695,8 @@ function Reservations({data,onConvert,onEdit,busy}){
  return <><SectionHead eyebrow="CUPOS RESERVADOS" title="Reservas en seguimiento."
     description="Los colores individuales se conservan en el registro. El cupo se calcula sobre las prendas totales por modelo."/>
   {data.reservations.length?<div className="record-list">{data.reservations.map(r=>{const c=data.customers.find(x=>x.id===r.customer_id);
-   const canConvert=r.status==='saved'&&new Date(r.expires_at)>new Date();
+   const protective=data.payments.some(p=>p.reservation_id===r.id&&p.status==='approved'&&new Date(p.approved_at)<new Date(r.expires_at));
+   const canConvert=r.status==='saved'&&(new Date(r.expires_at)>new Date()||(protective&&new Date(r.review_at)>new Date()));
    return <article className="record" key={r.id}><header className="record-head">
     <div className="record-name"><span className="avatar">{initials(c?.name)}</span><div><strong>{c?.name||'Cliente sin ficha'}</strong>
       <small>{c?.whatsapp||'—'}</small></div></div><Status value={r.status}/></header>
@@ -601,16 +720,24 @@ function Reservations({data,onConvert,onEdit,busy}){
       Modificaciones auditadas: {data.revisions.filter(x=>x.reservation_id===r.id).length} ·
       Última: {displayDate(data.revisions.find(x=>x.reservation_id===r.id)?.created_at)}
     </p>}
-    {r.status==='in_review'&&<p className="small-note">Requiere revisión administrativa; no se libera el cupo automáticamente.</p>}
+    {protective&&<p className="small-note">Depósito comprobado a tiempo: cupo protegido hasta {displayDate(r.review_at)}. Después, revisión sin liberación.</p>}
+    {r.status==='expired'&&<p className="small-note">Reserva vencida: su cupo ya está liberado; no se reactiva por informar un pago tardío.</p>}
+    {['saved','in_review'].includes(r.status)&&<div className="record-details"><h3>Depósitos y avisos</h3>
+      <PaymentHistory items={data.payments.filter(p=>p.reservation_id===r.id)} compact/>
+      <PaymentForm targetId={r.id} kind="reservation" onSubmit={onReport} busy={busy}/>
+    </div>}
+    {r.status==='in_review'&&<p className="small-note">Requiere revisión administrativa y contacto WhatsApp manual; NO se libera el cupo automáticamente.</p>}
    </article>})}</div>:<Empty title="Aún no hay reservas" detail="Guarda una reserva desde Nueva operación."/>}
  </>;
 }
-function Orders({data}){
+function Orders({data,onReport,onDeliver,onComplete,busy}){
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Cada modelo conserva docenas, prendas individuales con sus colores y el importe histórico confirmado."/>
   {data.orders.length?<div className="record-list">{data.orders.map(o=>{
    const customer=data.customers.find(x=>x.id===o.customer_id);
    const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
+   const finance=data.finances[o.id]||{total:0,approved:0,pending:0,excess:0};
+   const delivery=data.deliveryStats[o.id]||{ordered:0,delivered:0,remaining:0};
    return <article className="record order-record" key={o.id}>
     <header className="record-head"><div className="record-name"><span className="avatar">{initials(customer?.name)}</span>
       <div><strong>{customer?.name||'Cliente'}</strong><small>{customer?.whatsapp||'—'} · {displayDate(o.confirmed_at)}</small></div></div>
@@ -622,7 +749,24 @@ function Orders({data}){
      </div><div className="order-line-price"><small>{formatBs(centsFromBs(l.price_dozen_bs))} / doc.</small><strong>{formatBs(centsFromBs(l.subtotal_bs))}</strong></div>
     </div>})}</div>
     <footer className="order-total"><span>Total del pedido</span><strong>{formatBs(total)}</strong></footer>
-    <p className="small-note">Los colores individuales están registrados, pero el inventario no lleva existencias por color. Los módulos de verificación de pagos y entregas todavía no están habilitados.</p>
+    <div className="order-operations">
+      <div className="order-operational-metrics">
+       <div><small>Abonado y aprobado</small><strong>{formatBs(centsFromBs(finance.approved))}</strong></div>
+       <div><small>Saldo pendiente</small><strong>{formatBs(centsFromBs(finance.pending))}</strong></div>
+       <div><small>Retiradas</small><strong>{delivery.delivered} / {delivery.ordered}</strong></div>
+      </div>
+      {Number(finance.excess)>0&&<Notice type="error">Existe exceso de pago para conciliación: {formatBs(centsFromBs(finance.excess))}. No se puede cerrar automáticamente.</Notice>}
+      <h3>Avisos y abonos</h3>
+      <PaymentHistory items={data.payments.filter(p=>p.order_id===o.id || (o.origin_reservation_id && p.reservation_id===o.origin_reservation_id))}/>
+      {o.status==='active'&&<PaymentForm targetId={o.id} onSubmit={onReport} busy={busy}/>}
+      <h3>Recogidas físicas</h3>
+      {o.status==='active'&&Number(finance.pending)===0&&Number(finance.excess)===0?
+       <DeliveryForm key={o.id+'-'+delivery.delivered} order={o} data={data} onSave={onDeliver} busy={busy}/>:
+       o.status==='active'?<p className="small-note">Las entregas ordinarias requieren saldo cero aprobado. Los avisos pendientes no son dinero recibido.</p>:null}
+      {o.status==='active'&&<button className="button button-primary" type="button" disabled={busy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
+       onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
+      {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
+    </div>
    </article>
    })}</div>:<Empty title="Aún no hay pedidos" detail="Crea un pedido directo o convierte una reserva vigente."/>}
  </>;
@@ -706,6 +850,14 @@ export default function HomePage(){
  const reserve=(customerId,lines,requestId)=>mutation(()=>createReservation(customerId,lines,requestId||uuid()),'Reserva guardada y cupo comprometido.');
  const order=(customerId,lines,requestId)=>mutation(()=>createOrder(customerId,lines,requestId||uuid()),'Pedido confirmado con precios congelados.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Reserva convertida en pedido sin doble descuento de stock.');
+ const report=(v)=>mutation(()=>reportPayment(v),'Aviso de pago guardado; pendiente de aprobación.');
+ const approve=(id,action,note)=>mutation(()=>reviewPayment({reportId:id,action,requestId:uuid(),note}),
+  action==='approve'?'Pago aprobado después de verificar su recepción.':'Revisión registrada sin mover dinero.');
+ const deliver=(orderId,lines,requestId)=>mutation(()=>recordDelivery({orderId,lines,requestId}),
+  'Retirada física registrada; inventario actualizado.');
+ const complete=(orderId)=>mutation(()=>completeOrder({orderId,requestId:uuid()}),
+  'Pedido COMPLETADO con pago y entrega íntegros.');
+
  const revise=(id,lines,requestId)=>mutation(()=>reviseReservation(id,lines,requestId),'Reserva actualizada; historial y cupo revisados.');
  const openEdit=(reservation)=>{setEditingReservation(reservation);setTab('booking');};
  const closeEdit=()=>{setEditingReservation(null);setTab('reservations');};
@@ -743,8 +895,9 @@ export default function HomePage(){
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} busy={busy}/>:
       tab==='booking'?<BookingPanel key={editingReservation?.id||'new'} data={data} editReservation={editingReservation}
        onReservation={reserve} onOrder={order} onUpdate={revise} onCloseEdit={closeEdit} onCreateClient={addClient} busy={busy}/>: 
-      tab==='reservations'?<Reservations data={data} onConvert={convert} onEdit={openEdit} busy={busy}/>: 
-      tab==='orders'?<Orders data={data}/>:
+      tab==='reservations'?<Reservations data={data} onConvert={convert} onEdit={openEdit} onReport={report} busy={busy}/>: 
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} busy={busy}/>: 
+      tab==='payments'?<PaymentReview data={data} onReview={approve} busy={busy}/>: 
       <ClientPanel data={data} onCreate={addClient} busy={busy}/>}
    </main>
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
