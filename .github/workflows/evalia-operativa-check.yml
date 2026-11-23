@@ -2,9 +2,9 @@ name: EVALIA · Aplicación operativa
 
 on:
   push:
-    branches: [feature/evalia-panel-operativo, feature/evalia-captura-docenas-colores]
+    branches: [feature/evalia-panel-operativo, feature/evalia-captura-docenas-colores, feature/evalia-ciclo-cobros-entregas]
   pull_request:
-    branches: [feature/skills-formularios-evalia, feature/evalia-panel-operativo]
+    branches: [feature/skills-formularios-evalia, feature/evalia-panel-operativo, feature/evalia-captura-docenas-colores]
   workflow_dispatch:
 
 # El proveedor de runners comparte puertos de Docker entre ejecuciones simultáneas.

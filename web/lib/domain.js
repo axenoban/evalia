@@ -109,3 +109,13 @@ export function checkedPortions(models, selections, stock, colors) {
   if(!lines.length) throw new Error('Agrega al menos un modelo.');
   return lines;
 }
+
+
+/** Cantidades de dinero, incluido saldo cero. Distinto al precio de catálogo >0. */
+export function amountCents(value){
+ const raw=String(value??'').trim().replace(',','.');
+ if(!/^\d+(?:\.\d{1,2})?$/.test(raw))
+  throw new Error('Importe en Bs inválido.');
+ const [whole,frac='']=raw.split('.');
+ return BigInt(whole)*100n+BigInt((frac+'00').slice(0,2));
+}
