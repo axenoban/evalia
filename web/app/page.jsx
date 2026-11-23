@@ -526,27 +526,67 @@ function BookingPanel({data,onReservation,onOrder,onCreateClient,busy}){
   </div>
  </>;
 }
+function LineComposition({line,colors,compact=false}){
+ const hasBreakdown=line.dozen_count!==null&&line.dozen_count!==undefined;
+ return <div className={'line-composition '+(compact?'compact':'')}>
+  <span>{hasBreakdown?
+    portionBreakdown(Number(line.dozen_count),Number(line.extra_units)):
+    quantityBreakdown(line.quantity)+' · registro anterior sin desglose de colores'}</span>
+  <ExtraColorSummary ids={line.extraColorIds||[]} colors={colors}/>
+ </div>;
+}
+function reservationMessage(res,customer,data){
+ const lines=res.lines.map(l=>{
+  const model=data.models.find(m=>m.id===l.model_id);
+  const colors=(l.extraColorIds||[]).map(id=>data.colors.find(c=>c.id===id)?.name||'Color registrado');
+  const body=l.dozen_count===null||l.dozen_count===undefined?
+    l.quantity+' prendas':
+    portionBreakdown(Number(l.dozen_count),Number(l.extra_units));
+  return '• '+(model?.name||'Modelo')+' (talla '+(model?.size_label||'—')+'): '+body+
+   (colors.length?'; colores individuales: '+colors.join(', '):'');
+ });
+ return 'Reserva EVALIA\nReferencia: '+res.id+
+   '\nCliente: '+(customer?.name||'Cliente')+
+   '\n'+lines.join('\n')+
+   '\nVence: '+displayDate(res.expires_at)+
+   '\nLas docenas son surtidas. Los colores individuales elegidos se verifican físicamente antes de confirmarlos.';
+}
 function Reservations({data,onConvert,busy}){
+ const [copied,setCopied]=useState('');
+ async function copyDetails(r,customer){
+  try{
+   await navigator.clipboard.writeText(reservationMessage(r,customer,data));
+   setCopied(r.id);
+  }catch{setCopied('error:'+r.id);}
+ }
  return <><SectionHead eyebrow="CUPOS RESERVADOS" title="Reservas en seguimiento."
-    description="Los cupos siguen bloqueados mientras la reserva esté activa o en revisión."/>
+    description="Los colores individuales se conservan en el registro. El cupo se calcula sobre las prendas totales por modelo."/>
   {data.reservations.length?<div className="record-list">{data.reservations.map(r=>{const c=data.customers.find(x=>x.id===r.customer_id);
    const canConvert=r.status==='saved'&&new Date(r.expires_at)>new Date();
    return <article className="record" key={r.id}><header className="record-head">
     <div className="record-name"><span className="avatar">{initials(c?.name)}</span><div><strong>{c?.name||'Cliente sin ficha'}</strong>
       <small>{c?.whatsapp||'—'}</small></div></div><Status value={r.status}/></header>
-    <p className="record-dates">Registrada: {displayDate(r.created_at)} · Vence: <b>{displayDate(r.expires_at)}</b></p>
-    <div className="record-lines">{r.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);return <div key={l.model_id}>
-      <span>{m?.name||'Modelo'} · Talla {m?.size_label||'—'}</span>
-      <strong>{l.quantity} prendas <small>({quantityBreakdown(l.quantity)})</small></strong></div>})}</div>
-    {canConvert&&<footer className="record-actions"><button disabled={busy} className="button button-outline"
-      onClick={()=>onConvert(r.id)}>{busy?'Procesando…':'Convertir a pedido'}</button></footer>}
+    <p className="record-dates">Referencia: <code>{r.id}</code><br/>
+      Registrada: {displayDate(r.created_at)} · Vence: <b>{displayDate(r.expires_at)}</b></p>
+    <div className="record-lines">{r.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);return <div key={l.model_id} className="record-line-detail">
+      <div><b>{m?.name||'Modelo'} · Talla {m?.size_label||'—'}</b>
+        <LineComposition line={l} colors={data.colors} compact/></div>
+      <strong>{l.quantity} prendas</strong>
+    </div>})}</div>
+    <footer className="record-actions">
+      <button type="button" className="button button-outline" onClick={()=>copyDetails(r,c)}>▣ Copiar para WhatsApp</button>
+      {canConvert&&<button disabled={busy} className="button button-primary" onClick={()=>onConvert(r.id)}>
+        {busy?'Procesando…':'Confirmar como pedido'}</button>}
+    </footer>
+    {copied===r.id&&<p className="small-note" role="status">Texto copiado. Puedes enviarlo manualmente por WhatsApp.</p>}
+    {copied==='error:'+r.id&&<p className="form-error" role="alert">No se pudo copiar; verifica los permisos del navegador.</p>}
     {r.status==='in_review'&&<p className="small-note">Requiere revisión administrativa; no se libera el cupo automáticamente.</p>}
    </article>})}</div>:<Empty title="Aún no hay reservas" detail="Guarda una reserva desde Nueva operación."/>}
  </>;
 }
 function Orders({data}){
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
-   description="Las cantidades y precios por modelo quedan congelados al confirmar. Los colores no se comprometen individualmente."/>
+   description="Cada modelo conserva docenas, prendas individuales con sus colores y el importe histórico confirmado."/>
   {data.orders.length?<div className="record-list">{data.orders.map(o=>{
    const customer=data.customers.find(x=>x.id===o.customer_id);
    const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
@@ -556,12 +596,12 @@ function Orders({data}){
       <Status value={o.status}/></header>
     <div className="order-lines">{o.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);return <div className="order-product" key={l.model_id}>
      {m&&<ProductImage model={m}/>}<div className="order-product-data"><strong>{m?.name||'Modelo'}</strong>
-      <small>Talla {m?.size_label||'—'} · {l.quantity} unidades · {quantityBreakdown(l.quantity)}</small>
-      {m&&<ModelColors model={m} colors={data.colors} compact/>}
+      <small>Talla {m?.size_label||'—'} · {l.quantity} prendas</small>
+      <LineComposition line={l} colors={data.colors} compact/>
      </div><div className="order-line-price"><small>{formatBs(centsFromBs(l.price_dozen_bs))} / doc.</small><strong>{formatBs(centsFromBs(l.subtotal_bs))}</strong></div>
     </div>})}</div>
     <footer className="order-total"><span>Total del pedido</span><strong>{formatBs(total)}</strong></footer>
-    <p className="small-note">Registro real de pedido. Los módulos de aprobación de pagos y entregas están pendientes de habilitación; no marcar como completado desde esta pantalla.</p>
+    <p className="small-note">Los colores individuales están registrados, pero el inventario no lleva existencias por color. Los módulos de verificación de pagos y entregas todavía no están habilitados.</p>
    </article>
    })}</div>:<Empty title="Aún no hay pedidos" detail="Crea un pedido directo o convierte una reserva vigente."/>}
  </>;
