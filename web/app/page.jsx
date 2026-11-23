@@ -1177,65 +1177,104 @@ function OrderDeliveryEditor({order,customer,onSave,busy}){
 }
 function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,busy}){
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
-   description="Cada modelo conserva docenas, prendas individuales con sus colores y el importe histórico confirmado."/>
+   description="Consulta cada pedido en una lista compacta. Abre uno para revisar modelos, pagos, entregas y sus acciones."/>
   <LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>
-  {data.orders.length?<div className="record-list">{data.orders.map(o=>{
-   const customer=data.customers.find(x=>x.id===o.customer_id);
-   const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
-   const finance=data.finances[o.id]||{total:0,approved:0,pending:0,excess:0};
-   const delivery=data.deliveryStats[o.id]||{ordered:0,delivered:0,remaining:0};
-   return <article className="record order-record" key={o.id}>
-    <header className="record-head"><div className="record-name"><span className="avatar">{initials(customer?.name)}</span>
-      <div><strong>{customer?.name||'Cliente'}</strong><small>{customer?.whatsapp||'—'} · {displayDate(o.confirmed_at)}</small></div></div>
-      <Status value={o.status}/></header>
-    <section className="order-shipping-panel">
-     <div><strong>{deliveryLabel(o.fulfillment_method)}</strong>
-      {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
-      {o.fulfillment_method==='legacy'&&<p>Este pedido es anterior a la clasificación de entregas. Indica cómo se entregará para habilitar la impresión.</p>}
-     </div>
-     {o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
-       onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Imprimir etiqueta de envío':'Imprimir detalle y total'}</button>}
-     {o.status==='active'&&<details className="order-delivery-details">
-      <summary>{o.fulfillment_method==='legacy'?'Clasificar entrega para imprimir':'Corregir destino o modalidad'}</summary>
-      <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={busy}/>
-     </details>}
-    </section>
-    <div className="order-lines">{o.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);return <div className="order-product" key={l.model_id}>
-     {m&&<ProductImage model={m}/>}<div className="order-product-data"><strong>{m?.name||'Modelo'}</strong>
-      <small>Talla {m?.size_label||'—'} · {l.quantity} prendas</small>
-      <LineComposition line={l} colors={data.colors} compact/>
-     </div><div className="order-line-price"><small>{formatBs(centsFromBs(l.price_dozen_bs))} / doc.</small><strong>{formatBs(centsFromBs(l.subtotal_bs))}</strong></div>
-    </div>})}</div>
-    <footer className="order-total"><span>Total del pedido</span><strong>{formatBs(total)}</strong></footer>
-    <div className="order-operations">
-      <div className="order-operational-metrics">
-       <div><small>Abonado y aprobado</small><strong>{formatBs(amountCents(finance.approved))}</strong></div>
-       <div><small>Saldo pendiente</small><strong>{formatBs(amountCents(finance.pending))}</strong></div>
-       <div><small>Retiradas</small><strong>{delivery.delivered} / {delivery.ordered}</strong></div>
+  {data.orders.length?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
+   {data.orders.map(o=>{
+    const customer=data.customers.find(x=>x.id===o.customer_id);
+    const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
+    const finance=data.finances[o.id]||{total:0,approved:0,pending:0,excess:0};
+    const delivery=data.deliveryStats[o.id]||{ordered:0,delivered:0,remaining:0};
+    const orderedUnits=o.lines.reduce((sum,l)=>sum+Number(l.quantity||0),0);
+    const relatedPayments=data.payments.filter(p=>p.order_id===o.id||
+      (o.origin_reservation_id&&p.reservation_id===o.origin_reservation_id));
+    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders">
+     <summary className="ev-order-summary">
+      <span className="ev-order-summary-primary">
+       <span className="avatar ev-order-avatar" aria-hidden="true">{initials(customer?.name)}</span>
+       <span className="ev-order-identification">
+        <strong>{customer?.name||'Cliente'}</strong>
+        <small>{displayDate(o.confirmed_at)}</small>
+       </span>
+      </span>
+      <span className="ev-order-summary-facts">
+       <span className="ev-order-summary-count">{o.lines.length} {o.lines.length===1?'modelo':'modelos'} · {rup(orderedUnits)} prendas</span>
+       <span className="ev-order-summary-delivery">{deliveryLabel(o.fulfillment_method)}</span>
+      </span>
+      <span className="ev-order-summary-end">
+       <strong className="ev-order-summary-total">{formatBs(total)}</strong>
+       <Status value={o.status}/>
+      </span>
+      <span className="ev-order-expand" aria-hidden="true">⌄</span>
+     </summary>
+     <div className="ev-order-expanded">
+      <div className="ev-order-stat-strip" aria-label="Resumen financiero y entrega">
+       <div><span>Abonado y aprobado</span><strong>{formatBs(amountCents(finance.approved))}</strong></div>
+       <div><span>Saldo pendiente</span><strong>{formatBs(amountCents(finance.pending))}</strong></div>
+       <div><span>Prendas entregadas</span><strong>{rup(delivery.delivered)} de {rup(delivery.ordered)}</strong></div>
       </div>
+      <section className="ev-order-model-section" aria-label="Modelos incluidos en el pedido">
+       <h3>Modelos del pedido</h3>
+       <div className="order-lines">
+        {o.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);
+         return <div className="order-product" key={l.id||l.model_id}>
+          {m&&<ProductImage model={m}/>}
+          <div className="order-product-data">
+           <strong>{m?.name||'Modelo'}</strong>
+           <small>Talla {m?.size_label||'—'} · {rup(l.quantity)} prendas</small>
+           <LineComposition line={l} colors={data.colors} compact/>
+          </div>
+          <div className="order-line-price">
+           <small>{formatBs(centsFromBs(l.price_dozen_bs))} / doc.</small>
+           <strong>{formatBs(centsFromBs(l.subtotal_bs))}</strong>
+          </div>
+         </div>;
+        })}
+       </div>
+       <footer className="order-total"><span>Total del pedido</span><strong>{formatBs(total)}</strong></footer>
+      </section>
+      <section className="order-shipping-panel ev-order-shipping" aria-label="Entrega e impresión">
+       <div><strong>{deliveryLabel(o.fulfillment_method)}</strong>
+        {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
+        {o.fulfillment_method==='legacy'&&<p>Pedido anterior a la clasificación de entregas. Indica cómo se entregará para habilitar la impresión.</p>}
+       </div>
+       {o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
+        onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Imprimir etiqueta de envío':'Imprimir detalle y total'}</button>}
+       {o.status==='active'&&<details className="order-delivery-details">
+        <summary>{o.fulfillment_method==='legacy'?'Clasificar entrega para imprimir':'Corregir destino o modalidad'}</summary>
+        <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={busy}/>
+       </details>}
+      </section>
       {Number(finance.excess)>0&&<Notice type="error">Existe exceso de pago para conciliación: {formatBs(amountCents(finance.excess))}. No se puede cerrar automáticamente.</Notice>}
-      {o.status==='active'&&<OrderQuickActions order={o} finance={finance} delivery={delivery}
-       payments={data.payments.filter(p=>p.order_id===o.id || (o.origin_reservation_id && p.reservation_id===o.origin_reservation_id))}
-       onQuick={onQuick} busy={busy}/>}
-      <details className="order-advanced" aria-label="Abonos y entregas parciales">
-       <summary>Abonos, comprobantes y entregas parciales <span>Opciones adicionales</span></summary>
-       <div className="order-advanced-body">
-        <h3>Historial de pagos</h3>
-        <PaymentHistory items={data.payments.filter(p=>p.order_id===o.id || (o.origin_reservation_id && p.reservation_id===o.origin_reservation_id))}/>
-        {o.status==='active'&&Number(finance.pending)>0&&<PaymentForm targetId={o.id} onSubmit={onReport} busy={busy}/>}
-        <h3>Retiradas físicas</h3>
-        {o.status==='active'&&Number(finance.pending)===0&&Number(finance.excess)===0?
-         <DeliveryForm key={o.id+'-'+delivery.delivered} order={o} data={data} onSave={onDeliver} busy={busy}/>:
-         o.status==='active'?<p className="small-note">Las entregas requieren pago aprobado completo. Los avisos pendientes no son dinero recibido.</p>:null}
+      <details className="ev-order-management" aria-label="Gestión y acciones del pedido">
+       <summary><span>Gestionar cobros y entregas</span><span className="ev-order-management-hint">Opciones administrativas</span></summary>
+       <div className="order-operations ev-order-operations">
+        {o.status==='active'&&<OrderQuickActions order={o} finance={finance} delivery={delivery}
+         payments={relatedPayments} onQuick={onQuick} busy={busy}/>}
+        <details className="order-advanced" aria-label="Abonos y entregas parciales">
+         <summary>Abonos, comprobantes y entregas parciales <span>Opciones adicionales</span></summary>
+         <div className="order-advanced-body">
+          <h3>Historial de pagos</h3>
+          <PaymentHistory items={relatedPayments}/>
+          {o.status==='active'&&Number(finance.pending)>0&&
+           <PaymentForm targetId={o.id} onSubmit={onReport} busy={busy}/>}
+          <h3>Retiradas físicas</h3>
+          {o.status==='active'&&Number(finance.pending)===0&&Number(finance.excess)===0?
+           <DeliveryForm key={o.id+'-'+delivery.delivered} order={o} data={data} onSave={onDeliver} busy={busy}/>:
+           o.status==='active'?<p className="small-note">Las entregas requieren pago aprobado completo. Los avisos pendientes no son dinero recibido.</p>:null}
+         </div>
+        </details>
+        {o.status==='active'&&<button className="button button-primary" type="button"
+         disabled={busy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
+         onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
+        {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
+        <OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>
        </div>
       </details>
-      {o.status==='active'&&<button className="button button-primary" type="button" disabled={busy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
-       onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
-      {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
-      <OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>
-    </div>
-   </article>
-   })}</div>:<Empty title="Aún no hay pedidos" detail="Registra la primera compra confirmada desde Nuevo pedido."/>}
+     </div>
+    </details>;
+   })}
+  </div>:<Empty title="Aún no hay pedidos" detail="Registra la primera compra confirmada desde Nuevo pedido."/>}
  </>;
 }
 function Login({onLogin,busy,error}){
