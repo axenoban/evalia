@@ -47,3 +47,15 @@ Si luego se detectan dos prendas no aptas, el total apto baja de 12 a 10; en B l
 **B ya fue elegida expresamente por el propietario.** La reserva surtida guardada debe apartar cantidad apta sin fijar los colores y la decisión de talla o conjunto elegible deberá ser resuelta antes de implementar. Es necesario distinguir el compromiso comercial garantizado de colores aún indeterminados: el sistema no puede prometer tonos específicos.
 
 **Cancelación y no retiro:** el propietario no distingue el tratamiento por media docena o docena. Esto no fija plazo ni sanciones, y la liberación del cupo deberá depender de las condiciones generales aprobadas de G01/G03-B. No construir SQL definitivo ni cambiar estado draft del PR.
+
+## Decisión expresa recibida después de la comparación (2026-11-22)
+
+> estaria bien garantizarle el pedido porque hasta el momento estos pedidos en fisico se han completado con normalidad, si no recogen o cancelan despues ya es indiferente si ha sido pedido de media o docena
+
+**Selección B confirmada en términos comerciales:** al pulsar **Guardar reserva** para un surtido, garantizar su **cantidad total** con un cupo de existencias físicamente aptas aún no comprometidas, aunque se decidan los colores posteriormente. El borrador no bloquea (R06). No se garantiza un color específico ni una composición fija de once colores/negro repetido; no contar producción prevista ni unidades defectuosas.
+
+**Cancelaciones y no retiro:** la política se aplicará por igual independientemente de que sean seis o doce prendas; esto **no** define multas, plazo, penalización, anticipo, devolución, momento automático de liberación ni tratamiento de prendas ya entregadas. G01 y G03-B siguen abiertos.
+
+**Pendiente principal antes de SQL:** ¿al guardar un surtido están establecidas las tallas/cantidades por talla o también quedan a elección posterior de EVALIA? Si no se conoce el conjunto de tallas, el cupo por modelo+talla de este documento no basta para garantizar talla concreta. Ver [contrato ampliado](11_CONTRATO_INVENTARIO.md).
+
+**Estado:** decisión seleccionada y documentada en feature; sin autorización para ejecutar migraciones ni fusionar PR.
