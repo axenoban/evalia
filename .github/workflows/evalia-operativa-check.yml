@@ -2,10 +2,16 @@ name: EVALIA · Aplicación operativa
 
 on:
   push:
-    branches: [feature/evalia-panel-operativo]
+    branches: [feature/evalia-panel-operativo, feature/evalia-captura-docenas-colores]
   pull_request:
-    branches: [feature/skills-formularios-evalia]
+    branches: [feature/skills-formularios-evalia, feature/evalia-panel-operativo]
   workflow_dispatch:
+
+# El proveedor de runners comparte puertos de Docker entre ejecuciones simultáneas.
+# Serializar el workflow evita choques de Supabase local (puerto 54324).
+concurrency:
+  group: evalia-operativa-supabase-local
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -33,3 +39,20 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm run build
+
+  database:
+    name: Migraciones Supabase y pgTAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - name: Arrancar instancia local y aplicar migraciones
+        run: supabase start
+      - name: Ejecutar pruebas pgTAP en PostgreSQL
+        run: supabase test db
+      - name: Apagar entorno local
+        if: always()
+        run: supabase stop --no-backup || true

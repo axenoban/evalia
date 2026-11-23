@@ -1,5 +1,8 @@
 # Reglas de desarrollo — EVALIA
 
+## D2-B — regla reciente prevalente para carrito multímodelo (2026-11-23)
+**Leer primero [docs/39_CAPTURA_DOCENAS_COLORES_INDIVIDUALES.md](docs/39_CAPTURA_DOCENAS_COLORES_INDIVIDUALES.md) antes de editar el formulario y las RPC.** Para cada modelo se seleccionan `dozens >= 0` docenas surtidas y `extraColorIds` distintos: 0–11 si existen docenas, 6–11 si no. **Una sola prenda por color adicional**; no mezclar modelos para cumplir el mínimo. Precio exacto por cantidad total y subtotal por modelo. Guardar color solicitado individual, sin inventar stock por color; el stock conserva S/R/P/A por modelo. Nueva migración 005; validar contra PostgreSQL antes de publicación. Las advertencias históricas de esta guía sobre stock por variante/color quedan superadas por D0-C2/D0-F y por esta decisión concreta. El usuario solicitó implementar el alcance de cuestionarios: verificar siempre la matriz M01–M14 en docs/39, sin declarar completados módulos de pagos, QR y entrega hasta QA real.
+
 Obligatorias para Codex, Claude Code u otros agentes.
 
 ## Fuente de verdad

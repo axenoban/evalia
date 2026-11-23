@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
+  authUser, adminAllowed, signIn, signOut, loadWorkspace, reviseReservation, createColor,
   createCustomer, createModel, uploadPhoto, adjustStock, createReservation,
   createOrder, confirmReservation
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import {
-  centsFromBs, subtotalCents, formatBs, quantityBreakdown, checkedLines, inventoryTotals
+  centsFromBs, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
 } from '../lib/domain.js';
 
 const MENU=[
@@ -29,7 +29,7 @@ const initials=name=>String(name||'EV').trim().split(/\s+/).slice(0,2).map(s=>s[
 const rup=number=>new Intl.NumberFormat('es-BO').format(Number(number)||0);
 const statusLabels={saved:'Reservada',in_review:'En revisión',expired:'Vencida',converted:'Convertida',active:'En preparación',completed:'Completado',draft:'Borrador'};
 
-function ColorChip({color,selected=false,onClick,compact=false}){
+function ColorChip({color,selected=false,onClick,compact=false,disabled=false}){
  const colorValid=/^#[\da-f]{6}$/i.test(color?.hex_code||'');
  const circle=<span className={'color-circle '+(colorValid?'':'color-unknown')}
     style={colorValid?{background:color.hex_code}:undefined}>
@@ -38,7 +38,7 @@ function ColorChip({color,selected=false,onClick,compact=false}){
   </span>;
  if(onClick)return <button type="button" aria-pressed={selected}
   aria-label={color?.name+' '+(selected?'seleccionado':'no seleccionado')}
-  className={'color-choice '+(selected?'is-selected':'')} onClick={onClick}>
+  className={'color-choice '+(selected?'is-selected':'')} onClick={onClick} disabled={disabled}>
     {circle}<span>{color?.name}</span>
   </button>;
  return <span className={'color-item '+(compact?'compact':'')} title={color?.name} aria-label={color?.name}>
@@ -307,145 +307,307 @@ function ClientPanel({data,onCreate,busy}){
   </div>
  </>;
 }
-function QuantitySelector({model,stock,value,onChange}){
- const n=Number(value)||0;
- function step(d){onChange(d>0?(n===0?6:n+1):n<=6?0:n-1);}
- return <div className="quantity-control">
-  <div className="quantity-stepper">
-   <button type="button" aria-label={'Quitar una prenda de '+model.name} onClick={()=>step(-1)} disabled={!n}>−</button>
-   <input type="number" name={'qty-'+model.id} aria-label={'Cantidad para '+model.name}
-     value={value} min="0" max={stock.available} step="1" inputMode="numeric" onChange={e=>onChange(e.target.value)}/>
-   <button type="button" aria-label={'Añadir una prenda de '+model.name} onClick={()=>step(1)} disabled={n>=Number(stock.available)}>＋</button>
+function ExtraColorSummary({ids=[],colors}){
+ if(!ids.length)return null;
+ return <div className="extra-color-summary">
+  <small>Prendas adicionales elegidas</small>
+  <div className="color-row small">
+   {ids.map(id=>{const color=colors.find(c=>c.id===id);
+    return <span key={id} className="selected-color"><ColorChip color={color||{id,name:'Color registrado',hex_code:null}} compact/></span>;
+   })}
   </div>
-  <div className="quick-quantities">{[6,12,18,24].filter(x=>x<=Number(stock.available)).map(x=>
-   <button key={x} type="button" aria-pressed={n===x} className={n===x?'chosen':''} onClick={()=>onChange(String(x))}>{x}</button>)}</div>
  </div>;
 }
-function BookingPanel({data,onReservation,onOrder,onCreateClient,busy,setTab}){
- const [customerId,setCustomerId]=useState('');
- const [quantities,setQuantities]=useState({});
- const [mode,setMode]=useState('reservation'),[localError,setLocalError]=useState('');
+function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
+ const dozens=Number(selection.dozens);
+ const extras=selection.extraColorIds;
+ const validDozens=/^(0|[1-9]\d*)$/.test(String(selection.dozens));
+ const quantity=validDozens?portionQuantity(dozens,extras):0;
+ const available=Number(stock.available)||0;
+ const allowedColors=colors.filter(c=>model.colorIds?.includes(c.id)&&c.is_active);
+ const insufficient=quantity>available;
+ const noDozen=validDozens&&dozens===0;
+ const validLine=validDozens&&Number.isSafeInteger(quantity)&&quantity>=6&&!insufficient&&!stock.blocked;
+ const maximumDozens=Math.max(0,Math.floor((available-extras.length)/12));
+ function setDozens(value){
+   onChange({...selection,dozens:String(value)});
+ }
+ function toggleColor(id){
+  if(extras.includes(id))onChange({...selection,extraColorIds:extras.filter(x=>x!==id)});
+  else if(extras.length<11&&quantity<available&&!stock.blocked)
+   onChange({...selection,extraColorIds:[...extras,id]});
+ }
+ return <article className={'cart-model '+(validLine?'complete':'incomplete')}>
+  <div className="cart-model-head">
+   <ProductImage model={model}/>
+   <div className="cart-model-info"><h3>{model.name}</h3>
+    <span>Talla {model.size_label} · {formatBs(centsFromBs(model.price_dozen_bs))} por docena</span>
+    <small>{stock.blocked?'BLOQUEADO':available+' prendas libres de '+stock.on_hand+' publicadas'}</small>
+   </div>
+   <button type="button" className="remove-model" title="Quitar modelo" aria-label={'Quitar '+model.name}
+    onClick={onRemove}>×</button>
+  </div>
+  <div className="portion-controls">
+   <div className="dozen-panel">
+    <div className="portion-label"><b>Docenas completas</b><span>Surtidas · 12 prendas cada una</span></div>
+    <div className="dozen-entry"><button type="button" aria-label={'Quitar docena de '+model.name}
+      onClick={()=>setDozens(Math.max(0,dozens-1))} disabled={!validDozens||dozens<=0}>−</button>
+      <input type="number" min="0" max={Math.min(maximumDozens,178956969)} step="1" inputMode="numeric"
+       name={'dozens-'+model.id} aria-label={'Docenas de '+model.name} value={selection.dozens}
+       onChange={e=>setDozens(e.target.value)}/>
+      <button type="button" aria-label={'Añadir docena a '+model.name}
+       onClick={()=>setDozens(dozens+1)} disabled={!validDozens||dozens>=maximumDozens||stock.blocked}>＋</button>
+    </div>
+   </div>
+   <div className="extra-panel">
+    <div className="portion-label"><b>Prendas adicionales</b>
+     <span>{extras.length} de 11 · un solo ejemplar de cada color</span></div>
+    <div className="extra-count">{extras.length}<small>colores</small></div>
+   </div>
+  </div>
+  <div className="extra-color-panel">
+   <div className="portion-instructions">
+    <b>{noDozen?'Elige de 6 a 11 colores':'Agrega hasta 11 prendas por color'}</b>
+    <p>{noDozen?'Sin docena, necesitas al menos 6 prendas y cada una debe tener un color diferente.':
+      'Las docenas completas son surtidas; los colores elegidos aquí corresponden solo a las prendas adicionales.'}</p>
+   </div>
+   <div className="color-select-grid extra-select-grid">
+    {allowedColors.map(color=><ColorChip key={color.id} color={color}
+       selected={extras.includes(color.id)} onClick={() => toggleColor(color.id)}
+       disabled={!extras.includes(color.id)&&(extras.length>=11||quantity>=available||stock.blocked)}/>)}
+   </div>
+   {!allowedColors.length&&<p className="form-hint">No hay colores activos asignados a este modelo.</p>}
+   {noDozen&&extras.length<6&&<p className="portion-warning" role="status">
+     Selecciona {6-extras.length} {6-extras.length===1?'color más':'colores más'} para alcanzar el mínimo mayorista.
+   </p>}
+   {insufficient&&<p className="form-error" role="alert">Stock insuficiente: {quantity} seleccionadas, {available} disponibles.</p>}
+   {stock.blocked&&<p className="form-error">Modelo con incidencia de inventario.</p>}
+  </div>
+  <div className="portion-result">
+   <div><span className="portion-total-label">Subtotal del modelo</span>
+    <strong>{validDozens?portionBreakdown(dozens,extras.length):'Docenas inválidas'} · {validDozens?quantity:'—'} prendas</strong>
+   </div><b>{validLine?formatBs(subtotalCents(model.price_dozen_bs,quantity)):'Por completar'}</b>
+  </div>
+ </article>;
+}
+function BookingPanel({data,onReservation,onOrder,onUpdate,onCloseEdit,editReservation,onCreateClient,busy}){
+ const [customerId,setCustomerId]=useState(editReservation?.customer_id||'');
+ const [customerSearch,setCustomerSearch]=useState('');
+ const [productSearch,setProductSearch]=useState('');
+ const [portions,setPortions]=useState(()=>editReservation?
+  Object.fromEntries(editReservation.lines.filter(l=>l.dozen_count!==null&&l.dozen_count!==undefined)
+   .map(l=>[l.model_id,{dozens:String(l.dozen_count),extraColorIds:l.extraColorIds||[]}])):{});
+ const [mode,setMode]=useState(editReservation?'edit':'reservation'),[localError,setLocalError]=useState('');
  const [addClient,setAddClient]=useState(false);
  const requestId=useRef(null);
  const models=data.models.filter(m=>m.is_active);
- const selection=models.filter(m=>Number(quantities[m.id]||0)>0);
- const amount=selection.reduce((s,m)=>{
-   const n=Number(quantities[m.id]);
-   return s+(Number.isSafeInteger(n)&&n>=6?subtotalCents(m.price_dozen_bs,n):0n);
+ // La edición recupera temporalmente el cupo de esta misma reserva.
+ // No modifica la disponibilidad pública ni la de otros clientes.
+ const editingStock=useMemo(()=>{
+  if(!editReservation)return data.stock;
+  const stocks={...data.stock};
+  for(const line of editReservation.lines){
+   const old=stocks[line.model_id];
+   if(old)stocks[line.model_id]={...old,available:Number(old.available)+Number(line.quantity)};
+  }
+  return stocks;
+ },[editReservation,data.stock]);
+ const chosen=models.filter(m=>Object.hasOwn(portions,m.id));
+ const availableModels=models.filter(m=>!Object.hasOwn(portions,m.id)&&
+   (m.name+' '+m.size_label).toLocaleLowerCase().includes(productSearch.toLocaleLowerCase()));
+ const matchedCustomers=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(customerSearch.toLocaleLowerCase()));
+ const chosenCustomer=data.customers.find(c=>c.id===customerId);
+ const amount=chosen.reduce((total,m)=>{
+  const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds);
+  const valid=/^(0|[1-9]\d*)$/.test(String(s.dozens));
+  return total+(valid&&Number.isSafeInteger(q)&&q>=6?subtotalCents(m.price_dozen_bs,q):0n);
  },0n);
+ const totalItems=chosen.reduce((n,m)=>{
+  const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds);
+  return n+(Number.isSafeInteger(q)&&q>=0?q:0);
+ },0);
  useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
- function changeQuantity(id,value){requestId.current=null;setQuantities(prev=>({...prev,[id]:value}));setLocalError('');}
+ function editPortion(id,value){requestId.current=null;setPortions(v=>({...v,[id]:value}));setLocalError('');}
+ function addModel(model){requestId.current=null;
+  const stock=editingStock[model.id]||{},available=Number(stock.available)||0;
+  setPortions(v=>({...v,[model.id]:{dozens:available>=12?'1':'0',extraColorIds:[]}}));
+  setLocalError('');
+ }
+ function removeModel(id){requestId.current=null;setPortions(current=>{
+  const copy={...current};delete copy[id];return copy;
+ });setLocalError('');}
  async function submit(e){
   e.preventDefault();setLocalError('');
   try{
    if(!customerId)throw new Error('Selecciona un cliente antes de continuar.');
-   const lines=checkedLines(models,quantities,data.stock);
+   const lines=checkedPortions(models,portions,editingStock,data.colors);
    if(!requestId.current)requestId.current=uuid();
-   const ok=mode==='reservation'?await onReservation(customerId,lines,requestId.current):await onOrder(customerId,lines,requestId.current);
-   if(ok){requestId.current=null;setQuantities({});setCustomerId('');}
-  }catch(err){
-   setLocalError(err.message);
-  }
+   const ok=mode==='edit'?await onUpdate(editReservation.id,lines,requestId.current):
+    mode==='reservation'?await onReservation(customerId,lines,requestId.current):await onOrder(customerId,lines,requestId.current);
+   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');if(editReservation)onCloseEdit();}
+  }catch(err){setLocalError(err.message);}
  }
  return <>
-  <SectionHead eyebrow="VENTAS MAYORISTAS" title="Prepara la operación."
-   description="Elige un cliente, agrega modelos y revisa cantidades por docena, media docena o prendas adicionales."/>
+  <SectionHead eyebrow="VENTAS MAYORISTAS" title={editReservation?'Editar reserva':'Arma la reserva o el pedido.'}
+   description={editReservation?'Modifica los modelos, docenas y colores elegidos. El sistema compara con el cupo reservado anterior y guarda historial.':'Agrega modelos, indica las docenas surtidas y elige los colores para cada prenda adicional. La disponibilidad se controla por modelo.'}
+   actions={editReservation&&<button className="button button-outline" type="button" onClick={onCloseEdit}>← Volver a reservas</button>}/>
   <div className="booking-layout">
    <div className="surface booking-form">
     <section className="form-section">
-     <div className="form-section-title"><span className="step">1</span><div><h2>Cliente</h2><p>Vincula la operación a una ficha.</p></div></div>
-     <div className="client-selection"><Field title="Comprador registrado"><select name="customerId" value={customerId}
-       required onChange={e=>{setCustomerId(e.target.value);requestId.current=null;}}>
-       <option value="">Selecciona una persona…</option>
-       {data.customers.map(c=><option key={c.id} value={c.id}>{c.name} · {c.whatsapp}</option>)}
-      </select></Field>
-      <button type="button" className="button button-outline" onClick={()=>setAddClient(x=>!x)}>
-        {addClient?'Cerrar':'＋ Nuevo cliente'}</button>
+     <div className="form-section-title"><span className="step">1</span><div><h2>Identificar cliente</h2>
+      <p>Busca por WhatsApp o por nombre. El registro es administrativo.</p></div></div>
+     <div className="customer-chooser">
+      <label className="search"><span aria-hidden="true">⌕</span>
+       <input type="search" aria-label="Buscar clientes por nombre o WhatsApp" autoComplete="off"
+        placeholder="Buscar cliente por WhatsApp…" value={customerSearch}
+        onChange={e=>setCustomerSearch(e.target.value)}/></label>
+      <div className="client-selection"><Field title="Cliente para esta operación">
+       <select name="customerId" value={customerId} required
+        disabled={Boolean(editReservation)} onChange={e=>{setCustomerId(e.target.value);requestId.current=null;}}>
+        <option value="">Selecciona un cliente…</option>
+        {chosenCustomer&&!matchedCustomers.some(c=>c.id===chosenCustomer.id)&&
+          <option value={chosenCustomer.id}>{chosenCustomer.name} · {chosenCustomer.whatsapp}</option>}
+        {matchedCustomers.map(c=><option key={c.id} value={c.id}>{c.name} · {c.whatsapp}</option>)}
+       </select></Field>
+       {!editReservation&&<button type="button" className="button button-outline" onClick={()=>setAddClient(x=>!x)}>
+        {addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>}
+      </div>
      </div>
-     {customerId&&<div className="selected-client"><span className="avatar small">{initials(data.customers.find(c=>c.id===customerId)?.name)}</span><div>
-      <b>{data.customers.find(c=>c.id===customerId)?.name}</b>
-      <small>{data.customers.find(c=>c.id===customerId)?.whatsapp}</small></div></div>}
-     {addClient&&<div className="inline-client"><ClientForm compact busy={busy} onCreate={async(n,p)=>{
-       const ok=await onCreateClient(n,p);
-       if(ok)setAddClient(false);
-       return ok;
-     }}/></div>}
+     {chosenCustomer&&<div className="selected-client">
+       <span className="avatar small">{initials(chosenCustomer.name)}</span><div>
+         <b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp}</small></div></div>}
+     {addClient&&<div className="inline-client"><ClientForm compact busy={busy}
+       onCreate={async(n,p)=>{const ok=await onCreateClient(n,p);if(ok){setAddClient(false);setCustomerSearch(p);}return ok;}}/></div>}
     </section>
     <section className="form-section">
-     <div className="form-section-title"><span className="step">2</span><div><h2>Seleccionar productos</h2>
-      <p>El surtido corresponde al modelo completo, no a cantidades específicas por color.</p></div></div>
-     {models.length?<div className="booking-products">{models.map(m=>{const stock=data.stock[m.id]||{};
-      const q=Number(quantities[m.id])||0,active=q>0;
-      return <div key={m.id} className={'booking-product '+(active?'active':'')}>
-       <div className="booking-product-main"><ProductImage model={m}/>
-        <div className="booking-product-info"><strong>{m.name}</strong>
-          <span>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))} / docena</span>
-          <small>{stock.blocked?'Bloqueado por incidencia':rup(stock.available)+' disponibles'}</small></div>
-        <QuantitySelector model={m} stock={stock} value={quantities[m.id]??'0'}
-          onChange={v=>changeQuantity(m.id,v)}/>
-       </div>
-       <ModelColors model={m} colors={data.colors} compact/>
-       {active&&<div className="booking-product-summary"><span>{quantityBreakdown(q)}</span>
-        <strong>{q>=6&&Number.isSafeInteger(q)?formatBs(subtotalCents(m.price_dozen_bs,q)):'Mínimo 6 unidades'}</strong></div>}
-      </div>;
-     })}</div>:<Empty title="Sin productos activos" detail="Registra primero un modelo con stock."/>}
+     <div className="form-section-title"><span className="step">2</span><div><h2>Agregar modelos</h2>
+      <p>Un mismo pedido puede contener modelos con cantidades y tallas diferentes.</p></div></div>
+     <label className="search model-search"><span aria-hidden="true">⌕</span>
+      <input type="search" aria-label="Buscar modelos para añadir" placeholder="Buscar modelo o talla…"
+       value={productSearch} onChange={e=>setProductSearch(e.target.value)}/></label>
+     {availableModels.length?<div className="product-picker">{availableModels.map(m=>{
+      const st=editingStock[m.id]||{},available=Number(st.available)||0;
+      return <div key={m.id} className="picker-item">
+       <ProductImage model={m}/>
+       <div className="picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small>
+        <span className={st.blocked?'error-text':'positive-text'}>{st.blocked?'Incidencia · bloqueado':available+' prendas disponibles'}</span>
+       </div><button type="button" className="button button-outline" disabled={!available||st.blocked}
+        onClick={()=>addModel(m)}>＋ Agregar</button>
+      </div>})}</div>:<p className="muted">{models.length?'Todos los modelos coincidentes están agregados.':'Todavía no hay productos activos.'}</p>}
+     <div className="cart-subhead"><h3>Modelos en la operación</h3><span>{chosen.length} modelo(s) · {totalItems} prendas</span></div>
+     {chosen.length?<div className="cart-models">{chosen.map(m=>
+      <PortionEditor key={m.id} model={m} colors={data.colors} stock={editingStock[m.id]||{}}
+       selection={portions[m.id]} onChange={v=>editPortion(m.id,v)} onRemove={()=>removeModel(m.id)}/>
+     )}</div>:<Empty title="Aún no agregaste modelos" detail="Elige uno o varios productos del catálogo superior."/>}
     </section>
     <section className="form-section">
-     <div className="form-section-title"><span className="step">3</span><div><h2>Tipo de operación</h2>
-      <p>Elige qué deseas registrar en la base de datos.</p></div></div>
-     <div className="mode-choice">
+     <div className="form-section-title"><span className="step">3</span><div><h2>Guardar como reserva o pedido</h2>
+      <p>Antes de confirmar, revisa los colores individuales y el precio por modelo.</p></div></div>
+     {editReservation?<Notice>Editar no libera cupo hasta guardar. Cada cambio queda registrado en el historial de reserva.</Notice>:<div className="mode-choice">
       <label className={mode==='reservation'?'selected':''}>
        <input type="radio" name="operationType" value="reservation" checked={mode==='reservation'}
         onChange={()=>{setMode('reservation');requestId.current=null;}}/>
-       <span><b>Reservar</b><small>Bloquea cupo hasta su vencimiento comercial.</small></span>
+       <span><b>Reserva</b><small>Bloquea unidades globales hasta la feria correspondiente.</small></span>
       </label>
       <label className={mode==='order'?'selected':''}>
        <input type="radio" name="operationType" value="order" checked={mode==='order'}
         onChange={()=>{setMode('order');requestId.current=null;}}/>
-       <span><b>Pedido directo</b><small>Confirma el pedido y separa unidades pendientes de entrega.</small></span>
+       <span><b>Pedido directo</b><small>Congela los importes y conserva las prendas pendientes de entrega.</small></span>
       </label>
-     </div>
+     </div>}
     </section>
     {localError&&<p className="form-error" role="alert" tabIndex={-1} id="operation-error">{localError}</p>}
    </div>
    <aside className="surface checkout">
-    <p className="eyebrow">REVISIÓN ANTES DE GUARDAR</p><h2>Resumen de la operación</h2>
+    <p className="eyebrow">RESUMEN PREVIO</p><h2>Detalle mayorista</h2>
     <div className="checkout-customer"><span className="label-dim">Cliente</span>
-      <strong>{data.customers.find(c=>c.id===customerId)?.name||'Aún no seleccionado'}</strong></div>
-    <div className="checkout-lines">{selection.length?selection.map(m=>{const q=Number(quantities[m.id]);return <div className="checkout-line" key={m.id}>
-      <div><b>{m.name}</b><small>{q} unidades · {quantityBreakdown(q)}</small></div>
-      <strong>{Number.isSafeInteger(q)&&q>=6?formatBs(subtotalCents(m.price_dozen_bs,q)):'—'}</strong>
-     </div>}):<p className="muted">Los modelos seleccionados aparecerán aquí.</p>}</div>
+     <strong>{chosenCustomer?.name||'Selecciona un cliente'}</strong></div>
+    <div className="checkout-lines">{chosen.length?chosen.map(m=>{
+     const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds),
+           valid=Number.isSafeInteger(q)&&q>=6;
+     return <div className="checkout-line" key={m.id}>
+      <div><b>{m.name}</b><small>{portionBreakdown(Number(s.dozens),s.extraColorIds.length)} · {q} prendas</small>
+       <ExtraColorSummary ids={s.extraColorIds} colors={data.colors}/></div>
+      <strong>{valid?formatBs(subtotalCents(m.price_dozen_bs,q)):'—'}</strong>
+     </div>;}):<p className="muted">Los modelos seleccionados aparecerán aquí.</p>}</div>
     <div className="checkout-total"><span>Importe total</span><strong>{formatBs(amount)}</strong></div>
-    <p className="checkout-note">Precios calculados por modelo y sin descuento. Los colores son una referencia visual del surtido.</p>
-    <form id="booking-submit" onSubmit={submit}><button className="button button-primary full" type="submit" disabled={busy||!selection.length}>
-      {busy?'Registrando…':mode==='reservation'?'Guardar reserva':'Confirmar pedido'}
-    </button></form>
+    <p className="checkout-note">Las docenas son surtidas. Se registran los colores de las prendas adicionales, una por color. La disponibilidad física por color se verifica fuera del sistema.</p>
+    <form id="booking-submit" onSubmit={submit}>
+     <button className="button button-primary full" type="submit" disabled={busy||!chosen.length}>
+      {busy?'Guardando…':mode==='edit'?'Guardar cambios de la reserva':mode==='reservation'?'Guardar reserva':'Confirmar pedido'}
+     </button>
+    </form>
    </aside>
   </div>
  </>;
 }
-function Reservations({data,onConvert,busy}){
+function LineComposition({line,colors,compact=false}){
+ const hasBreakdown=line.dozen_count!==null&&line.dozen_count!==undefined;
+ return <div className={'line-composition '+(compact?'compact':'')}>
+  <span>{hasBreakdown?
+    portionBreakdown(Number(line.dozen_count),Number(line.extra_units)):
+    quantityBreakdown(line.quantity)+' · registro anterior sin desglose de colores'}</span>
+  <ExtraColorSummary ids={line.extraColorIds||[]} colors={colors}/>
+ </div>;
+}
+function reservationMessage(res,customer,data){
+ const lines=res.lines.map(l=>{
+  const model=data.models.find(m=>m.id===l.model_id);
+  const colors=(l.extraColorIds||[]).map(id=>data.colors.find(c=>c.id===id)?.name||'Color registrado');
+  const body=l.dozen_count===null||l.dozen_count===undefined?
+    l.quantity+' prendas':
+    portionBreakdown(Number(l.dozen_count),Number(l.extra_units));
+  return '• '+(model?.name||'Modelo')+' (talla '+(model?.size_label||'—')+'): '+body+
+   (colors.length?'; colores individuales: '+colors.join(', '):'');
+ });
+ return 'Reserva EVALIA\nReferencia: '+res.id+
+   '\nCliente: '+(customer?.name||'Cliente')+
+   '\n'+lines.join('\n')+
+   '\nVence: '+displayDate(res.expires_at)+
+   '\nLas docenas son surtidas. Los colores individuales elegidos se verifican físicamente antes de confirmarlos.';
+}
+function Reservations({data,onConvert,onEdit,busy}){
+ const [copied,setCopied]=useState('');
+ async function copyDetails(r,customer){
+  try{
+   await navigator.clipboard.writeText(reservationMessage(r,customer,data));
+   setCopied(r.id);
+  }catch{setCopied('error:'+r.id);}
+ }
  return <><SectionHead eyebrow="CUPOS RESERVADOS" title="Reservas en seguimiento."
-    description="Los cupos siguen bloqueados mientras la reserva esté activa o en revisión."/>
+    description="Los colores individuales se conservan en el registro. El cupo se calcula sobre las prendas totales por modelo."/>
   {data.reservations.length?<div className="record-list">{data.reservations.map(r=>{const c=data.customers.find(x=>x.id===r.customer_id);
    const canConvert=r.status==='saved'&&new Date(r.expires_at)>new Date();
    return <article className="record" key={r.id}><header className="record-head">
     <div className="record-name"><span className="avatar">{initials(c?.name)}</span><div><strong>{c?.name||'Cliente sin ficha'}</strong>
       <small>{c?.whatsapp||'—'}</small></div></div><Status value={r.status}/></header>
-    <p className="record-dates">Registrada: {displayDate(r.created_at)} · Vence: <b>{displayDate(r.expires_at)}</b></p>
-    <div className="record-lines">{r.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);return <div key={l.model_id}>
-      <span>{m?.name||'Modelo'} · Talla {m?.size_label||'—'}</span>
-      <strong>{l.quantity} prendas <small>({quantityBreakdown(l.quantity)})</small></strong></div>})}</div>
-    {canConvert&&<footer className="record-actions"><button disabled={busy} className="button button-outline"
-      onClick={()=>onConvert(r.id)}>{busy?'Procesando…':'Convertir a pedido'}</button></footer>}
+    <p className="record-dates">Referencia: <code>{r.id}</code><br/>
+      Registrada: {displayDate(r.created_at)} · Vence: <b>{displayDate(r.expires_at)}</b></p>
+    <div className="record-lines">{r.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);return <div key={l.model_id} className="record-line-detail">
+      <div><b>{m?.name||'Modelo'} · Talla {m?.size_label||'—'}</b>
+        <LineComposition line={l} colors={data.colors} compact/></div>
+      <strong>{l.quantity} prendas</strong>
+    </div>})}</div>
+    <footer className="record-actions">
+      <button type="button" className="button button-outline" onClick={()=>copyDetails(r,c)}>▣ Copiar para WhatsApp</button>
+      {canConvert&&r.lines.every(l=>l.dozen_count!==null&&l.dozen_count!==undefined)&&
+        <button disabled={busy} className="button button-outline" onClick={()=>onEdit(r)}>✎ Editar</button>}
+      {canConvert&&<button disabled={busy} className="button button-primary" onClick={()=>onConvert(r.id)}>
+        {busy?'Procesando…':'Confirmar como pedido'}</button>}
+    </footer>
+    {copied===r.id&&<p className="small-note" role="status">Texto copiado. Puedes enviarlo manualmente por WhatsApp.</p>}
+    {copied==='error:'+r.id&&<p className="form-error" role="alert">No se pudo copiar; verifica los permisos del navegador.</p>}
+    {data.revisions?.some(x=>x.reservation_id===r.id)&&<p className="small-note">
+      Modificaciones auditadas: {data.revisions.filter(x=>x.reservation_id===r.id).length} ·
+      Última: {displayDate(data.revisions.find(x=>x.reservation_id===r.id)?.created_at)}
+    </p>}
     {r.status==='in_review'&&<p className="small-note">Requiere revisión administrativa; no se libera el cupo automáticamente.</p>}
    </article>})}</div>:<Empty title="Aún no hay reservas" detail="Guarda una reserva desde Nueva operación."/>}
  </>;
 }
 function Orders({data}){
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
-   description="Las cantidades y precios por modelo quedan congelados al confirmar. Los colores no se comprometen individualmente."/>
+   description="Cada modelo conserva docenas, prendas individuales con sus colores y el importe histórico confirmado."/>
   {data.orders.length?<div className="record-list">{data.orders.map(o=>{
    const customer=data.customers.find(x=>x.id===o.customer_id);
    const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
@@ -455,12 +617,12 @@ function Orders({data}){
       <Status value={o.status}/></header>
     <div className="order-lines">{o.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);return <div className="order-product" key={l.model_id}>
      {m&&<ProductImage model={m}/>}<div className="order-product-data"><strong>{m?.name||'Modelo'}</strong>
-      <small>Talla {m?.size_label||'—'} · {l.quantity} unidades · {quantityBreakdown(l.quantity)}</small>
-      {m&&<ModelColors model={m} colors={data.colors} compact/>}
+      <small>Talla {m?.size_label||'—'} · {l.quantity} prendas</small>
+      <LineComposition line={l} colors={data.colors} compact/>
      </div><div className="order-line-price"><small>{formatBs(centsFromBs(l.price_dozen_bs))} / doc.</small><strong>{formatBs(centsFromBs(l.subtotal_bs))}</strong></div>
     </div>})}</div>
     <footer className="order-total"><span>Total del pedido</span><strong>{formatBs(total)}</strong></footer>
-    <p className="small-note">Registro real de pedido. Los módulos de aprobación de pagos y entregas están pendientes de habilitación; no marcar como completado desde esta pantalla.</p>
+    <p className="small-note">Los colores individuales están registrados, pero el inventario no lleva existencias por color. Los módulos de verificación de pagos y entregas todavía no están habilitados.</p>
    </article>
    })}</div>:<Empty title="Aún no hay pedidos" detail="Crea un pedido directo o convierte una reserva vigente."/>}
  </>;
@@ -484,6 +646,7 @@ function Login({onLogin,busy,error}){
 }
 export default function HomePage(){
  const [tab,setTab]=useState('home'),[data,setData]=useState(null),[ready,setReady]=useState(false);
+ const [editingReservation,setEditingReservation]=useState(null);
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const refreshGeneration=useRef(0);
@@ -509,6 +672,7 @@ export default function HomePage(){
   });
   return ()=>{active=false;listener.subscription.unsubscribe();};
  },[db,refresh]);
+ useEffect(()=>{if(tab!=='booking'&&editingReservation)setEditingReservation(null);},[tab,editingReservation]);
  useEffect(()=>{
   if(!authenticated)return;
   const timer=setInterval(()=>{
@@ -542,9 +706,12 @@ export default function HomePage(){
  const reserve=(customerId,lines,requestId)=>mutation(()=>createReservation(customerId,lines,requestId||uuid()),'Reserva guardada y cupo comprometido.');
  const order=(customerId,lines,requestId)=>mutation(()=>createOrder(customerId,lines,requestId||uuid()),'Pedido confirmado con precios congelados.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Reserva convertida en pedido sin doble descuento de stock.');
+ const revise=(id,lines,requestId)=>mutation(()=>reviseReservation(id,lines,requestId),'Reserva actualizada; historial y cupo revisados.');
+ const openEdit=(reservation)=>{setEditingReservation(reservation);setTab('booking');};
+ const closeEdit=()=>{setEditingReservation(null);setTab('reservations');};
  if(!configured)return <main className="setup-screen"><section className="setup-card">
   <span className="brand-icon">E</span><h1>Configuración de EVALIA</h1>
-  <p>La aplicación operativa no tiene conexión a Supabase. Configura <code>NEXT_PUBLIC_SUPABASE_URL</code> y <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> según <code>web/.env.example</code>, aplica y valida las migraciones.</p>
+  <p>La aplicación operativa no tiene conexión a Supabase. La base ya está inicializada. Configura <code>NEXT_PUBLIC_SUPABASE_URL</code> y <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> en <code>web/.env.local</code>, usando únicamente la clave pública de tu proyecto. Después inicia sesión como administrador autorizado.</p>
   <p>No se mostrarán datos ficticios como si fueran operaciones reales.</p>
  </section></main>;
  if(!ready)return <main className="loading">Verificando acceso administrativo…</main>;
@@ -574,8 +741,9 @@ export default function HomePage(){
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} busy={busy}/>:
-      tab==='booking'?<BookingPanel data={data} onReservation={reserve} onOrder={order} onCreateClient={addClient} setTab={setTab} busy={busy}/>:
-      tab==='reservations'?<Reservations data={data} onConvert={convert} busy={busy}/>:
+      tab==='booking'?<BookingPanel key={editingReservation?.id||'new'} data={data} editReservation={editingReservation}
+       onReservation={reserve} onOrder={order} onUpdate={revise} onCloseEdit={closeEdit} onCreateClient={addClient} busy={busy}/>: 
+      tab==='reservations'?<Reservations data={data} onConvert={convert} onEdit={openEdit} busy={busy}/>: 
       tab==='orders'?<Orders data={data}/>:
       <ClientPanel data={data} onCreate={addClient} busy={busy}/>}
    </main>
