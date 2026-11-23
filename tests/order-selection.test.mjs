@@ -28,5 +28,5 @@ test('Selector completo no contiene sombreado local de stock ni botón anidado',
  assert.match(booking,/aria-label=\{'Agregar '/);
  assert.match(booking,/OrderStepHeader/);
  assert.match(booking,/order-progress/);
- assert.match(booking,/onOrder\(customerId,lines,requestId.current\)/);
+ assert.match(booking,/onOrder\(customerId,lines,requestId.current,delivery\)/);
 });

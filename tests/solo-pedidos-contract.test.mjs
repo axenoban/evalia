@@ -16,7 +16,9 @@ test('La captura únicamente confirma pedidos, con cliente, cantidades y colores
  assert.ok(start>=0&&end>start);
  const source=page.slice(start,end);
  assert.match(source,/checkedPortions\(/);
- assert.match(source,/onOrder\(customerId,lines,requestId.current\)/);
+ assert.match(source,/onOrder\(customerId,lines,requestId.current,delivery\)/);
+ assert.match(source,/validateDelivery\(method,destination\)/);
+ assert.match(source,/Destino exacto para este pedido/);
  assert.match(source,/Confirmar y registrar pedido/);
  assert.match(source,/compra confirmada/i);
  assert.doesNotMatch(source,/onReservation|createReservation|onUpdate|editReservation|setMode|operationType/);
