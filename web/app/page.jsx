@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, reviseReservation, createColor,
   createCustomer, createModel, uploadPhoto, adjustStock, createReservation,
-  createOrder, confirmReservation, reportPayment, reviewPayment, recordDelivery, completeOrder
+  createOrder, confirmReservation, reportPayment, reviewPayment, recordDelivery, completeOrder,
+  issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import {
@@ -607,13 +608,87 @@ function PaymentHistory({items=[],compact=false}){
   </div>)}
  </div>:<p className="small-note">Todavía no hay pagos informados.</p>;
 }
-function PaymentReview({data,onReview,busy}){
+function QrAdmin({settings,onSave,busy}){
+ const [file,setFile]=useState(null),[verified,setVerified]=useState(false);
+ const [hint,setHint]=useState('');
+ const req=useRef(null);
+ async function show(){
+  try{
+   if(!settings?.image_path)return;
+   const url=await getAdminQrUrl(settings.image_path);
+   window.open(url,'_blank','noopener,noreferrer');
+  }catch(err){setHint(err.message);}
+ }
+ async function submit(e){
+  e.preventDefault();setHint('');
+  if(!file||!verified)return;
+  if(!req.current)req.current=uuid();
+  const ok=await onSave(file,verified,req.current);
+  if(ok){req.current=null;setFile(null);setVerified(false);setHint('QR vigente publicado para los enlaces de pedidos activos.');}
+ }
+ return <section className="surface pad qr-admin">
+  <h2>QR oficial de EVALIA</h2>
+  <p className="small-note">Usa exclusivamente la imagen verdadera que recibiste de tu banco. No se genera un QR ficticio desde el software.</p>
+  {settings?.reusable_verified?<div className="qr-status">
+    <span className="pay-state pay-approved">QR verificado para reutilización</span>
+    <button type="button" className="button button-outline" onClick={show}>Ver QR vigente</button>
+   </div>:<p className="small-note">Todavía no hay un QR bancario vigente publicado.</p>}
+  <form onSubmit={submit} className="money-form">
+   <Field title="Imagen bancaria JPG, PNG o WebP (máx. 5 MB)">
+    <input type="file" accept="image/jpeg,image/png,image/webp"
+     onChange={e=>{setFile(e.target.files?.[0]||null);req.current=null;}} required/></Field>
+   <label className="qr-confirm"><input type="checkbox" checked={verified}
+     onChange={e=>{setVerified(e.target.checked);req.current=null;}}/>
+     He comprobado que esta imagen es un QR real, vigente y reutilizable para recibir pagos.</label>
+   <button className="button button-primary" type="submit" disabled={busy||!file||!verified}>
+    {busy?'Guardando…':'Publicar QR para clientes'}</button>
+  </form>
+  {hint&&<p role="status" className="small-note">{hint}</p>}
+ </section>;
+}
+function OrderLinkPanel({order,data,onIssue,onRevoke,busy}){
+ const [plain,setPlain]=useState(null),[hint,setHint]=useState('');
+ const saved=data.links.find(l=>l.order_id===order.id);
+ const active=Boolean(saved&&!saved.revoked_at&&order.status==='active');
+ async function issue(){
+  setHint('');
+  const link=await onIssue(order.id);
+  if(link){setPlain(link);setHint('Enlace emitido. Copia y comparte manualmente por WhatsApp. Si sales de aquí necesitarás regenerarlo.');}
+ }
+ async function revoke(){
+  setHint('');
+  const ok=await onRevoke(order.id);
+  if(ok){setPlain(null);setHint('Enlace revocado inmediatamente.');}
+ }
+ async function copy(){
+  try{await navigator.clipboard.writeText(plain);setHint('Enlace copiado al portapapeles.');}
+  catch{setHint('No se pudo copiar; selecciona el texto manualmente.');}
+ }
+ return <div className="order-links">
+  <h3>Enlace privado para este pedido</h3>
+  <p className="small-note">Solo permite consultar el pedido e informar pagos pendientes de verificación. Quien posea el enlace podrá usarlo: compártelo únicamente con el cliente.</p>
+  {active?<span className="pay-state pay-approved">Enlace vigente (versión {saved.version})</span>:
+   <span className="pay-state">{order.status==='completed'?'Desactivado por cierre':'Sin enlace activo'}</span>}
+  {order.status==='active'&&<div className="form-actions">
+   <button type="button" className="button button-outline" disabled={busy} onClick={issue}>
+    {active?'↻ Reemplazar enlace':'＋ Crear enlace privado'}</button>
+   {active&&<button type="button" className="button button-outline" disabled={busy} onClick={revoke}>Revocar</button>}
+  </div>}
+  {plain&&<div className="private-url">
+    <input readOnly value={plain} aria-label="Enlace secreto del pedido"/>
+    <button className="button button-primary" type="button" onClick={copy}>Copiar enlace</button>
+  </div>}
+  {hint&&<p role="status" className="small-note">{hint}</p>}
+ </div>;
+}
+function PaymentReview({data,onReview,onSaveQr,busy}){
  const [notes,setNotes]=useState({});
  const [filter,setFilter]=useState('pending');
  const pending=['pending','observed'];
  const list=data.payments.filter(p=>filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter));
  return <><SectionHead eyebrow="CONCILIACIÓN MANUAL" title="Verifica los pagos recibidos."
   description="Un aviso o comprobante NO confirma dinero ingresado. Comprueba la recepción fuera del sistema antes de aprobar."/>
+  <QrAdmin settings={data.qrSettings} onSave={onSaveQr} busy={busy}/>
   <div className="toolbar"><label className="field"><span className="field-label">Filtrar estado</span>
    <select value={filter} onChange={e=>setFilter(e.target.value)}>
     <option value="pending">Pendientes y en observación</option>
@@ -629,7 +704,10 @@ function PaymentReview({data,onReview,busy}){
       <small>{order?'Pedido':'Reserva'} · {displayDate(p.created_at)} · {p.origin==='client'?'Aviso del cliente':'Registrado por administración'}</small></div>
       <span className={'pay-state pay-'+p.status}>{p.status}</span></header>
     <p className="small-note">{p.note||'Sin observación inicial'}</p>
-    {p.receipt_path&&<p className="small-note">Comprobante privado adjunto (revisión mediante acceso autorizado).</p>}
+    {p.receipt_path&&<button type="button" className="button button-outline" onClick={async()=>{
+      try{const url=await getPrivateReceiptUrl(p.receipt_path);window.open(url,'_blank','noopener,noreferrer');}
+      catch{setNotes(v=>({...v,[p.id]:'No se pudo abrir el comprobante privado.'}));}
+    }}>Ver comprobante privado</button>}
     {['pending','observed'].includes(p.status)&&<div className="payment-review-actions">
       <Field title="Observación (visible al cliente si tiene enlace)">
        <input value={notes[p.id]??''} maxLength={1000} placeholder="Detalle de revisión…"
@@ -730,7 +808,7 @@ function Reservations({data,onConvert,onEdit,onReport,busy}){
    </article>})}</div>:<Empty title="Aún no hay reservas" detail="Guarda una reserva desde Nueva operación."/>}
  </>;
 }
-function Orders({data,onReport,onDeliver,onComplete,busy}){
+function Orders({data,onReport,onDeliver,onComplete,onIssueLink,onRevokeLink,busy}){
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Cada modelo conserva docenas, prendas individuales con sus colores y el importe histórico confirmado."/>
   {data.orders.length?<div className="record-list">{data.orders.map(o=>{
@@ -766,6 +844,7 @@ function Orders({data,onReport,onDeliver,onComplete,busy}){
       {o.status==='active'&&<button className="button button-primary" type="button" disabled={busy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
        onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
       {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
+      <OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>
     </div>
    </article>
    })}</div>:<Empty title="Aún no hay pedidos" detail="Crea un pedido directo o convierte una reserva vigente."/>}
@@ -857,6 +936,17 @@ export default function HomePage(){
   'Retirada física registrada; inventario actualizado.');
  const complete=(orderId)=>mutation(()=>completeOrder({orderId,requestId:uuid()}),
   'Pedido COMPLETADO con pago y entrega íntegros.');
+ const saveQr=(file,verified,requestId)=>mutation(()=>saveRealQr(file,verified,requestId),
+  'QR real registrado y disponible para pedidos activos.');
+ async function issueLink(orderId){
+  if(busy)return null;
+  setBusy(true);setError('');
+  try{const link=await issueOrderLink(orderId);await refresh();setMessage('Enlace privado creado; compártelo solo con el destinatario.');return link;}
+  catch(e){setError(e.message);return null;}
+  finally{setBusy(false);}
+ }
+ const revokeLink=(orderId)=>mutation(()=>revokeOrderLink(orderId),'Enlace privado revocado.');
+
 
  const revise=(id,lines,requestId)=>mutation(()=>reviseReservation(id,lines,requestId),'Reserva actualizada; historial y cupo revisados.');
  const openEdit=(reservation)=>{setEditingReservation(reservation);setTab('booking');};
@@ -896,8 +986,8 @@ export default function HomePage(){
       tab==='booking'?<BookingPanel key={editingReservation?.id||'new'} data={data} editReservation={editingReservation}
        onReservation={reserve} onOrder={order} onUpdate={revise} onCloseEdit={closeEdit} onCreateClient={addClient} busy={busy}/>: 
       tab==='reservations'?<Reservations data={data} onConvert={convert} onEdit={openEdit} onReport={report} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} busy={busy}/>: 
-      tab==='payments'?<PaymentReview data={data} onReview={approve} busy={busy}/>: 
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onIssueLink={issueLink} onRevokeLink={revokeLink} busy={busy}/>:  
+      tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy}/>:  
       <ClientPanel data={data} onCreate={addClient} busy={busy}/>}
    </main>
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
