@@ -1,0 +1,26 @@
+name: EVALIA · Validación de skills
+
+on:
+  push:
+    branches:
+      - feature/skills-formularios-evalia
+  pull_request:
+    branches:
+      - main
+      - feature/fundamentos-reservas-pedidos
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Skills y regresión Node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar skills, dominio y sintaxis
+        run: npm run check
