@@ -505,3 +505,20 @@ button.button:active:not(:disabled){transform:translateY(0)}
  .payment-review-actions .form-actions button{width:100%}
  .delivery-line input{width:65px}
 }
+
+/* D4: enlace secreto por pedido y QR bancario auténtico */
+.qr-admin{margin-bottom:18px}
+.qr-admin>h2{font-size:16px;margin:0 0 9px}
+.qr-admin .money-form{display:grid;gap:12px;margin-top:14px}
+.qr-admin .qr-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.qr-confirm{display:flex;gap:10px;align-items:flex-start;font-size:11px;line-height:1.6}
+.qr-confirm input{margin-top:2px;min-width:17px;height:17px}
+.qr-admin .field input[type=file]{width:100%;max-width:450px}
+.order-links{border-top:1px solid #eddfeb;margin-top:22px;padding-top:18px}
+.order-links>h3{font-size:13px;margin:0 0 7px}
+.order-links>p{line-height:1.65}
+.order-links>.form-actions{display:flex;gap:9px;margin:12px 0;flex-wrap:wrap}
+.private-url{display:grid;grid-template-columns:1fr auto;gap:8px;margin:14px 0;align-items:center}
+.private-url input{min-width:0;padding:10px;border:1px solid #d7c6d1;border-radius:8px;background:#fff;overflow-wrap:anywhere;font:11px monospace;color:#784567}
+.private-url .button{white-space:nowrap}
+@media(max-width:650px){.private-url{grid-template-columns:1fr}.private-url button{width:100%}}
