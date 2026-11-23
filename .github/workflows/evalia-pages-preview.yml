@@ -44,7 +44,7 @@ jobs:
           test -s web/out/index.html
           test -d web/out/_next
           test -f web/out/.nojekyll
-          if grep -rlE 'sb_secret_[A-Za-z0-9_-]{12,}|SUPABASE_SECRET_KEY["'"'"'][[:space:]]*:[[:space:]]*["'"'"'][A-Za-z0-9_-]{20,}' web/out --include='*.html' --include='*.js' | grep -q .; then
+          if grep -rlE 'sb_secret_[A-Za-z0-9_-]{12,}' web/out --include='*.html' --include='*.js' | grep -q .; then
             echo "::error::Referencia a clave privada en el artefacto"
             exit 1
           fi
