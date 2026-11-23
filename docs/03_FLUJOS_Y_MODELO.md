@@ -1,27 +1,25 @@
-# Flujos comerciales candidatos · pendiente de aprobación
+# EVALIA — Flujos comerciales v0.2
 
-## Separación conceptual
-1. **Solicitud:** intención de compra/consulta recibida por catálogo, feria o WhatsApp; no bloquea stock por defecto.
-2. **Reserva de stock:** compromiso temporal de unidades existentes por variante, sujeto a cantidad, fecha y reglas de vencimiento por decidir.
-3. **Pedido:** venta acordada, con unidades, precio snapshot, cliente, canal, entrega y estado.
-4. **Reposición/producción futura:** entrada programada que NO se confunde con stock físico disponible.
-5. **Entrega:** evidencia y estado de retiro en feria o despacho nacional, según política acordada.
+**Estado:** flujos conceptuales con requisitos D01–D18 registrados, todavía no ratificados. No fija estados de pedido definitivos.
 
-## Circuito propuesto de administrador (no aprobado)
-Seleccionar cliente → seleccionar modelos/variantes → verificar stock → solicitar reserva o crear pedido → confirmar condiciones → registrar pago externo si corresponde → preparar/entregar/despachar → cerrar y auditar.
+## Definiciones distintas
+1. **Solicitud:** intención de compra, identificando origen feria, WhatsApp o web (D05). No reservar automáticamente por el hecho de solicitar.
+2. **Reserva física:** aparta unidades realmente existentes de una variante; reduce disponibilidad mientras esté vigente (D02/D03). Vencimiento automático configurable sin plazo predefinido (D04).
+3. **Encargo futuro:** pedido de unidades que todavía no se encuentran en stock físico, diferenciado de la reserva (D02/D10).
+4. **Pedido:** constancia comercial con cliente, líneas, precios acordados y modalidad de entrega; confirmar qué hace con una reserva es G03.
+5. **Pago:** registro manual de transacción externa, sin pasarela (D11).
+6. **Entrega:** retiro en feria o despacho nacional (D12).
 
-## Catálogo
-Producto: identificador, nombre, categoría, descripción y galería; variante: color/talla y SKU opcional. Publicación y precio podrán depender del segmento mayorista/minorista y del estado disponible. No publicar cantidad exacta sin decidirlo.
+## Recorrido administrativo candidato
+Seleccionar contacto → modelo/color/talla → consultar inventario → elegir reserva física o encargo futuro → aplicar lista de precios correspondiente → registrar pedido/pago externo/entrega según reglas por aprobar → conservar auditoría.
 
-## Operación
-- Las personas pueden ser compradores sin cuenta de acceso en la fase inicial.
-- Personal interno deberá tener permisos mínimos explícitos; cliente no verá compras de terceros.
-- Toda corrección manual de stock y cancelación dejará motivo e historial.
-- No asumir equivalencia entre **reservado, vendido, pagado y entregado**.
+## Riesgos a evitar
+- No confundir stock físico con cantidad libre para reservar.
+- No descontar una segunda vez al convertir una reserva en pedido.
+- No suponer que un encargo futuro crea unidades físicas.
+- No liberar automáticamente una reserva ya transformada en otro tipo de compromiso sin regla expresa.
+- No inferir que el canal web implica registro autónomo de compradores en E1 (D05/D13).
+- No tratar pago externo como pago capturado o confirmado electrónicamente.
 
-## Reglas abiertas
-- Unidad mínima de venta, mezclas de colores, políticas de precio y descuento.
-- Criterio de reserva: apartar stock, fabricación futura o cita; duración; depósito; liberación.
-- Pago total/parcial, validación y reembolso.
-- Entrega/recogida, fechas, transportadora, costos y seguimiento.
-- Descuentos, devoluciones, cancelaciones y consentimiento de comunicación.
+## Aperturas
+G01 plazo y prórrogas; G02 solicitudes públicas; G03 transición reserva/pedido/entrega; G04 formatos y tarifas; G05 conciliación de inventario; G06 pagos y logística; G07 permisos; G08 datos y contactos.

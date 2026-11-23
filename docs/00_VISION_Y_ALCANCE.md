@@ -1,23 +1,26 @@
-# EVALIA · Visión y alcance (borrador v0.1)
+# EVALIA — Visión y alcance v0.2
 
-Estado: **DESCUBRIMIENTO, NO APROBADO** · 2026-11-22
+**Estado:** respuestas del 22-11-2026 registradas; pendientes de ratificación.
 
-## Propósito
-Centralizar catálogo digital, reservas y pedidos de EVALIA para reducir confusiones de modelos, colores, cantidades, disponibilidad y seguimiento. La primera interfaz será para **administración**, con arquitectura preparada para añadir **personal y clientes** en fases posteriores.
+## Objetivo
+Sistema comercial web responsive (D17), con **primera vista de administrador** para catálogo, reservas de existencias y pedidos (D01). Preparado para incorporar personal con permisos separados y cuentas de clientes después (D13/D14).
 
-## Contexto confirmado
-EVALIA es una marca de moda femenina con foco comercial en mayoristas/revendedoras y público minorista complementario. Su línea inicial incluye blusas Morley con detalles brillantes; a futuro puede expandirse a otras prendas. Opera en Santa Cruz de la Sierra, comercializa presencialmente y mediante WhatsApp, con envíos nacionales. Los datos de negocio específicos (precios actuales, tallas, reglas de reserva, plazos, políticas de pago, envío, cancelación) **no se asumen como requisitos definitivos**.
+## Alcance seleccionado
+- Dos segmentos: mayorista prioritario y minorista complementario (D06).
+- Orígenes: feria, WhatsApp y web (D05); el canal web no implica, por ahora, checkout ni cuentas públicas.
+- Producto por modelo-color-talla (D07); inventario exacto y movimientos (D08).
+- Reserva de stock disponible distinta de encargo futuro (D02/D10); reserva vigente bloquea disponibilidad (D03) y vence con plazo configurable y liberación automática (D04).
+- Listas de precio por cliente/presentación (D09), **sin tarifas o unidades comerciales fijadas**.
+- Registro manual de pagos externos (D11); retiro en feria y envíos nacionales (D12).
+- Administración registra contactos inicialmente; usuarios de clientes posteriormente (D13).
+- Personal con permisos específicos, a diseñar (D14).
+- Mensajes de WhatsApp predefinidos, enviados manualmente (D15).
+- Solo datos mínimos necesarios de contacto y entrega (D18).
 
-## Alcance funcional por perspectivas
-- **Administración (primera entrega):** gestión de productos/variantes/fotos, disponibilidad, clientes internos, solicitudes, reservas, pedidos, movimientos, seguimiento, reportes básicos y bitácora; sujeto al cuestionario.
-- **Personal (evolución):** operar únicamente funciones delegadas, con trazabilidad y permisos independientes.
-- **Clientes (evolución):** consultar catálogo, disponibilidad pública y enviar solicitudes o gestionar pedidos según decisiones futuras.
+## Tecnologías expresadas
+VS Code + Codex, Next.js, Supabase. Claude Code puede reemplazar Codex sin reabrir el producto. La arquitectura de despliegue queda pendiente del modelo de datos (D16).
 
-## Límites del MVP recomendados (pendientes de aprobación)
-- Sin pago electrónico integrado al inicio; solo constancia de pagos fuera de la aplicación.
-- Sin WhatsApp Business API automática al inicio; enlaces/mensajes preparados.
-- Sin contabilidad integral, nómina ni producción industrial en la primera fase.
-- Sin publicación de precios o existencias internas en repositorio público.
+## Fuera de acuerdos
+Ni anticipo obligatorio ni horas de reserva, descuentos, impuestos, reglas de paquetes, tipos de pago, tarifas de envío, permisos por función, checkout público ni integración automática de WhatsApp se consideran decididos.
 
-## Conceptos que requieren decisión
-**Reserva** podría significar: (a) apartar unidades físicamente disponibles, (b) solicitud de fabricación futura, o (c) cita/turno de atención. No equiparar automáticamente reserva con pedido. Determinar en el cuestionario qué aplica.
+La transición reserva → pedido es una decisión comercial aún abierta; **no descontar doble** ni convertir pedidos futuros en existencias.

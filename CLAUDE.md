@@ -1,5 +1,7 @@
-# Claude Code · EVALIA
+# Claude Code — EVALIA
 
-Leer y respetar [AGENTS.md](AGENTS.md) y la documentación de `docs/`.
+Claude Code en VS Code es un **agente alternativo a Codex**, no un cambio de framework, arquitectura, producto ni base de datos.
 
-No inferir reglas comerciales faltantes. Antes de cambiar código o base de datos, inspeccionar HEAD, ramas, archivos y CI; trabajar en `feature/*` y exigir tests. No publicar credenciales ni datos privados en GitHub.
+Leer [AGENTS.md](AGENTS.md), [decisiones](docs/04_REGISTRO_DE_DECISIONES.md), [modelo conceptual](docs/06_MODELO_CONCEPTUAL_DATOS.md), [pendientes](docs/07_REVISION_CONSISTENCIA.md) y [entorno](docs/08_ENTORNO_Y_AGENTES.md).
+
+Antes de trabajar verificar rama, HEAD, PR y archivos reales. No inventar reglas, crear migraciones definitivas, exponer secretos o incorporar el PR #1 sin aprobación.

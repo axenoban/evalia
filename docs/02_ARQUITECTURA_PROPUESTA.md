@@ -1,42 +1,33 @@
-# Arquitectura propuesta · ADR-001
+# ADR-001 — Arquitectura candidata v0.2
 
-**ESTADO: PROPUESTA — NO IMPLEMENTADA / PENDIENTE DE APROBACIÓN**
+**Estado:** tecnología indicada; diseño técnico definitivo pendiente de modelo de datos y D16.
 
-## Diseño recomendado
-- Repositorio GitHub: código, migraciones, QA, diseño y documentación; no datos personales.
-- Frontend responsive/PWA potencial: TypeScript + React + Vite (elección por evaluar frente a alternativas).
-- Hosting: **Cloudflare Pages o Workers** conectado a GitHub; no usar GitHub Pages como sitio comercial de pedidos.
-- Backend administrado: **Supabase PostgreSQL + Auth + Storage**, con funciones/servicios server-side para operaciones privilegiadas.
-- Primer despliegue: entorno de desarrollo con datos de muestra; separar entorno productivo y backups antes de usuarios reales.
+## Tecnología y herramientas indicadas por el propietario
+- Entorno de edición: **VS Code**.
+- Agente de desarrollo inicial: **Codex**; puede sustituirse solo por **Claude Code**, sin modificar el sistema.
+- Framework: **Next.js**.
+- Plataforma de datos: **Supabase**.
+- D16 literalmente exige: **evaluar arquitectura después del modelo de datos**.
 
-## Razón
-PostgreSQL ofrece integridad relacional y transacciones necesarias para pedidos y reservas concurrentes. Supabase aporta Auth y RLS; Cloudflare ofrece despliegue del frontend desde GitHub. Plan gratuito solo para prototipo/validación, sujeto a cuotas, pausas y cambios tarifarios.
+No es contradicción necesaria: las herramientas y tecnologías objetivo están indicadas, pero hosting, límites API/servidor, diseño Auth, SQL, operaciones de reserva, costes y entornos no están ratificados.
 
-## Modelo preliminar (entidades candidatas, no esquema final)
-`profiles`, `role_assignments`, `customers`, `products`, `product_variants` (modelo, color, talla), `product_media`, `price_lists`, `inventory_movements`, `stock_reservations`, `reservation_items`, `orders`, `order_items`, `order_events`, `fulfillments`, `payment_records`, `audit_events`.
+## Componentes a evaluar
+- Next.js App Router y TypeScript con lógica de servidor cuando proceda; no asumir un sitio exportado solo estático.
+- Supabase PostgreSQL como candidato de persistencia relacional y transaccional; Auth para administradores inicialmente; Storage para imágenes.
+- RLS y validaciones de servidor por permisos; datos de clientes privados, sin secretos en el frontend.
+- Reserva, liberación, conversión a pedido y movimientos físicos como **operaciones transaccionales**, sin lecturas + escrituras separadas desde navegador.
+- Sesiones SSR con integración oficial de Supabase si se elige acceso con cookies en Next.js.
+- Emplazamiento y despliegue productivo: **sin elegir** (no asumir Cloudflare, Vercel, GitHub Pages ni VPS).
 
-El catálogo y los pedidos deben referenciar IDs estables. Guardar **precio acordado en cada línea del pedido** (snapshot), aun si cambia la lista de precios.
+## Invariantes técnicas propuestas, no políticas comerciales
+IDs estables por variante; historial de movimientos; bloqueo atómico de stock; auditoría; idempotencia; precios acordados conservados históricamente; protección de registros y pruebas RLS. Evitar dobles compromisos entre reserva y pedido.
 
-## Invariantes técnicos propuestos
-- El inventario disponible resulta del stock físico confirmado menos reservas vigentes, sin doble asignación.
-- Crear, confirmar, expirar o liberar reserva **en una transacción atómica** con bloqueos o función SQL apropiada; nunca mediante lectura y escritura separadas desde el navegador.
-- Validación server-side de transiciones y permisos. RLS por perfil/rol en cada tabla expuesta.
-- Registro de auditoría de actor, fecha, acción y valores críticos.
-- Idempotencia para confirmar pedidos o registrar pagos múltiples.
-- Fechas almacenadas en UTC, interfaz Bolivia (America/La_Paz); moneda de referencia BOB.
-- Políticas de retención y protección de datos personales antes del despliegue real.
+## Pendiente de confirmar
+Modelo lógico, transiciones de stock (G03), plazos (G01), precios (G04), roles (G07), privacidad (G08), proveedor y entorno de despliegue (G09). Ninguna migración definitiva ni proyecto de producción se crea en esta fase.
 
-## Alternativas
-- Firebase: desarrollo ágil, pero políticas/consultas y transacciones pueden diferir de una BD relacional.
-- Backend propio Node/PHP + PostgreSQL/MySQL: mayor control y mantenimiento; requiere infraestructura y operación.
-- GitHub Pages: aceptable para **demo estática**, no para comercio electrónico con pedidos reales según términos de GitHub.
-
-## Decisiones bloqueantes
-No elegir definitivamente stack, roles, requisitos de reservas, identidad de usuarios, precios, logística ni políticas de pago hasta resolver `04_REGISTRO_DE_DECISIONES.md`. No crear claves, proyectos externos ni tablas productivas todavía.
-
-## Referencias oficiales
+## Referencias
+- https://nextjs.org/docs/app
+- https://nextjs.org/docs/app/getting-started/deploying
+- https://supabase.com/docs/guides/auth/server-side
 - https://supabase.com/docs/guides/database/postgres/row-level-security
-- https://supabase.com/docs/guides/auth
-- https://supabase.com/pricing
-- https://developers.cloudflare.com/pages/configuration/git-integration/
-- https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits
+- https://supabase.com/docs/guides/getting-started/api-keys

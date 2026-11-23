@@ -1,29 +1,22 @@
-# Reglas de desarrollo · EVALIA
+# Reglas de desarrollo — EVALIA
 
-Estas instrucciones son compatibles con ChatGPT, Claude Code y otros agentes. Leer `docs/` antes de proponer o implementar funcionalidades.
+Obligatorias para Codex, Claude Code u otros agentes.
 
 ## Fuente de verdad
-1. Contenido de marca confirmado y documentación aprobada.
-2. Decisiones aprobadas en `docs/04_REGISTRO_DE_DECISIONES.md`.
-3. Código, migraciones y tests validados.
-4. Preguntar ante contradicciones: **no inventar** precios, reservas, tallas, tiempos, políticas o permisos de negocio.
+1. Identidad de marca documentada y requisitos aprobados formalmente.
+2. D01–D18 en docs/04_REGISTRO_DE_DECISIONES.md: **selecciones registradas, NO ratificadas como especificación definitiva**.
+3. Modelo conceptual y preguntas G01–G09, diferenciando hechos de propuestas.
+4. Código probado y migraciones versionadas cuando existan.
 
-## Ramas y cambios
-- `main` publicable; `dev/evalia-core` baseline validado; `feature/*` pendiente de aprobación.
-- Revisar HEAD, ramas, diff y CI antes de trabajar.
-- No force-push, no reescribir historia, no merge ciego; preferir fast-forward si es posible.
-- No alterar funcionalidades aprobadas sin necesidad demostrable y regresiones.
-- Bloques medianos con pruebas y criterio de aceptación.
+**No inventar:** precios, plazos, descuentos, mezclas de colores, tallas válidas, estados de pedidos, anticipos, condiciones de envío, permisos de personal o reglas de cancelación.
 
-## Seguridad obligatoria
-- Datos operativos y credenciales **nunca** en repositorio público.
-- Los roles deben protegerse en base de datos/API, no solo ocultando botones.
-- En Supabase habilitar RLS y probar con usuarios diferentes; usar publishable key pública, jamás secret/service-role en navegador.
-- Operaciones de inventario y reservas atómicas; proteger concurrencia, idempotencia y auditoría.
-- No declarar un sistema listo para producción sin backups, revisión de seguridad, pruebas móviles y restauración validada.
+## Git
+Verificar rama, HEAD, historia, archivos y CI. main = publicable, dev/evalia-core = último baseline validado cuando exista, feature/* = pendiente de prueba. No force push, reescritura o merge ciego. Mantener PR #1 como borrador hasta aprobación. Cambios medianos, con QA.
 
-## Modo de trabajo
-- Diferenciar `HECHO`, `PROPUESTA` y `POR DECIDIR`.
-- Diagnosticar el primer error real, no silenciar fallas.
-- Documentar migraciones y ejecutar tests automatizados.
-- No iniciar implementación de políticas comerciales sin aprobación del propietario.
+## Entorno
+VS Code + Codex, sustituible por Claude Code sin alterar stack ni requisitos. Next.js + Supabase son tecnologías indicadas; D16 deja la arquitectura y el hosting pendientes hasta después del modelo de datos.
+
+## Seguridad
+La autorización debe verificarse en BD/API; esconder botones no protege. Supabase: RLS y tests de acceso cruzado. Solo claves publicables en navegador conforme a RLS; nunca exponer secret key ni datos sensibles. Reservas, inventario y confirmaciones deben ser atómicos, auditables e idempotentes. No desplegar datos de negocio reales sin políticas, backups y restauración probada.
+
+No construir SQL definitivo ni imponer defaults comerciales donde existan preguntas abiertas. Distinguir siempre HECHO / REGISTRADO / PROPUESTA / PENDIENTE / APROBADO.

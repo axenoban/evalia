@@ -1,21 +1,24 @@
-# EVALIA · Gestión comercial y catálogo
+# EVALIA — Catálogo, reservas y pedidos
 
-Proyecto para gestionar catálogo, solicitudes, reservas de stock y pedidos de EVALIA, con una **primera interfaz administrativa** y evolución prevista hacia accesos para personal y clientes.
+**Estado:** descubrimiento y documentación v0.2, 22-11-2026. Las selecciones D01–D18 están **registradas, pendientes de ratificación y revisión del PR #1**. No existe aún sistema funcional, base de datos creada ni hosting productivo.
 
-> **Estado: descubrimiento y diseño; NO hay sistema operativo, base de datos creada ni sitio comercial publicado.** Las decisiones técnicas incluidas en `docs/` son recomendaciones hasta que el propietario las apruebe.
+El primer módulo es **administración** de catálogo, reservas de stock disponible y pedidos; se preparará una arquitectura ampliable a personal y clientes sin implementar prematuramente sus accesos.
+
+**Herramientas indicadas:** VS Code + Codex; Next.js y Supabase. Cambiar Codex por Claude Code en VS Code no modifica el producto. La arquitectura definitiva y su hospedaje se evalúan después del modelo de datos (D16).
 
 ## Documentación
-- [Visión y límites](docs/00_VISION_Y_ALCANCE.md)
-- [Marca y operación conocida](docs/01_MARCA_Y_OPERACION.md)
-- [Arquitectura propuesta](docs/02_ARQUITECTURA_PROPUESTA.md)
-- [Flujos propuestos](docs/03_FLUJOS_Y_MODELO.md)
-- [Decisiones pendientes](docs/04_REGISTRO_DE_DECISIONES.md)
-- [Plan y aceptación](docs/05_FASES_Y_PRUEBAS.md)
-- [Reglas para agentes](AGENTS.md)
+- [Visión y alcance](docs/00_VISION_Y_ALCANCE.md)
+- [Marca y operación](docs/01_MARCA_Y_OPERACION.md)
+- [Arquitectura candidata](docs/02_ARQUITECTURA_PROPUESTA.md)
+- [Flujos comerciales](docs/03_FLUJOS_Y_MODELO.md)
+- [Registro literal D01–D18](docs/04_REGISTRO_DE_DECISIONES.md)
+- [Fases y criterios QA](docs/05_FASES_Y_PRUEBAS.md)
+- [Modelo conceptual de datos](docs/06_MODELO_CONCEPTUAL_DATOS.md)
+- [Coherencia y pendientes](docs/07_REVISION_CONSISTENCIA.md)
+- [Entorno VS Code/Codex/Claude](docs/08_ENTORNO_Y_AGENTES.md)
+- [Reglas AGENTS](AGENTS.md) / [Claude](CLAUDE.md)
 
-## Git y entornos
-- `main`: versiones publicables aprobadas.
-- `dev/evalia-core`: último baseline completo validado (se creará cuando exista).
-- `feature/*`: trabajo en revisión. **Este borrador está en `feature/fundamentos-reservas-pedidos`; no se ha integrado en main.**
+## Ramas
+main = publicable; dev/evalia-core = baseline validado futuro; feature/* = pendientes de aprobación. El PR #1 debe mantenerse como borrador; main no se modifica en esta entrega.
 
-No almacenar aquí claves, datos personales de clientes, ventas reales ni información sensible. El repositorio es público.
+El repositorio es público: no introducir datos reales de clientes, credenciales ni comprobantes.
