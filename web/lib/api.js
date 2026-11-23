@@ -25,10 +25,10 @@ export async function loadWorkspace(){
     db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at,updated_at').order('created_at',{ascending:false}),
     db.from('colors').select('id,name,hex_code,is_active').order('name'),
     db.from('model_colors').select('model_id,color_id'),
-    db.from('customers').select('id,name,whatsapp,created_at,updated_at').order('created_at',{ascending:false}),
+    db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at').order('created_at',{ascending:false}),
     db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at').order('created_at',{ascending:false}).limit(200),
     db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units'),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at').order('confirmed_at',{ascending:false}).limit(200),
+    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at').order('confirmed_at',{ascending:false}).limit(200),
     db.from('order_lines').select('id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs'),
     db.from('reservation_extra_colors').select('reservation_line_id,color_id,position').order('position'),
     db.from('order_extra_colors').select('order_line_id,color_id,position').order('position'),
@@ -75,8 +75,10 @@ export async function loadWorkspace(){
 export async function createColor(name,hex){
   return unwrap(await client().from('colors').insert({name,hex_code:hex}).select('id').single(),'Crear color');
 }
-export async function createCustomer(name,whatsapp){
-  return unwrap(await client().from('customers').insert({name,whatsapp}).select('id').single(),'Crear cliente');
+export async function createCustomer({name,whatsapp,method,destination}){
+ return unwrap(await client().from('customers').insert({
+  name,whatsapp,delivery_preference:method,shipping_destination:destination
+ }).select('id').single(),'Crear cliente');
 }
 export async function uploadPhoto(file){
   if(!file)return null;
@@ -103,9 +105,10 @@ export async function updateModel({modelId,price,imagePath=null,expectedUpdatedA
   p_expected_updated_at:expectedUpdatedAt,p_request_id:requestId
  }),'Actualizar modelo');
 }
-export async function updateCustomer({customerId,name,whatsapp,expectedUpdatedAt,requestId}){
- return unwrap(await client().rpc('update_evalia_customer',{
+export async function updateCustomer({customerId,name,whatsapp,method,destination,expectedUpdatedAt,requestId}){
+ return unwrap(await client().rpc('update_evalia_customer_delivery',{
   p_customer_id:customerId,p_name:name,p_whatsapp:whatsapp,
+  p_preference:method,p_destination:destination,
   p_expected_updated_at:expectedUpdatedAt,p_request_id:requestId
  }),'Corregir ficha de cliente');
 }
@@ -116,10 +119,17 @@ export async function adjustStock({modelId,operation,units,version,requestId}){
     p_expected_version:version,p_request_id:requestId
   }),'Ajustar stock');
 }
-export async function createOrder(customerId,lines,requestId){
-  return unwrap(await client().rpc('create_evalia_order',{
-    p_customer_id:customerId,p_lines:lines,p_request_id:requestId
-  }),'Confirmar pedido');
+export async function createOrder(customerId,lines,requestId,delivery){
+ return unwrap(await client().rpc('create_evalia_order_delivery',{
+  p_customer_id:customerId,p_lines:lines,p_request_id:requestId,
+  p_method:delivery.method,p_destination:delivery.destination
+ }),'Confirmar pedido');
+}
+export async function updateOrderDelivery({orderId,method,destination,requestId}){
+ return unwrap(await client().rpc('update_evalia_order_delivery',{
+  p_order_id:orderId,p_method:method,p_destination:destination,
+  p_request_id:requestId
+ }),'Actualizar destino del pedido');
 }
 export async function confirmReservation(reservationId,requestId){
   return unwrap(await client().rpc('confirm_evalia_reservation',{
