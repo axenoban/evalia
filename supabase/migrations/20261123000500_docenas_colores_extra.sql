@@ -299,4 +299,107 @@ begin
 end;$$;
 
 -- Las nuevas tablas no exponen mutaciones CRUD; solo RPCs admin.
+
+-- R08 · Edición administrativa de reserva guardada, con historial e idempotencia.
+create table public.reservation_revisions(
+ id uuid primary key default gen_random_uuid(),
+ request_id uuid not null unique,
+ reservation_id uuid not null references public.reservations(id) on delete restrict,
+ actor_id uuid not null references public.admin_profiles(user_id) on delete restrict,
+ payload_fingerprint text not null,
+ previous_lines jsonb not null,
+ updated_lines jsonb not null,
+ created_at timestamptz not null default now()
+);
+create index reservation_revisions_reservation_idx
+ on public.reservation_revisions(reservation_id,created_at desc);
+alter table public.reservation_revisions enable row level security;
+revoke all on public.reservation_revisions from public,anon,authenticated;
+grant select on public.reservation_revisions to authenticated;
+create policy admin_read on public.reservation_revisions
+ for select to authenticated using((select public.is_evalia_admin()));
+
+create function public.revise_evalia_reservation(
+ p_reservation_id uuid,p_lines jsonb,p_request_id uuid
+) returns uuid language plpgsql volatile security definer set search_path=''
+as $$
+declare
+ v_res public.reservations%rowtype; v_previous jsonb;
+ v_payload text; v_prior public.reservation_revisions%rowtype;
+ v_entry record; v_stock jsonb; v_old integer; v_line uuid; v_i integer;
+begin
+ if not public.is_evalia_admin() then
+  raise exception 'Acceso administrativo requerido' using errcode='42501';
+ end if;
+ if p_reservation_id is null or p_request_id is null then
+  raise exception 'Reserva y solicitud son obligatorias' using errcode='22004';
+ end if;
+ v_payload:=pg_catalog.md5(p_reservation_id::text||':'||coalesce(p_lines::text,'null'));
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_request_id::text,0));
+ select * into v_prior from public.reservation_revisions where request_id=p_request_id;
+ if found then
+  if v_prior.reservation_id<>p_reservation_id or
+     v_prior.payload_fingerprint is distinct from v_payload then
+   raise exception 'Solicitud de edición reutilizada con cambios diferentes' using errcode='23505';
+  end if;
+  return p_reservation_id;
+ end if;
+ select * into v_res from public.reservations where id=p_reservation_id for update;
+ if not found then raise exception 'Reserva inexistente' using errcode='P0002'; end if;
+ if v_res.status<>'saved' or v_res.expires_at<=now() then
+  raise exception 'Solo puede editarse una reserva guardada y vigente' using errcode='23514';
+ end if;
+ -- Obtener composición anterior antes de modificarla, para auditoría verificable.
+ select coalesce(pg_catalog.jsonb_agg(
+  pg_catalog.jsonb_build_object(
+   'modelId',rl.model_id,'quantity',rl.quantity,'dozens',rl.dozen_count,
+   'extraColorIds',(select coalesce(pg_catalog.jsonb_agg(ec.color_id order by ec.position),
+                                  '[]'::jsonb)
+                    from public.reservation_extra_colors ec where ec.reservation_line_id=rl.id)
+  ) order by rl.model_id),'[]'::jsonb) into v_previous
+ from public.reservation_lines rl where rl.reservation_id=p_reservation_id;
+ -- Verificar primero el nuevo carrito, luego bloquear la unión de modelos en orden.
+ perform 1 from public.evalia_validate_portions(p_lines);
+ for v_entry in
+  select distinct id from (
+   select model_id as id from public.reservation_lines where reservation_id=p_reservation_id
+   union all
+   select model_id as id from public.evalia_validate_portions(p_lines)
+  ) union_models order by id
+ loop
+  perform 1 from public.model_inventory where model_id=v_entry.id for update;
+  if not found then raise exception 'Modelo sin inventario' using errcode='P0002'; end if;
+ end loop;
+ for v_entry in select model_id,quantity from public.evalia_validate_portions(p_lines) loop
+  select coalesce(sum(quantity),0) into v_old from public.reservation_lines
+  where reservation_id=p_reservation_id and model_id=v_entry.model_id;
+  v_stock:=public.get_model_stock(v_entry.model_id);
+  -- Cupo de la reserva original se recupera dentro de esta misma transacción.
+  if v_entry.quantity>(v_stock->>'available')::integer+v_old or
+      ((v_stock->>'blocked')::boolean and v_entry.quantity>v_old) then
+    raise exception 'Edición excede stock libre del modelo %',v_entry.model_id using errcode='23514';
+  end if;
+ end loop;
+ delete from public.reservation_extra_colors
+ where reservation_line_id in(select id from public.reservation_lines where reservation_id=p_reservation_id);
+ delete from public.reservation_lines where reservation_id=p_reservation_id;
+ for v_entry in select * from public.evalia_validate_portions(p_lines) order by model_id loop
+  insert into public.reservation_lines(reservation_id,model_id,quantity,dozen_count,extra_units)
+  values(p_reservation_id,v_entry.model_id,v_entry.quantity,v_entry.dozen_count,v_entry.extra_units)
+  returning id into v_line;
+  for v_i in 1..v_entry.extra_units loop
+   insert into public.reservation_extra_colors(reservation_line_id,model_id,color_id,position)
+   values(v_line,v_entry.model_id,v_entry.color_ids[v_i],v_i);
+  end loop;
+ end loop;
+ insert into public.reservation_revisions(
+   request_id,reservation_id,actor_id,payload_fingerprint,previous_lines,updated_lines
+ ) values(p_request_id,p_reservation_id,auth.uid(),v_payload,v_previous,p_lines);
+ update public.reservations set updated_at=now() where id=p_reservation_id;
+ return p_reservation_id;
+end;$$;
+revoke all on function public.revise_evalia_reservation(uuid,jsonb,uuid)
+ from public,anon,authenticated;
+grant execute on function public.revise_evalia_reservation(uuid,jsonb,uuid) to authenticated;
+
 commit;
