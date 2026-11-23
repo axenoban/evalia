@@ -254,3 +254,17 @@ El propietario aprobó prolongar **la misma fórmula** a **13 o más unidades de
 - URL del pedido A nunca abre B; token filtrado/revocado no permite acceder a documentos anteriores ni a otros clientes.
 - Pedido con cancelación parcial: no inferir TERMINADO automáticamente; criterio de cierre sin recogida total y deuda al cierre pendientes.
 **No prueba ejecutable**, sin aplicación SQL; verificar al desarrollar con autenticación admin real y archivos privados. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md).
+
+## QA G03-C/G06-C — cierre de pedido solo con entrega y cobro real
+**Casos documentados, sin aplicación/SQL ejecutables:**
+- Pedido Bs 840, depósitos/pagos aprobados 200+300, saldo 340, pendientes de retiro 12 → **no COMPLETADO**, no entrega habitual.
+- Cliente agrega captura de pago 340 PENDIENTE → saldo 340, **no completar** ni dar por cobrado.
+- Admin verifica y aprueba 340 → saldo 0, si no ha retirado, **permanece ACTIVO**.
+- Admin registra recogida de las 12 y marca COMPLETADO con saldo 0 → válido; enlace D13 desactivado.
+- Pedido de 12 con 5 entregadas/7 pendientes, incluso saldo 0 → **no completar**; enlace activo.
+- Excepción de entrega total con deuda 340 → registrar entrega como realidad, **rechazar COMPLETADO**, mantener saldo pendiente/enlace activo.
+- Registrar pago real en efectivo al recoger desde panel admin y aprobar → abonar una vez sin necesidad de captura cargada por cliente; **no crear pago ficticio al marcar COMPLETADO**.
+- Cliente intenta COMPLETADO desde URL/token: acceso prohibido. Reintentar cierre 10 veces → una transición y sin recibos duplicados.
+- Cancelación parcial G03-B deja conciliación monetaria sin resolver → no cerrar automáticamente ni redondear/remover deuda inventando precio.
+- Cerrar válido y petición concurrente de comprobante desde enlace ya desactivado → petición denegada y datos históricos intactos.
+[Contrato cierre](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).

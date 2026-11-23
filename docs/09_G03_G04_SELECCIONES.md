@@ -117,3 +117,6 @@ El propietario aprobó acceso a una vista de **su pedido mediante URL privada ú
 
 ## D13-E1 — enlace por ciclo de vida del pedido
 El enlace único de cada pedido se mantiene **activo hasta que el administrador, tras la recogida, marque TERMINADO/COMPLETADO**, salvo revocación previa. Recogida parcial y pagos totalmente recibidos **no** terminan automáticamente el acceso. Revocación invalida la credencial sin cancelar pedido ni cambiar G/E/S o dinero; administrador puede emitir reemplazo para pedido activo. El cierre especial tras cancelación de pendientes y saldo económico al terminar siguen pendientes. [D13](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md).
+
+## G03-C — cierre tras pago completo y recogida
+**Aprobado posteriormente:** las prendas **no se retiran normalmente con saldo pendiente**. Solo el admin marca TERMINADO/COMPLETADO tras **retiro total registrado** y **pago completo APROBADO/RECIBIDO**. Si paga al recoger, registrar pago real antes de cerrar, sin imputación ficticia automática. Si hubiera entrega excepcional con deuda, seguir **ACTIVO/CON SALDO PENDIENTE**, sin un módulo especial E1; cancelaciones y ajustes financieros no definidos siguen G03-B/G06. El enlace cliente permanece hasta COMPLETADO o revocación. [Contrato](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).

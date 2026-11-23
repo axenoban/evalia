@@ -82,3 +82,6 @@ Con cancelación G03-B, conservar declaraciones **PENDIENTES** y abonos **APROBA
 
 ## D13-E1: enlace cliente y cancelación parcial
 Si pedido 12 tiene **5 entregadas y 7 pendientes**, la cancelación administrativa de 7 deja el historial íntegro, pero **no equivale automáticamente a marcar TERMINADO/COMPLETADO por recogida**. El enlace del cliente permanece activo mientras el pedido siga activo salvo revocación admin; el criterio de cierre especial de un pedido con resto cancelado o cancelación total aún exige política. Al marcar COMPLETADO tras la recogida, el enlace deja de dar acceso, sin borrar pagos ni volver a liberar G/E. [Ciclo de vida](24_PORTAL_CLIENTE_ENLACE_PRIVADO.md).
+
+## G03-C: cancelar lo no entregado no autoriza liquidación financiera inventada
+El criterio posterior del propietario es **TERMINADO/COMPLETADO solo tras pago real aprobado y retiro de unidades debidas**. En cancelación parcial G03-B conservar snapshot y pagos; el importe a conciliar de unidades canceladas **sigue pendiente**. **No ajustar precio/marcar como pagado automáticamente** para cuadrar el cierre, aunque el pendiente físico pase a cero. Requerir conciliación económica separada y aprobación de admin. Si se entrega excepcionalmente con saldo, mantener pedido abierto/deuda. [Contrato](26_CIERRE_PEDIDO_PAGO_Y_RETIRO.md).
