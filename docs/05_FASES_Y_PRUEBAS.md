@@ -100,3 +100,13 @@ Sin código/test ejecutable todavía: estos son escenarios de aceptación para e
 - Una reserva abierta muestra tarifas vigentes sin snapshot de compromiso hasta confirmación según G04-08; los pedidos ya confirmados conservan importe aunque se edite la ficha del cliente.
 - Excepciones manuales de precio solo administrador con motivo/bitácora; comprobar no duplicación de reglas especiales y políticas RLS.
 **Bloqueantes** P-01/P-02 (6–11 unidades y beneficio), G04-01 presentaciones, P-03 acumulación, políticas de foto/plantilla. [Precios](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md), [alta](19_ALTA_RAPIDA_MODELOS_FERIA.md).
+
+## QA comercial nuevo — fórmula mayorista aprobada en concepto (2026-11-22)
+- Si precio de docena del modelo = Bs 420, comprobar por **cada n entero 6–12**: `(n, total)=(6,210),(7,245),(8,280),(9,315),(10,350),(11,385),(12,420)`. No descuentos E1.
+- Si docena Bs 380, `n=6 → Bs 190`; `n=7 → 380×7/12=Bs 221,666…` **sin valor final aprobado para cobro**; exigir regla de redondeo antes de implementar cobro final.
+- En surtido pendiente de colores, la **cantidad y precio matemático se calculan antes**; asignar colores posteriormente no recalcula por color ni aplica doble descuento de stock.
+- Con modelo A 6 + B 6, calcular **cada modelo de forma independiente** según su precio de docena; no sumar como 12 unidades de uno.
+- Cliente especial con tarifa antigua «−Bs 10/docena»: **ningún descuento automático en E1**, incluso si compra 12; para cantidades **menores que 12** tampoco se permitirá descuento al incorporar la futura función.
+- Reserva/cotización muestra tarifa vigente; pedido confirmado conserva snapshot de modelo, docena, unidades y total acordado tras definir redondeo (G04-08).
+- Mantener test futuro por >12 unidades (todavía sin fórmula autorizada), descuento negociado para docenas posteriores, y restricciones de edición de precios.
+**Estado:** escenarios de aceptación documentados, sin tests de código ni migraciones. [Precio canónico](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

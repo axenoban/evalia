@@ -94,3 +94,6 @@ Cada **modelo** comercial tiene una **sola talla** (ejemplos M, XL o 2XL); disti
 
 ## Nueva observación sobre precios y registro de modelos
 El propietario desea **reservas únicamente mayoristas**, **precio propio por modelo** con **sugerencia editable por talla**, foto de cada modelo, colores reutilizados del anterior y preferencias por talla para acelerar **seis o más modelos por feria**. Cliente especial puede tener **descuento por docena** en su ficha; ejemplo **−Bs 10 por docena**, propuesto/calculado al capturar un pedido. No hay autorización para calcular descuentos fragmentarios ni mezclar tallas en un modelo. [Precios y conflictos P](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md), [alta rápida](19_ALTA_RAPIDA_MODELOS_FERIA.md).
+
+## Precio de cantidad mayorista y descuentos — aclaración posterior
+El cálculo de **6–11 unidades por modelo** ya fue determinado: `P_docena × n/12`, automático. Docena Bs 420 → media 210, siete 245. La anterior duda sobre siete unidades queda resuelta **en fórmula**; falta redondeo de ejemplo Bs 380, siete unidades. Se descarta **motor de descuentos para E1**, incluidos beneficios de cliente configurados o negociación; se prohíbe **cualquier descuento para menos de 12 unidades** al introducir una funcionalidad futura. Permanecen abiertas modalidades >12 y tarifas minoristas. [Precio canónico](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).

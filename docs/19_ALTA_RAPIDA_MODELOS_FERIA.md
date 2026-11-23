@@ -56,3 +56,6 @@ Persistir en **datos de EVALIA** (no depender de historial del chat):
 - Política ante cambio de talla de modelo histórico y gestión de colores fuera de stock.
 
 **La función de plantillas/recordatorios es propuesta técnica fundamentada en el uso descrito; sin implementación todavía.**
+
+## Precio de docena como único dato base de mayorista (nueva decisión)
+El administrador da de alta el modelo con **precio mayorista de docena**, usando sugerencia por talla y pudiéndola corregir para ese modelo. Con **ese único dato**, el sistema cotiza automáticamente 6–11 unidades mediante `P_docena × n/12`, evitando tablas por cada cantidad, siempre que se ratifique la política de redondeo para precios no divisibles entre 12. Docena Bs 420 ⇒ precio implícito Bs 35/unidad ⇒ media 210 y 7=245. **No activar descuentos E1** al copiar una ficha o elegir cliente. Las plantillas de color/foto se manejan aparte. [Contrato de precios](18_PRECIOS_MAYORISTAS_Y_CLIENTES.md).
