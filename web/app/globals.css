@@ -680,3 +680,5 @@ button.express-secondary:hover:not(:disabled){background:#e5f3ea}
 .checkout-delivery small{font-size:11px;overflow-wrap:anywhere}
 @media(max-width:640px){.order-shipping-panel{margin:10px 0}
  .order-shipping-panel>.button{width:100%}}
+
+@media(max-width:1000px){.mobile-nav-owner{overflow-x:auto;justify-content:flex-start}.mobile-nav-owner button{flex:1 0 49px;padding:4px 3px}.mobile-nav-owner small{font-size:8px}}
