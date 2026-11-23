@@ -3,7 +3,7 @@ name: EVALIA | Publicar panel de prueba en GitHub Pages
 on:
   push:
     branches:
-      - feature/evalia-ux-cierre-y-whatsapp
+      - feature/evalia-envios-impresion
   workflow_dispatch:
 
 permissions:
