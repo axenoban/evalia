@@ -7,7 +7,7 @@ La migración 014 agregó `delivery_preference` y `shipping_destination` sin amp
 PostgREST devolvía `Crear cliente: permission denied for table customers` antes de evaluar correctamente `admin_insert` (RLS).
 
 ## Corrección
-La migración 017 (`20261124004200_clientes_permisos_alta.sql`) habilita únicamente
+La migración 017 (`20261124004103_clientes_permisos_alta.sql`) habilita únicamente
 `INSERT(delivery_preference,shipping_destination)` para el rol `authenticated` después de comprobar
 que `customers` conserva RLS y la política `admin_insert` dependiente de `is_evalia_admin()`.
 No otorga `INSERT` global, no modifica permisos de `anon`, no concede escritura directa a ID/fechas
@@ -29,7 +29,7 @@ No ejecutar el test directamente en el proyecto remoto comercial ni introducir d
 
 ## Despliegue y comprobación
 1. Revisar CI de la rama `feature/evalia-clientes-permisos` (Node y pgTAP).
-2. Confirmar que `20261124004200` no está aún en el historial de migraciones remoto.
+2. Confirmar que `20261124004103` no está aún en el historial de migraciones remoto.
 3. Aplicar la migración única y comprobar por SQL que las columnas D8 admiten INSERT sólo mediante
    `authenticated` y que `anon` sigue sin acceso, con RLS habilitado.
 4. Prueba humana en la aplicación: cada administrador activo crea un cliente de retiro y otro de envío
