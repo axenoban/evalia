@@ -1,0 +1,3 @@
+# Registro y archivo de modelos
+
+Alta: solo presentación. Dashboard: recientes en 48 h, anteriores disponibles, stock libre solo activos. Archivo: todos los administradores activos; bloqueo de inventario y comprobación de pedidos activos/compromisos antes de baja definitiva. No borra modelos ni líneas; mantiene precio y nombre. El archivo físico se elimina por Storage API, nunca SQL; una ruta compartida activa no se elimina. Si falla, reintentar limpieza desde catálogo sin mostrar fichas inactivas. No cambia precios, cantidades, pagos ni entregas. Los activos anteriores siguen vendibles. Pruebas pgTAP con rollback. Preview pendiente de aprobación.

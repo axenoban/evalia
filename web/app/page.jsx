@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
-  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock,
+  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos,
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import AdminAccounts from './admin-accounts.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
-import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels } from '../lib/dashboard-presentation.js';
+import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
@@ -59,10 +59,10 @@ function ModelColors({model,colors,compact=false}){
  </div>:<span className="muted">Sin colores registrados</span>;
 }
 function ProductImage({model,large=false}){
- return model.imageUrl?<img className={'product-image '+(large?'large':'')} src={model.imageUrl}
+ return model.is_active&&model.imageUrl?<img className={'product-image '+(large?'large':'')} src={model.imageUrl}
    alt={'Fotografía del producto '+model.name} loading="lazy"/>:
   <div className={'product-image product-fallback '+(large?'large':'')}>
-    <span className="fallback-mark">E</span><span>Fotografía pendiente</span>
+    <span className="fallback-mark">E</span><span>{model.is_active?'Fotografía pendiente':'Modelo archivado'}</span>
   </div>;
 }
 function Status({value}){return <span className={'status status-'+value}>{statusLabels[value]||value}</span>;}
@@ -151,7 +151,7 @@ function ClientForm({onCreate,busy,compact=false}){
   </button></div>
  </form>;
 }
-function DashboardProductCard({model,stock}){
+function DashboardProductCard({model,stock,recent}){
  const blocked=Boolean(stock?.blocked);
  const available=Number(stock?.available??0);
  const exhausted=!blocked&&available===0;
@@ -163,6 +163,7 @@ function DashboardProductCard({model,stock}){
   </div>
   <div className="ev-model-details">
    <h3 title={model.name}>{model.name}</h3>
+   {recent&&<span className="ev-recent-model">Nuevo · últimas 48 h</span>}
    <span className="ev-stock-caption">Stock disponible</span>
    <strong className="ev-stock-count">{blocked?'En revisión':formatAvailableDozens(stock?.available??0)}</strong>
    <span className="ev-model-price">{formatModelDozenPrice(model.price_dozen_bs)}</span>
@@ -170,7 +171,11 @@ function DashboardProductCard({model,stock}){
  </article>;
 }
 function Dashboard({data,setTab}){
- const visibleModels=prioritizeModels(data.models);
+ const activeModels=prioritizeModels(data.models);
+ const now=Date.now();
+ const recentModels=activeModels.filter(m=>isRecentModel(m,now));
+ const [showOlder,setShowOlder]=useState(false);
+ const visibleModels=recentModels.length&&!showOlder?recentModels:activeModels;
  const trackRef=useRef(null);
  const [trackEdges,setTrackEdges]=useState({prev:false,next:false});
  const updateTrackEdges=useCallback(()=>{
@@ -182,17 +187,18 @@ function Dashboard({data,setTab}){
   updateTrackEdges();
   window.addEventListener('resize',updateTrackEdges);
   return ()=>window.removeEventListener('resize',updateTrackEdges);
- },[updateTrackEdges,data.models.length]);
+ },[updateTrackEdges,visibleModels.length]);
  const shiftModels=direction=>{
   const el=trackRef.current;
   if(el)el.scrollBy({left:direction*Math.max(220,el.clientWidth*.72),behavior:'smooth'});
  };
  const totals=inventoryTotals(data.stock);
+ const availableActive=inventoryTotals(Object.fromEntries(activeModels.map(m=>[m.id,data.stock[m.id]||{}]))).available;
  const activeOrders=data.orders.filter(o=>o.status==='active')
   .sort((a,b)=>Date.parse(b.confirmed_at||0)-Date.parse(a.confirmed_at||0));
  const activeLegacy=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
  const pendingPayments=data.payments.filter(p=>p.status==='pending'||p.status==='observed');
- const blocked=visibleModels.filter(m=>data.stock[m.id]?.blocked);
+ const blocked=activeModels.filter(m=>data.stock[m.id]?.blocked);
  const customerById=new Map(data.customers.map(c=>[c.id,c]));
  const ordersById=new Map(data.orders.map(o=>[o.id,o]));
  const legacyById=new Map(data.reservations.map(r=>[r.id,r]));
@@ -201,7 +207,7 @@ function Dashboard({data,setTab}){
    description="Registra compras confirmadas, gestiona cobros y controla la disponibilidad real de tus modelos."
    actions={<button className="button button-primary" onClick={()=>setTab('booking')}>＋ Nuevo pedido</button>}/>
   <div className="metrics-grid ev-overview">
-   <SummaryCard symbol="▧" label="Unidades disponibles" value={rup(totals.available)} sub="Libres para pedidos o venta física" kind="primary"/>
+   <SummaryCard symbol="▧" label="Unidades disponibles" value={rup(availableActive)} sub="Libres para pedidos o venta física" kind="primary"/>
    <SummaryCard symbol="▤" label="Prendas en pedidos" value={rup(totals.pending)} sub="Confirmadas y aún no retiradas"/>
    <SummaryCard symbol="⌑" label="Pedidos activos" value={activeOrders.length} sub="Por cobrar o entregar"/>
    <SummaryCard symbol="▣" label="Pagos por verificar" value={pendingPayments.length} sub="Pendientes y en observación"/>
@@ -217,10 +223,11 @@ function Dashboard({data,setTab}){
    <header className="ev-zone-header">
     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">♧</span>
      <div><h2 id="ev-models-heading">Modelos y stock disponible</h2>
-      <p>Primero los modelos de las últimas 48 horas; después, los demás modelos activos.</p></div>
+      <p>Modelos recientes de las últimas 48 horas. Los anteriores siguen disponibles en el catálogo.</p></div>
     </div>
     <div className="ev-zone-actions">
      <button type="button" className="ev-section-link" onClick={()=>setTab('catalog')}>Administrar productos <span aria-hidden="true">→</span></button>
+     {recentModels.length>0&&activeModels.length>recentModels.length&&<button type="button" className="ev-section-link" aria-pressed={showOlder} onClick={()=>setShowOlder(v=>!v)}>{showOlder?'Solo recientes':'Ver anteriores (' + (activeModels.length-recentModels.length)+')'}</button>}
      {visibleModels.length>0&&<div className="ev-carousel-buttons" aria-label="Desplazar modelos">
       <button type="button" aria-label="Ver modelos anteriores" disabled={!trackEdges.prev} onClick={()=>shiftModels(-1)}>‹</button>
       <button type="button" aria-label="Ver más modelos" disabled={!trackEdges.next} onClick={()=>shiftModels(1)}>›</button>
@@ -230,7 +237,7 @@ function Dashboard({data,setTab}){
    {visibleModels.length?
     <div ref={trackRef} className="ev-model-track" role="region" tabIndex={0}
        aria-label="Carrusel de modelos y disponibilidad" onScroll={updateTrackEdges}>
-     {visibleModels.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]}/>)}
+     {visibleModels.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]} recent={isRecentModel(m,now)}/>)}
     </div>:
     <Empty title="Aún no hay modelos" detail="Registra un modelo y su inventario desde Productos."/>}
   </section>
@@ -356,9 +363,10 @@ function ModelEditor({model,onSave,busy}){
    {busy?'Guardando…':'Guardar corrección auditada'}</button>
  </form>;
 }
-function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,busy}){
+function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,onArchive,onCleanup,busy}){
  const [view,setView]=useState('list'),[search,setSearch]=useState(''),[editStock,setEditStock]=useState(null),[editCatalog,setEditCatalog]=useState(null);
  const [newColor,setNewColor]=useState(''),[newHex,setNewHex]=useState('#9b6682');
+ const pendingPhotos=[...new Set(data.models.filter(m=>!m.is_active&&m.image_path&&!data.models.some(x=>x.is_active&&x.image_path===m.image_path)).map(m=>m.image_path))];
  const filtered=data.models.filter(m=>m.is_active&&(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  async function submitColor(e){e.preventDefault();const ok=await onCreateColor(newColor.trim(),newHex);if(ok)setNewColor('');}
  return <>
@@ -388,6 +396,7 @@ function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,busy})
     <input type="search" aria-label="Buscar producto" placeholder="Buscar por modelo o talla…"
       value={search} onChange={e=>setSearch(e.target.value)}/></label>
     <span className="muted">{filtered.length} modelos</span></div>
+   {pendingPhotos.length>0&&<div className="ev-archive-pending" role="status"><span>{pendingPhotos.length} fotografía(s) de archivo pendientes de limpieza.</span><button type="button" className="button button-outline" disabled={busy} onClick={()=>onCleanup(pendingPhotos)}>Reintentar limpieza</button></div>}
    {filtered.length?<div className="product-grid">{filtered.map(m=>{const s=data.stock[m.id]||{};return <article className="product-card" key={m.id}>
     <div className="product-cover"><ProductImage model={m} large/>
      <span className="size-tag">TALLA {m.size_label}</span></div>
@@ -409,6 +418,9 @@ function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,busy})
       onClick={()=>{setEditCatalog(editCatalog===m.id?null:m.id);setEditStock(null);}}>
       {editCatalog===m.id?'Cerrar edición':'✎ Cambiar precio o fotografía'}</button>
      {editCatalog===m.id&&<ModelEditor key={m.id+'-'+m.updated_at} model={m} onSave={onUpdateModel} busy={busy}/>}
+     <button type="button" className="button full ev-archive-button" disabled={busy} onClick={()=>{
+      if(window.confirm('¿Inhabilitar '+m.name+'? Dejará de venderse y se eliminará su foto. El historial permanece. Esta operación no se puede revertir desde el catálogo.'))onArchive(m);
+     }}>Inhabilitar producto</button>
 
     </div>
    </article>})}</div>:<Empty title="No se encontraron productos" detail="Prueba otra búsqueda o registra un modelo."/>}
@@ -1544,6 +1556,11 @@ export default function HomePage(){
     expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
   }catch(e){if(imagePath)await removePhoto(imagePath).catch(()=>{});throw e;}
  },'Precio/fotografía actualizados; los pedidos históricos no cambiaron.');
+ const archiveProduct=(model)=>mutation(async()=>{
+   const result=await archiveModel(model);
+   if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch(err){await refresh();throw new Error('Producto inhabilitado; fotografía pendiente de limpieza. '+err.message);}}
+  },'Producto inhabilitado; el historial permanece intacto.');
+ const cleanArchivedPhotos=(paths)=>mutation(()=>cleanupArchivedPhotos(paths),'Fotografías archivadas eliminadas.');
  const saveCustomerEdit=(params)=>mutation(()=>updateCustomer({
   customerId:params.customer.id,name:params.name,whatsapp:params.whatsapp,
   method:params.method,destination:params.destination,
@@ -1621,7 +1638,7 @@ export default function HomePage(){
       onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
-      tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} busy={busy}/>: 
+      tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
       tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 

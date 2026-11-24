@@ -17,3 +17,5 @@
 .ev-register-main .model-form>.button{min-height:48px;font-size:14px}
 .ev-register-palette .palette-form{padding:14px;background:#fbf7fa;border:1px solid #eadde6;border-radius:12px}
 @media(max-width:740px){.ev-product-registration{grid-template-columns:minmax(0,1fr);gap:14px}.ev-product-registration .surface.pad{padding:16px}.ev-register-main .photo-preview{width:120px;height:150px}.ev-register-main .form-inline{gap:10px}.ev-register-main .color-select-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.ev-archive-button{margin-top:10px;background:#fff;border:1px solid #e8cbd1;color:#963e4b;font-size:12px;min-height:40px}.ev-archive-button:hover:not(:disabled){background:#fff0f2}.ev-archive-pending{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 16px;margin-bottom:15px;border:1px solid #eadde6;background:#fff;border-radius:12px}.ev-recent-model{display:inline-block;font-size:10px;font-weight:700;color:#6e3c5c;background:#f5e6ee;border-radius:6px;padding:4px 7px;margin:3px 0 6px}.ev-zone-catalog .ev-zone-actions{flex-wrap:wrap}.ev-zone-catalog .ev-zone-header{flex-wrap:wrap}

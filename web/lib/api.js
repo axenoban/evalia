@@ -63,7 +63,7 @@ export async function loadWorkspace(){
       return [model.id,result];
     })),
     Promise.all(models.map(async model=>{
-      if(!model.image_path) return [model.id,null];
+      if(!model.is_active||!model.image_path) return [model.id,null];
       const {data,error}=await db.storage.from('evalia-models').createSignedUrl(model.image_path,3600);
       return [model.id,error?null:data.signedUrl];
     })),
@@ -110,6 +110,18 @@ export async function updateModel({modelId,price,imagePath=null,expectedUpdatedA
   p_model_id:modelId,p_price:price,p_new_image_path:imagePath,
   p_expected_updated_at:expectedUpdatedAt,p_request_id:requestId
  }),'Actualizar modelo');
+}
+export async function archiveModel(model){
+ return unwrap(await client().rpc('archive_evalia_model',{p_model_id:model.id,p_expected_updated_at:model.updated_at}),'Inhabilitar producto');
+}
+export async function cleanupArchivedPhotos(paths){
+ const db=client();
+ for(const path of new Set(paths)){
+  if(!/^models\/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(path))throw new Error('Ruta de fotografía no válida.');
+  unwrap(await db.storage.from('evalia-models').remove([path]),'Eliminar fotografía archivada');
+  const removed=unwrap(await db.rpc('finalize_evalia_archived_photo',{p_image_path:path}),'Verificar eliminación');
+  if(!removed)throw new Error('La fotografía aún existe o está vinculada a un modelo activo.');
+ }
 }
 export async function updateCustomer({customerId,name,whatsapp,method,destination,expectedUpdatedAt,requestId}){
  return unwrap(await client().rpc('update_evalia_customer_delivery',{
