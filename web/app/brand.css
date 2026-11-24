@@ -1,0 +1,57 @@
+/* EVALIA — identidad compartida. Solo presentación; estados comerciales conservan sus colores semánticos. */
+:root {
+ --brand-plum:#4D3443;--brand-ivory:#F5F0EA;--brand-charcoal:#222024;--brand-rose:#CFAEB6;--brand-silver:#C7C3C6;
+ --brand-monogram:#451E3B;--brand-deep:#392633;--brand-accent:#815164;--brand-soft:#F8F0F2;
+ --ink:var(--brand-charcoal);--ink-soft:#554C52;--muted:#71666D;--plum:var(--brand-plum);--plum-dark:var(--brand-deep);
+ --berry:var(--brand-accent);--rose:var(--brand-rose);--blush:var(--brand-soft);--bg:var(--brand-ivory);
+ --border:#E4DBD9;--shadow:0 7px 24px #4D34430B;
+}
+html,body{font-family:Manrope,'DM Sans',system-ui,-apple-system,sans-serif}
+.brand-icon{display:block;flex:none;width:46px;height:46px;background:transparent;box-shadow:none;border-radius:50%}
+.brand-large .brand-icon{width:70px;height:70px}
+.brand b{letter-spacing:.16em}
+.sidebar{background:var(--brand-deep)}
+.sidebar-nav button.active{background:var(--brand-plum);box-shadow:inset 3px 0 0 var(--brand-rose)}
+.sidebar-nav button:hover{background:#59404F}
+.ev-ui-icon{display:block;width:21px;height:21px;flex:none}
+.nav-icon{display:grid;place-items:center}
+.ev-metric-icon .ev-ui-icon,.ev-zone-icon .ev-ui-icon{width:21px;height:21px}
+.mobile-nav .ev-ui-icon{width:22px;height:22px}
+.mobile-nav button.active{color:var(--brand-plum);background:var(--brand-soft);border-radius:10px}
+.ev-mobile-brand{display:none}
+.ev-product-mark{width:27%;max-width:80px;min-width:22px;height:auto;opacity:.75;flex:none}
+.product-fallback{background:linear-gradient(140deg,#EFE3E5,var(--brand-ivory));color:var(--brand-plum)}
+.button-primary{background:var(--brand-plum);color:#fff}
+.button-primary:hover:not(:disabled){background:var(--brand-deep)}
+.button-outline{color:var(--brand-plum);border-color:#D4C5CA!important}
+button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible,a:focus-visible{outline-color:var(--brand-accent)}
+.login-screen,.setup-screen{background:radial-gradient(ellipse at 12% 15%,#EAD6DC 0,transparent 52%),var(--brand-ivory)}
+.login-card,.setup-card{border:1px solid var(--border);box-shadow:0 22px 64px #4D344317}
+.login-card .brand{margin-bottom:27px}
+.ev-dashboard{--ev-deep:var(--brand-plum);--ev-plum:var(--brand-plum);--ev-berry:var(--brand-accent);--ev-rose:var(--brand-soft);--ev-ink:var(--brand-charcoal);--ev-soft:var(--ink-soft);--ev-line:var(--border)}
+.ev-dashboard .section-head .eyebrow{color:var(--brand-accent)}
+.ev-dashboard .metric.primary{background:var(--brand-plum);border-color:var(--brand-plum)}
+.ev-zone-catalog{border-top-color:var(--brand-plum)}
+.ev-zone-catalog>.ev-zone-header{background:linear-gradient(115deg,#F0E1E5,#FCF8F6)}
+.ev-booking{--ev-ink:var(--brand-charcoal);--ev-plum:var(--brand-plum);--ev-rose:var(--brand-soft);--ev-line:var(--border);--ev-muted:var(--muted)}
+.ev-booking .order-progress.ev-order-progress{background:var(--brand-plum);border-color:var(--brand-plum)}
+.ev-register-heading h2,.ev-register-section-title,.ev-order-summary-total{color:var(--brand-plum)}
+.ev-order-summary:hover,.ev-order-accordion[open]>.ev-order-summary{background:linear-gradient(115deg,#F4E9EB,#FCF9F6)}
+.private-portal{background:var(--brand-ivory);color:var(--brand-charcoal);font-family:Manrope,system-ui,sans-serif}
+.private-brand{color:var(--brand-plum);align-items:center;gap:8px}
+.ev-private-brand{display:flex;align-items:center;gap:10px}
+.private-card{border-color:var(--border)}
+.client-payment-form button,.portal-qr a{background:var(--brand-plum)}
+@media(max-width:1000px){
+ .ev-mobile-brand{display:block;width:29px;height:29px;flex:none}
+ .breadcrumb{display:flex;align-items:center;gap:5px;min-width:0;line-height:1.2}
+ .breadcrumb span{margin:0 2px}
+ .breadcrumb strong{overflow-wrap:anywhere}
+}
+@media(max-width:620px){
+ .ev-mobile-brand{width:25px;height:25px}
+ .breadcrumb{font-size:10px;gap:3px}
+ .private-brand{align-items:flex-start}
+ .brand-large .brand-icon{width:60px;height:60px}
+}
+@media(max-width:365px){.topbar .live-label{display:none}}

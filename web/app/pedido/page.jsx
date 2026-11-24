@@ -1,6 +1,7 @@
 import {orderFromCookie} from '../../lib/server-private.js';
 import {ClientPaymentForm} from './ClientPaymentForm.jsx';
 import './portal.css';
+import {BrandMark} from '../brand.jsx';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -11,13 +12,13 @@ export default async function PrivateOrderPage(){
  let session=null;
  try{session=await orderFromCookie();}catch{session=null;}
  if(!session)return <main className="private-portal"><section className="private-card">
-  <h1>Este enlace no está disponible</h1>
+  <BrandMark/><h1>Este enlace no está disponible</h1>
   <p>Puede haber sido revocado o el pedido ya está completado. Contacta con EVALIA para solicitar un enlace válido.</p>
  </section></main>;
  const {order}=session;
  const qr=Boolean(order.qr_path);
  return <main className="private-portal"><div className="private-container">
-  <header className="private-brand"><b>EVALIA</b><span>Consulta privada de pedido</span></header>
+  <header className="private-brand"><div className="ev-private-brand"><BrandMark/><b>EVALIA</b></div><span>Consulta privada de pedido</span></header>
   <section className="private-card">
    <p className="private-kicker">PEDIDO CONFIRMADO</p>
    <h1>Pedido #{order.reference}</h1>
