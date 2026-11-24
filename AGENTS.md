@@ -1,5 +1,8 @@
 # Reglas de desarrollo — EVALIA
 
+## Baseline actualizado — 23-11-2026
+Antes de cualquier cambio, verificar HEAD real de `dev/evalia-core` y leer la actualización al inicio de `docs/50_DOCUMENTO_MAESTRO_EVALIA.md`. Identidad visual y preparación física aprobadas: docs/51 y docs/52. No modificar reglas ni estados comerciales para representar preparación. Mantener main sin cambios salvo autorización. El flujo de correo de D9 conserva su QA específica.
+
 ## Fuente maestra actual y precedencia (v1.0 — 23-11-2026)
 **Primero leer [docs/50_DOCUMENTO_MAESTRO_EVALIA.md](docs/50_DOCUMENTO_MAESTRO_EVALIA.md)** para iniciar o retomar cualquier chat, agente, diseño, prototipo o trabajo técnico. Este documento consolida la V1 aprobada en `dev/evalia-core @ 4270da0a`, el proceso propietario+IA, D6 solo pedidos, D7 cobros y entrega express y D8 envíos/impresión privada. Los textos inferiores que dicen "candidato", "sin merge", "SQL pendiente" o prometen crear reservas son históricos. No aplicarlos literalmente sin verificar rama/HEAD y contratos vigentes; el código y pruebas prevalecen para comportamiento real. Las decisiones comerciales siempre requieren confirmación del propietario.
 

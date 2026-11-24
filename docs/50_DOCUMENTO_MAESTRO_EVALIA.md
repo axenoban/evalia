@@ -13,6 +13,19 @@
 
 ---
 
+## Actualización de baseline — 23 de noviembre de 2026 (hora Bolivia)
+
+El propietario aprobó la identidad visual (monograma EV, favicon, tema compartido e iconografía) y posteriormente la preparación reversible de pedidos, tras probar el candidato `ead7845c3808a06281d7eec2ea9452788b28eb7f`. El cierre técnico de esta versión toma dicho commit como código auditado; `dev/evalia-core` es la rama estable de desarrollo. Las referencias al corte inicial 4270da0a, 14 migraciones y QA inicial que figuran más abajo son históricas, no el estado vigente.
+
+- Regresión del candidato: 141/141 pruebas Node y 401/401 pruebas pgTAP (18 archivos SQL), compilación Next.js y Vercel Preview READY. CI: [45308499275](https://github.com/axenoban/evalia/actions/runs/45308499275), [45308499314](https://github.com/axenoban/evalia/actions/runs/45308499314).
+- Supabase remoto: 20 migraciones registradas; última `20261124015349_pedido_preparacion_operativa`. No volver a aplicarlas ni ejecutar datos de prueba contra remoto.
+- Incluye V1 consolidada, pedidos en acordeón, edición segura, D9 acceso/gestión privada de cuentas, corrección de alta de clientes, archivo de modelos/pedidos y las mejoras visuales y de preparación. El flujo real de invitación y recuperación por correo debe conservar su QA operativa específica según docs/56; CI no garantiza entrega SMTP.
+- **Identidad:** ver docs/51. Monograma EV, ciruela y negro, SVG, favicon; no sustituir ni inventar el wordmark V–A definitivo.
+- **Preparación:** ver docs/52. En preparación (amarillo), Preparado (azul), Completado (verde). El metadato de preparación no cambia `orders.status`, pagos, stock, entrega o cierre. Todos los admins activos pueden cambiarlo; auditar y revertir. La edición de composición invalida la preparación. No exigir preparación como condición del cierre.
+- `main` no se modifica. No promover a producción sin autorización de publicación. Los siguientes cambios funcionales deben partir del HEAD real de `dev/evalia-core`.
+
+---
+
 ## 1. Qué es EVALIA y qué problema resuelve
 
 EVALIA es una aplicación web de **administración de catálogo, disponibilidad, clientes, pedidos confirmados, cobros externos y entregas** para una operación textil de Bolivia. Su prioridad es la venta mayorista de prendas por modelos, docenas surtidas y cantidades adicionales. El registro de compradores se hace administrativamente; la comunicación comercial puede ocurrir por WhatsApp, feria o contacto directo.
