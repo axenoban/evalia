@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
-  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos,
+  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder,
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
@@ -34,7 +34,7 @@ const displayDate=iso=>iso?new Intl.DateTimeFormat('es-BO',{
 }).format(new Date(iso)):'—';
 const initials=name=>String(name||'EV').trim().split(/\s+/).slice(0,2).map(s=>s[0]?.toUpperCase()).join('');
 const rup=number=>new Intl.NumberFormat('es-BO').format(Number(number)||0);
-const statusLabels={saved:'Compromiso anterior',in_review:'Revisión histórica',expired:'Histórico vencido',converted:'Convertido a pedido',active:'En preparación',completed:'Completado',draft:'Borrador'};
+const statusLabels={saved:'Compromiso anterior',in_review:'Revisión histórica',expired:'Histórico vencido',converted:'Convertido a pedido',active:'En preparación',completed:'Completado',voided:'Anulado',draft:'Borrador'};
 
 function ColorChip({color,selected=false,onClick,compact=false,disabled=false}){
  const colorValid=/^#[\da-f]{6}$/i.test(color?.hex_code||'');
@@ -194,10 +194,10 @@ function Dashboard({data,setTab}){
  };
  const totals=inventoryTotals(data.stock);
  const availableActive=inventoryTotals(Object.fromEntries(activeModels.map(m=>[m.id,data.stock[m.id]||{}]))).available;
- const activeOrders=data.orders.filter(o=>o.status==='active')
+ const activeOrders=data.orders.filter(o=>o.status==='active'&&!o.archived_at)
   .sort((a,b)=>Date.parse(b.confirmed_at||0)-Date.parse(a.confirmed_at||0));
  const activeLegacy=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
- const pendingPayments=data.payments.filter(p=>p.status==='pending'||p.status==='observed');
+ const pendingPayments=data.payments.filter(p=>(p.status==='pending'||p.status==='observed')&&!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id))));
  const blocked=activeModels.filter(m=>data.stock[m.id]?.blocked);
  const customerById=new Map(data.customers.map(c=>[c.id,c]));
  const ordersById=new Map(data.orders.map(o=>[o.id,o]));
@@ -538,7 +538,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
      value={search} placeholder="Buscar nombre o WhatsApp…" onChange={e=>setSearch(e.target.value)}/></label>
     {clients.length?<div className="client-list">{clients.map(c=>{
       const reservations=data.reservations.filter(r=>r.customer_id===c.id).length;
-      const orders=data.orders.filter(o=>o.customer_id===c.id).length;
+      const orders=data.orders.filter(o=>o.customer_id===c.id&&!o.archived_at).length;
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
        <div><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}{c.shipping_destination?' · '+c.shipping_destination:''}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span></div>
        <button className="button button-outline" type="button" disabled={busy}
@@ -1022,7 +1022,7 @@ function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
  const [notes,setNotes]=useState({});
  const [filter,setFilter]=useState('pending');
  const pending=['pending','observed'];
- const list=data.payments.filter(p=>filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter));
+ const list=data.payments.filter(p=>!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id)))&&(filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter)));
  return <><SectionHead eyebrow="CONCILIACIÓN MANUAL" title="Verifica los pagos recibidos."
   description="Un aviso o comprobante NO confirma dinero ingresado. Comprueba la recepción fuera del sistema antes de aprobar."/>
   <QrAdmin settings={data.qrSettings} onSave={onSaveQr} busy={busy} canManage={canManageQr}/>
@@ -1288,13 +1288,16 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
  </form>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,busy}){
+function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,busy}){
  const [editingId,setEditingId]=useState(null);
+ const [showArchived,setShowArchived]=useState(false);
+ const visibleOrders=data.orders.filter(o=>Boolean(o.archived_at)===showArchived);
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Abre un pedido para consultar sus modelos y gestionar lo necesario."/>
-  <LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>
-  {data.orders.length?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
-   {data.orders.map(o=>{
+  {!showArchived&&<LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>}
+  <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>setShowArchived(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>setShowArchived(true)}>Archivados ({data.orders.filter(o=>o.archived_at).length})</button></div>
+  {visibleOrders.length?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
+   {visibleOrders.map(o=>{
     const customer=data.customers.find(x=>x.id===o.customer_id);
     const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
     const finance=data.finances[o.id]||{total:0,approved:0,pending:0,excess:0};
@@ -1302,7 +1305,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
     const orderedUnits=o.lines.reduce((sum,l)=>sum+Number(l.quantity||0),0);
     const relatedPayments=data.payments.filter(p=>p.order_id===o.id||
       (o.origin_reservation_id&&p.reservation_id===o.origin_reservation_id));
-    const editReason=o.status!=='active'?'El pedido está completado':
+    const editReason=o.status!=='active'?'El pedido está cerrado':
      o.origin_reservation_id?'Pedido originado en un registro histórico':
      relatedPayments.length?'Tiene movimientos o avisos de pago':
      data.deliveries.some(d=>d.order_id===o.id)||Number(delivery.delivered)>0?'Ya registra una entrega':
@@ -1311,6 +1314,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        !data.models.some(m=>m.id===l.model_id&&m.is_active))?'Composición antigua o modelo inactivo':
      o.lines.some(l=>data.stock[l.model_id]?.blocked)?'Modelo con inventario en revisión':
      !Number.isSafeInteger(o.revision)?'Falta habilitar la edición en Supabase':null;
+    const canArchive=!o.archived_at&&(o.status==='completed'||(o.status==='active'&&!relatedPayments.length&&!data.deliveries.some(d=>d.order_id===o.id)&&Number(delivery.delivered)===0));
     const sizes=[...new Set(o.lines.map(l=>data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
     return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
      <summary className="ev-order-summary">
@@ -1329,10 +1333,21 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       <span className="ev-order-summary-end">
        <strong className="ev-order-summary-total">{formatBs(total)}</strong>
        <Status value={o.status}/>
+       {o.archived_at&&<span className="ev-order-archive-label">Archivado</span>}
       </span>
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
      </summary>
      <div className="ev-order-expanded">
+      {o.archived_at?<p className="small-note">Archivado · {displayDate(o.archived_at)} · {o.archive_reason}{o.status==='voided'?' · Sin cobros ni entregas pendientes.':''}</p>:
+       <div className="ev-order-archive-action">
+        <button type="button" className="button ev-archive-button" disabled={busy||!canArchive} onClick={()=>{
+         const explanation=o.status==='active'?'Anular este pedido libera las prendas comprometidas y desactiva su enlace.':'Archivar este pedido solo lo oculta. Conserva los cobros y las entregas registrados.';
+         if(!window.confirm(explanation+' ¿Continuar?'))return;
+         const reason=window.prompt('Motivo del archivo (máximo 300 caracteres)','Registro de prueba o error');
+         if(reason?.trim())onArchiveOrder(o.id,reason.trim());
+        }}>{o.status==='active'?'Anular y ocultar pedido':'Archivar pedido'}</button>
+        {!canArchive&&<span className="small-note">No se puede anular si tiene pagos, avisos o entregas.</span>}
+       </div>}
       {o.status==='active'&&<div className="ev-order-edit-access">
        <button type="button" className="button button-outline ev-order-edit-button" disabled={busy||Boolean(editReason)}
         onClick={()=>setEditingId(current=>current===o.id?null:o.id)}>
@@ -1355,7 +1370,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        <div className="order-lines">
         {o.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);
          return <div className="order-product" key={l.id||l.model_id}>
-          {m&&<ProductImage model={m}/>}
+          {m?.is_active&&<ProductImage model={m}/>}
           <div className="order-product-data">
            <strong>{m?.name||'Modelo'}</strong>
            <small>Talla {m?.size_label||'—'}</small>
@@ -1374,7 +1389,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        <section className="order-shipping-panel ev-order-shipping" aria-label="Entrega e impresión">
         {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
         {o.fulfillment_method==='legacy'&&<p>Pedido anterior a la clasificación de entregas. Indica cómo se entregará para habilitar la impresión.</p>}
-        {o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
+        {o.status!=='voided'&&o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
          onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Imprimir etiqueta de envío':'Imprimir detalle y total'}</button>}
         {o.status==='active'&&<details className="order-delivery-details">
          <summary>{o.fulfillment_method==='legacy'?'Clasificar entrega para imprimir':'Corregir destino o modalidad'}</summary>
@@ -1403,14 +1418,14 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
         {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
         <details className="ev-order-link-details">
          <summary>WhatsApp y enlace privado <span aria-hidden="true">⌄</span></summary>
-         <OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>
+         {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>}
         </details>
        </div>
       </details>
      </div>
     </details>;
    })}
-  </div>:<Empty title="Aún no hay pedidos" detail="Registra la primera compra confirmada desde Nuevo pedido."/>}
+  </div>:<Empty title={showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
  </>;
 }
 function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
@@ -1560,6 +1575,7 @@ export default function HomePage(){
    const result=await archiveModel(model);
    if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch(err){await refresh();throw new Error('Producto inhabilitado; fotografía pendiente de limpieza. '+err.message);}}
   },'Producto inhabilitado; el historial permanece intacto.');
+ const archiveSelectedOrder=(orderId,reason)=>mutation(()=>archiveOrder(orderId,reason),'Pedido archivado; historial conservado.');
  const cleanArchivedPhotos=(paths)=>mutation(()=>cleanupArchivedPhotos(paths),'Fotografías archivadas eliminadas.');
  const saveCustomerEdit=(params)=>mutation(()=>updateCustomer({
   customerId:params.customer.id,name:params.name,whatsapp:params.whatsapp,
@@ -1640,7 +1656,7 @@ export default function HomePage(){
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} busy={busy}/>:  
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
       tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}

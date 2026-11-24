@@ -15,10 +15,9 @@ set local request.jwt.claim.sub='18110000-0000-4000-8000-000000000001';
 select lives_ok($q$select public.create_evalia_order_delivery('38110000-0000-4000-8000-000000000001',
  '[{"modelId":"28110000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]',
  '58110000-0000-4000-8000-000000000001','pickup',null)$q$,'pedido activo creado');
-select throws_ok($q$select public.archive_evalia_model(id,updated_at) from public.models where id='28110000-0000-4000-8000-000000000001'$q$,
- '23514','El modelo tiene pedidos o compromisos pendientes. Complétalos antes de inhabilitar','no impedir edición ni entrega de pedidos activos');
-select lives_ok($q$select public.quick_evalia_checkout((select id from public.orders where request_id='58110000-0000-4000-8000-000000000001'),'pay_deliver','68110000-0000-4000-8000-000000000001',null,true,true)$q$,'completar pedido normal');
-select is((select public.archive_evalia_model(id,updated_at)->>'photo_path' from public.models where id='28110000-0000-4000-8000-000000000001'),null::text,'no eliminar foto compartida activa');
+select is((select public.archive_evalia_model(id,updated_at)->>'photo_path' from public.models where id='28110000-0000-4000-8000-000000000001'),null::text,'inhabilitar con pedido abierto, proteger foto compartida');
+select is((public.get_model_stock('28110000-0000-4000-8000-000000000001')->>'pending_delivery')::integer,12,'compromiso del pedido intacto');
+select lives_ok($q$select public.quick_evalia_checkout((select id from public.orders where request_id='58110000-0000-4000-8000-000000000001'),'pay_deliver','68110000-0000-4000-8000-000000000001',null,true,true)$q$,'completar pedido de modelo inhabilitado');
 select ok((select not is_active from public.models where id='28110000-0000-4000-8000-000000000001'),'baja lógica');
 select is((select name from public.models where id='28110000-0000-4000-8000-000000000001'),'Modelo histórico','nombre preservado');
 select is((select price_dozen_bs from public.order_lines where model_id='28110000-0000-4000-8000-000000000001'),380::numeric,'precio del pedido intacto');

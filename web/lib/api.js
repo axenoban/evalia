@@ -22,7 +22,7 @@ export async function signOut(){
 export async function loadWorkspace(){
   const db=client();
   const [modelData,colorData,modelColorData,customerData,reservationData,
-    reservationLineData,orderData,orderLineData,reservationColorData,orderColorData,revisionData,
+    reservationLineData,orderData,archivedOrderData,orderLineData,reservationColorData,orderColorData,revisionData,
     paymentData,paymentReviewData,deliveryData,deliveryLineData,linkData,qrData]=await Promise.all([
     db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at,updated_at').order('created_at',{ascending:false}),
     db.from('colors').select('id,name,hex_code,is_active').order('name'),
@@ -30,7 +30,8 @@ export async function loadWorkspace(){
     db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at').order('created_at',{ascending:false}),
     db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at').order('created_at',{ascending:false}).limit(200),
     db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units'),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at').order('confirmed_at',{ascending:false}).limit(200),
+    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason').is('archived_at',null).order('confirmed_at',{ascending:false}).limit(200),
+    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason').not('archived_at','is',null).order('archived_at',{ascending:false}).limit(200),
     db.from('order_lines').select('id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs'),
     db.from('reservation_extra_colors').select('reservation_line_id,color_id,position').order('position'),
     db.from('order_extra_colors').select('order_line_id,color_id,position').order('position'),
@@ -45,7 +46,7 @@ export async function loadWorkspace(){
   const models=unwrap(modelData,'Modelos'),colors=unwrap(colorData,'Colores'),
    modelColors=unwrap(modelColorData,'Colores de modelo'),customers=unwrap(customerData,'Clientes'),
    reservations=unwrap(reservationData,'Reservas'),reservationLines=unwrap(reservationLineData,'Líneas de reserva'),
-   orders=unwrap(orderData,'Pedidos'),orderLines=unwrap(orderLineData,'Líneas de pedido'),
+   orders=[...unwrap(orderData,'Pedidos'),...unwrap(archivedOrderData,'Pedidos archivados')],orderLines=unwrap(orderLineData,'Líneas de pedido'),
    reservationColors=unwrap(reservationColorData,'Colores de unidades reservadas'),
    orderColors=unwrap(orderColorData,'Colores de unidades pedidas'),
    revisions=unwrap(revisionData,'Historial de ediciones de reserva'),
@@ -122,6 +123,9 @@ export async function cleanupArchivedPhotos(paths){
   const removed=unwrap(await db.rpc('finalize_evalia_archived_photo',{p_image_path:path}),'Verificar eliminación');
   if(!removed)throw new Error('La fotografía aún existe o está vinculada a un modelo activo.');
  }
+}
+export async function archiveOrder(orderId,reason){
+ return unwrap(await client().rpc('archive_evalia_order',{p_order_id:orderId,p_reason:reason}),'Archivar pedido');
 }
 export async function updateCustomer({customerId,name,whatsapp,method,destination,expectedUpdatedAt,requestId}){
  return unwrap(await client().rpc('update_evalia_customer_delivery',{
