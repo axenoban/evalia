@@ -1391,7 +1391,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
         {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
         {o.fulfillment_method==='legacy'&&<p>Pedido anterior a la clasificación de entregas. Indica cómo se entregará para habilitar la impresión.</p>}
         {o.status!=='voided'&&o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
-         onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Imprimir etiqueta de envío':'Imprimir detalle y total'}</button>}
+         onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Vista previa de etiqueta de envío':'Vista previa del comprobante'}</button>}
         {o.status==='active'&&<details className="order-delivery-details">
          <summary>{o.fulfillment_method==='legacy'?'Clasificar entrega para imprimir':'Corregir destino o modalidad'}</summary>
          <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={busy}/>

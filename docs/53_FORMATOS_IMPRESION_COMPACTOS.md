@@ -1,0 +1,8 @@
+# EVALIA — Formatos de impresión compactos (candidato)
+Base: 65df7bb0ecac9e850c96654f78f908199d489dde. Rama: feature/evalia-impresion-formatos. Pendiente de aprobación física.
+- Retiro: 15 × 10, 10 × 15 (predeterminado), 10 × 10 cm. Monograma EV aprobado, nombre y WhatsApp del snapshot (si existe), fecha del registro si disponible, modelos, tallas, composición, cantidades e importes históricos, total y lema. El WhatsApp se añade exclusivamente al comprobante interno por aprobación de las propuestas visuales.
+- Envío: mismos tamaños, 10 × 10 predeterminado. Solo destino, destinatario y teléfono. Sin marca, número de pedido, fecha, artículos, precios, QR, token ni datos ajenos. El DOM se genera aparte.
+- Vista previa aislada del panel, tamaño y acabado color/monocromo. Botón Imprimir abre diálogo nativo. Usar papel coincidente, escala 100 %, desactivar encabezados/pies. CSS usa mm y márgenes de seguridad de 5 mm, no promete compatibilidad con todas las impresoras. Tabla de retiro permite paginación nativa, repite encabezados y evita cortar filas donde el navegador lo admite.
+- Sin cambios SQL, estados, pagos, stock ni autenticación. No modificar datos reales para QA.
+## Aceptación
+En Pedidos → abrir pedido → Impresión y destino → Vista previa. Revisar cada formato en un pedido de retiro y uno de envío, color y monocromo, nombre/destino largos, detalles adicionales y pedido de múltiples páginas. Verificar totales históricos, privacidad, salida física, escala y márgenes. Probar PC y móvil con ventanas emergentes permitidas. Imprimir a PDF desde diálogo nativo si no hay impresora. La rama estable y main no se integran sin autorización.
