@@ -194,7 +194,7 @@ function Dashboard({data,setTab}){
  };
  const totals=inventoryTotals(data.stock);
  const availableActive=inventoryTotals(Object.fromEntries(activeModels.map(m=>[m.id,data.stock[m.id]||{}]))).available;
- const activeOrders=data.orders.filter(o=>o.status==='active'&&!o.archived_at)
+ const activeOrders=data.orders.filter(o=>o.status==='active')
   .sort((a,b)=>Date.parse(b.confirmed_at||0)-Date.parse(a.confirmed_at||0));
  const activeLegacy=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
  const pendingPayments=data.payments.filter(p=>(p.status==='pending'||p.status==='observed')&&!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id))));
@@ -1305,7 +1305,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
     const orderedUnits=o.lines.reduce((sum,l)=>sum+Number(l.quantity||0),0);
     const relatedPayments=data.payments.filter(p=>p.order_id===o.id||
       (o.origin_reservation_id&&p.reservation_id===o.origin_reservation_id));
-    const editReason=o.status!=='active'?'El pedido está cerrado':
+    const editReason=o.status!=='active'?'El pedido está completado':
      o.origin_reservation_id?'Pedido originado en un registro histórico':
      relatedPayments.length?'Tiene movimientos o avisos de pago':
      data.deliveries.some(d=>d.order_id===o.id)||Number(delivery.delivered)>0?'Ya registra una entrega':
@@ -1314,7 +1314,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        !data.models.some(m=>m.id===l.model_id&&m.is_active))?'Composición antigua o modelo inactivo':
      o.lines.some(l=>data.stock[l.model_id]?.blocked)?'Modelo con inventario en revisión':
      !Number.isSafeInteger(o.revision)?'Falta habilitar la edición en Supabase':null;
-    const canArchive=!o.archived_at&&(o.status==='completed'||(o.status==='active'&&!relatedPayments.length&&!data.deliveries.some(d=>d.order_id===o.id)&&Number(delivery.delivered)===0));
+    const canArchive=!o.archived_at&&((o.status==='completed'&&!relatedPayments.some(p=>p.status==='pending'||p.status==='observed'))||(o.status==='active'&&!relatedPayments.length&&!data.deliveries.some(d=>d.order_id===o.id)&&Number(delivery.delivered)===0));
     const sizes=[...new Set(o.lines.map(l=>data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
     return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
      <summary className="ev-order-summary">
@@ -1346,7 +1346,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
          const reason=window.prompt('Motivo del archivo (máximo 300 caracteres)','Registro de prueba o error');
          if(reason?.trim())onArchiveOrder(o.id,reason.trim());
         }}>{o.status==='active'?'Anular y ocultar pedido':'Archivar pedido'}</button>
-        {!canArchive&&<span className="small-note">No se puede anular si tiene pagos, avisos o entregas.</span>}
+        {!canArchive&&<span className="small-note">Resuelve primero los movimientos pendientes. No se anulan pedidos activos con pagos, avisos o entregas.</span>}
        </div>}
       {o.status==='active'&&<div className="ev-order-edit-access">
        <button type="button" className="button button-outline ev-order-edit-button" disabled={busy||Boolean(editReason)}

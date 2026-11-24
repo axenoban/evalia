@@ -2,7 +2,7 @@ begin;
 create schema if not exists extensions;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(18);
+select plan(20);
 insert into auth.users(id,email) values('19110000-0000-4000-8000-000000000001','order-archive@example.invalid');
 insert into public.admin_profiles(user_id) values('19110000-0000-4000-8000-000000000001');
 insert into public.customers(id,name,whatsapp) values('39110000-0000-4000-8000-000000000001','Cliente archivo','70012345');
@@ -27,6 +27,8 @@ select lives_ok($q$select public.create_evalia_order_delivery('39110000-0000-400
 select lives_ok($q$select public.quick_evalia_checkout((select id from public.orders where request_id='59110000-0000-4000-8000-000000000003'),'pay_deliver','69110000-0000-4000-8000-000000000003',null,true,true)$q$,'cobro y entrega reales de prueba');
 select lives_ok($q$select public.archive_evalia_order((select id from public.orders where request_id='59110000-0000-4000-8000-000000000003'),'Histórico')$q$,'archivar completado sin cambiar estado');
 select is((public.get_model_stock('29110000-0000-4000-8000-000000000001')->>'available')::integer,24,'stock físico y compromiso restante correctos');
+select is((select status from public.orders where request_id='59110000-0000-4000-8000-000000000003'),'completed','archivo conserva estado completado');
+select is((select count(*)::integer from public.deliveries where order_id=(select id from public.orders where request_id='59110000-0000-4000-8000-000000000003')),1,'entrega histórica conservada');
 select ok(not has_function_privilege('anon','public.archive_evalia_order(uuid,text)','execute'),'anon sin permiso');
 select * from finish();
 rollback;

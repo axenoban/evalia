@@ -251,8 +251,8 @@ begin
   return v_prior.id;
  end if;
  if p_reservation_id is not null then
-  if not exists(select 1 from public.reservations where id=p_reservation_id
-                and status in ('saved','in_review')) then
+  perform 1 from public.reservations where id=p_reservation_id and status in ('saved','in_review') for update;
+  if not found then
    raise exception 'Reserva no apta para registrar depósito' using errcode='23514';
   end if;
  else
@@ -279,6 +279,11 @@ begin
  select * into v_order from public.orders where id=p_order_id for update;
  if not found then raise exception 'Pedido inexistente' using errcode='P0002'; end if;
  if v_order.archived_at is not null then return p_order_id; end if;
+ if v_order.status='completed' and exists(select 1 from public.payment_reports p where (p.order_id=p_order_id
+    or (v_order.origin_reservation_id is not null and p.reservation_id=v_order.origin_reservation_id))
+    and p.status in ('pending','observed')) then
+  raise exception 'Revisa los avisos de pago pendientes antes de archivar' using errcode='23514';
+ end if;
  if v_order.status='active' then
   -- No alterar conciliación, entregas ni dinero. Los registros erróneos sin movimientos
   -- se anulan conservando líneas y precios; los pedidos cerrados solo se archivan.
