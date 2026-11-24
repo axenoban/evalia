@@ -13,6 +13,10 @@
 
 ---
 
+## Impresión compacta y autorización de publicación — 23 de noviembre de 2026
+
+El propietario aprobó el candidato `29d54020283adc93e3bdd0a23b129bb2c15c7d86` (PR #24) y autorizó integrar a la rama estable y `main`. Seis formatos de impresión: retiro y envío en 15×10, 10×15 y 10×10 cm; vista previa y monocromo; privacidad estricta de envío. Ver docs/53_FORMATOS_IMPRESION_COMPACTOS.md. CI de código aprobada: Node, Next.js y pgTAP; Preview READY. Sin migraciones ni cambios de reglas. Las menciones históricas a mantener `main` sin cambios quedan superadas por esta autorización concreta, no para futuras publicaciones.
+
 ## Actualización de baseline — 23 de noviembre de 2026 (hora Bolivia)
 
 El propietario aprobó la identidad visual (monograma EV, favicon, tema compartido e iconografía) y posteriormente la preparación reversible de pedidos, tras probar el candidato `ead7845c3808a06281d7eec2ea9452788b28eb7f`. El cierre técnico de esta versión toma dicho commit como código auditado; `dev/evalia-core` es la rama estable de desarrollo. Las referencias al corte inicial 4270da0a, 14 migraciones y QA inicial que figuran más abajo son históricas, no el estado vigente.
