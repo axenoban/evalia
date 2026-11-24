@@ -1,5 +1,6 @@
 import './globals.css';
 import './dashboard.css';
+import './product-registration.css';
 import './booking.css';
 import './orders.css';
 import './toasts.css';

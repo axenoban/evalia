@@ -1,0 +1,19 @@
+/* Registro de productos — estilos aislados, sin alterar validaciones. */
+.ev-product-registration{align-items:start;gap:20px}
+.ev-product-registration .surface{border-radius:20px;border:1px solid #eadde6;box-shadow:0 8px 26px #4933440a}
+.ev-register-heading{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid #eee3eb;margin-bottom:20px}
+.ev-register-heading>span{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:13px;background:#f1dce7;color:#7e3f60;font-size:24px}
+.ev-register-heading h2{margin:0 0 4px;font-size:20px;color:#402b3e}
+.ev-register-heading p{margin:0;font-size:12px;color:#665c69}
+.ev-register-section-title{display:flex;align-items:center;gap:10px;font-weight:800;color:#58394f;font-size:14px;margin:18px 0 12px}
+.ev-register-section-title b{font-size:11px;background:#f5e6ee;color:#784160;padding:7px 9px;border-radius:8px}
+.ev-register-main .photo-field{margin:0 0 24px;padding:16px;background:#fbf7fa;border:1px solid #eadde6;border-radius:15px;flex-wrap:wrap}
+.ev-register-main .photo-preview{width:clamp(120px,35%,200px);height:190px;background:#f4e9f0}
+.ev-register-main .form-inline{gap:16px}
+.ev-register-main .field input{min-height:44px;font-size:14px}
+.ev-register-main .palette-selector{margin-top:22px;padding-top:6px}
+.ev-register-main .color-select-grid{grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
+.ev-register-main .color-choice{min-height:44px}
+.ev-register-main .model-form>.button{min-height:48px;font-size:14px}
+.ev-register-palette .palette-form{padding:14px;background:#fbf7fa;border:1px solid #eadde6;border-radius:12px}
+@media(max-width:740px){.ev-product-registration{grid-template-columns:minmax(0,1fr);gap:14px}.ev-product-registration .surface.pad{padding:16px}.ev-register-main .photo-preview{width:120px;height:150px}.ev-register-main .form-inline{gap:10px}.ev-register-main .color-select-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

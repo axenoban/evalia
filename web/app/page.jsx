@@ -10,7 +10,7 @@ import {
 import { getSupabase } from '../lib/supabase.js';
 import AdminAccounts from './admin-accounts.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
-import { formatAvailableDozens, formatModelDozenPrice } from '../lib/dashboard-presentation.js';
+import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
@@ -170,6 +170,7 @@ function DashboardProductCard({model,stock}){
  </article>;
 }
 function Dashboard({data,setTab}){
+ const visibleModels=prioritizeModels(data.models);
  const trackRef=useRef(null);
  const [trackEdges,setTrackEdges]=useState({prev:false,next:false});
  const updateTrackEdges=useCallback(()=>{
@@ -191,7 +192,7 @@ function Dashboard({data,setTab}){
   .sort((a,b)=>Date.parse(b.confirmed_at||0)-Date.parse(a.confirmed_at||0));
  const activeLegacy=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
  const pendingPayments=data.payments.filter(p=>p.status==='pending'||p.status==='observed');
- const blocked=data.models.filter(m=>data.stock[m.id]?.blocked);
+ const blocked=visibleModels.filter(m=>data.stock[m.id]?.blocked);
  const customerById=new Map(data.customers.map(c=>[c.id,c]));
  const ordersById=new Map(data.orders.map(o=>[o.id,o]));
  const legacyById=new Map(data.reservations.map(r=>[r.id,r]));
@@ -216,20 +217,20 @@ function Dashboard({data,setTab}){
    <header className="ev-zone-header">
     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">♧</span>
      <div><h2 id="ev-models-heading">Modelos y stock disponible</h2>
-      <p>Existencia libre por modelo, expresada en docenas y unidades.</p></div>
+      <p>Primero los modelos de las últimas 48 horas; después, los demás modelos activos.</p></div>
     </div>
     <div className="ev-zone-actions">
      <button type="button" className="ev-section-link" onClick={()=>setTab('catalog')}>Administrar productos <span aria-hidden="true">→</span></button>
-     {data.models.length>0&&<div className="ev-carousel-buttons" aria-label="Desplazar modelos">
+     {visibleModels.length>0&&<div className="ev-carousel-buttons" aria-label="Desplazar modelos">
       <button type="button" aria-label="Ver modelos anteriores" disabled={!trackEdges.prev} onClick={()=>shiftModels(-1)}>‹</button>
       <button type="button" aria-label="Ver más modelos" disabled={!trackEdges.next} onClick={()=>shiftModels(1)}>›</button>
      </div>}
     </div>
    </header>
-   {data.models.length?
+   {visibleModels.length?
     <div ref={trackRef} className="ev-model-track" role="region" tabIndex={0}
        aria-label="Carrusel de modelos y disponibilidad" onScroll={updateTrackEdges}>
-     {data.models.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]}/>)}
+     {visibleModels.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]}/>)}
     </div>:
     <Empty title="Aún no hay modelos" detail="Registra un modelo y su inventario desde Productos."/>}
   </section>
@@ -358,18 +359,18 @@ function ModelEditor({model,onSave,busy}){
 function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,busy}){
  const [view,setView]=useState('list'),[search,setSearch]=useState(''),[editStock,setEditStock]=useState(null),[editCatalog,setEditCatalog]=useState(null);
  const [newColor,setNewColor]=useState(''),[newHex,setNewHex]=useState('#9b6682');
- const filtered=data.models.filter(m=>(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+ const filtered=data.models.filter(m=>m.is_active&&(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  async function submitColor(e){e.preventDefault();const ok=await onCreateColor(newColor.trim(),newHex);if(ok)setNewColor('');}
  return <>
   <SectionHead eyebrow="CATÁLOGO E INVENTARIO" title="Productos que se venden."
    description="Cada modelo conserva su talla y su propio precio. Los colores son muestras visuales, no existencias individuales."
    actions={<button className="button button-primary" onClick={()=>setView(view==='new'?'list':'new')}>
      {view==='new'?'← Volver al catálogo':'＋ Registrar producto'}</button>}/>
-  {view==='new'?<div className="two-columns catalog-forms">
-   <section className="surface pad"><h2>Nuevo modelo</h2><p className="muted">Alta rápida para la próxima feria.</p>
+  {view==='new'?<div className="two-columns catalog-forms ev-product-registration">
+   <section className="surface pad ev-register-main"><header className="ev-register-heading"><span aria-hidden="true">▧</span><div><h2>Nuevo modelo</h2><p>Fotografía, datos comerciales y existencias iniciales.</p></div></header>
     <ModelForm colors={data.colors.filter(c=>c.is_active)} onCreate={async params=>{const ok=await onCreateModel(params);if(ok)setView('list');return ok;}} busy={busy}/>
    </section>
-   <section className="surface pad"><h2>Paleta de colores</h2>
+   <section className="surface pad ev-register-palette"><header className="ev-register-heading"><span aria-hidden="true">◉</span><div><h2>Paleta de colores</h2><p>Biblioteca reutilizable</p></div></header>
     <p className="muted">Primero registra colores reutilizables. El círculo refleja el tono que has elegido.</p>
     <form onSubmit={submitColor} className="palette-form"><Field title="Nombre del color">
      <input value={newColor} name="colorName" required maxLength={80} onChange={e=>setNewColor(e.target.value)}
@@ -440,14 +441,16 @@ function ModelForm({colors,onCreate,busy}){
   }catch(err){setLocalError(err.message);}
  }
  return <form onSubmit={submit} className="model-form">
-  <div className="photo-field">
+  <div className="ev-register-section-title"><b>01</b> Fotografía del producto</div>
+   <div className="photo-field">
    <div className="photo-preview">{preview?<img alt="Vista previa de la foto elegida" src={preview}/>:
     <div className="upload-placeholder"><span>▧</span><b>Fotografía del modelo</b><small>JPG · PNG · WebP</small></div>}</div>
    <label className="file-label"><span className="button button-outline">Elegir fotografía</span>
     <input name="modelPhoto" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>choosePhoto(e.target.files?.[0])}/>
    </label>
   </div>
-  <div className="form-inline">
+  <div className="ev-register-section-title"><b>02</b> Información comercial</div>
+   <div className="form-inline">
    <Field title="Nombre del modelo"><input name="modelName" required maxLength={120} value={name}
      onChange={e=>{setName(e.target.value);requestId.current=null;}} placeholder="Nombre comercial…"/></Field>
    <Field title="Talla única del modelo"><input name="modelSize" required maxLength={24} value={size}
@@ -461,6 +464,7 @@ function ModelForm({colors,onCreate,busy}){
       onChange={e=>{setDocenas(e.target.value);requestId.current=null;}} required/></Field>
   </div>
   <div className="palette-selector">
+    <div className="ev-register-section-title"><b>03</b> Colores disponibles</div>
    <div className="palette-title"><strong>Colores que ofrece este modelo</strong><span>{selected.length} seleccionados</span></div>
    <p>Selecciona muestras de la paleta. No registraremos unidades por color.</p>
    {colors.length?<div className="color-select-grid">{colors.map(c=><ColorChip key={c.id} color={c}
