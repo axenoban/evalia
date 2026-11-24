@@ -218,3 +218,19 @@
 }
 
 .ev-order-archive-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.ev-order-archive-toolbar [aria-pressed=true]{background:var(--plum);color:white}.ev-order-archive-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.ev-order-archive-label{font-size:10px;color:#746176;font-weight:700}.status-voided{background:#f3e5e8;color:#8c4050}
+
+/* Preparación física: cambio rápido, independiente del estado comercial. */
+.ev-order-accordion[data-order-status="active"]{border-color:#E8D5A3}
+.ev-order-accordion[data-order-status="active"]>.ev-order-summary,
+.ev-order-accordion[data-order-status="active"][open]>.ev-order-summary{background:linear-gradient(118deg,#FFFCF3,#FFF4D8);border-bottom-color:#E8D5A3}
+.ev-order-accordion[data-order-status="active"] .ev-order-avatar{background:#F7E8BD;color:#725017}
+.ev-order-accordion[data-order-status="active"]:has(>.ev-order-summary .ev-preparation-toggle[data-prepared="true"]){border-color:#B6D1E5}
+.ev-order-accordion[data-order-status="active"]:has(>.ev-order-summary .ev-preparation-toggle[data-prepared="true"])>.ev-order-summary{background:linear-gradient(118deg,#F7FBFF,#E6F1FC);border-bottom-color:#B6D1E5}
+.ev-order-accordion[data-order-status="active"]:has(>.ev-order-summary .ev-preparation-toggle[data-prepared="true"]) .ev-order-avatar{background:#DDEBF8;color:#285981}
+.ev-preparation-toggle{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:44px;max-width:100%;padding:5px 9px;border:1px solid #D5B35E;border-radius:10px;background:#FFF0C4;color:#66440B;font:inherit;text-align:center;touch-action:manipulation}
+.ev-preparation-toggle strong{font-size:11px;line-height:1.2;font-weight:850}
+.ev-preparation-toggle small{font-size:9px;font-weight:650;line-height:1.2;text-decoration:underline;text-underline-offset:2px}
+.ev-preparation-toggle[data-prepared="true"]{border-color:#91B9D9;background:#DBECFC;color:#224E75}
+.ev-preparation-toggle:hover:not(:disabled){filter:brightness(.96)}
+.ev-preparation-toggle:focus-visible{outline:3px solid #4D3443;outline-offset:2px}
+@media(max-width:410px){.ev-preparation-toggle{padding:5px 6px;max-width:104px}.ev-preparation-toggle strong{font-size:10px}.ev-preparation-toggle small{font-size:9px}}

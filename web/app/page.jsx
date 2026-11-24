@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
-  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder,
+  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder, setOrderPrepared,
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
@@ -1289,7 +1289,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
  </form>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,busy}){
+function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
  const [editingId,setEditingId]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
  const visibleOrders=data.orders.filter(o=>Boolean(o.archived_at)===showArchived);
@@ -1333,7 +1333,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       </span>
       <span className="ev-order-summary-end">
        <strong className="ev-order-summary-total">{formatBs(total)}</strong>
-       <Status value={o.status}/>
+       {o.status==='active'&&!o.archived_at?<button type="button" className="ev-preparation-toggle" data-prepared={Boolean(o.prepared_at)} disabled={busy} aria-label={(o.prepared_at?'Volver a en preparación: ':'Marcar preparado: ')+(customer?.name||'Cliente')} onClick={e=>{e.preventDefault();e.stopPropagation();onPreparation(o);}}><strong>{o.prepared_at?'✓ Preparado':'En preparación'}</strong><small>{o.prepared_at?'Deshacer':'Marcar preparado'}</small></button>:<Status value={o.status}/>}
        {o.archived_at&&<span className="ev-order-archive-label">Archivado</span>}
       </span>
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
@@ -1362,7 +1362,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       {o.status==='active'&&<div className="ev-order-finance-brief" aria-label="Situación del cobro">
        {amountCents(finance.pending)>0n?
         <span className="ev-order-balance-due"><span>Saldo por cobrar</span><strong>{formatBs(amountCents(finance.pending))}</strong></span>:
-        <span className="ev-order-balance-ready">{Number(delivery.remaining)>0?'Pago verificado · listo para entregar':'Pago y entrega registrados'}</span>}
+        <span className="ev-order-balance-ready">{Number(delivery.remaining)>0?'Pago verificado · entrega pendiente':'Pago y entrega registrados'}</span>}
        {amountCents(finance.pending)>0n&&amountCents(finance.approved)>0n&&
         <small>Abonos aprobados: {formatBs(amountCents(finance.approved))}</small>}
       </div>}
@@ -1576,6 +1576,7 @@ export default function HomePage(){
    const result=await archiveModel(model);
    if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch(err){await refresh();throw new Error('Producto inhabilitado; fotografía pendiente de limpieza. '+err.message);}}
   },'Producto inhabilitado; el historial permanece intacto.');
+ const changePreparation=o=>mutation(()=>setOrderPrepared({orderId:o.id,prepared:!o.prepared_at,expectedVersion:o.preparation_version}),o.prepared_at?'Pedido nuevamente en preparación.':'Pedido marcado como preparado.');
  const archiveSelectedOrder=(orderId,reason)=>mutation(()=>archiveOrder(orderId,reason),'Pedido archivado; historial conservado.');
  const cleanArchivedPhotos=(paths)=>mutation(()=>cleanupArchivedPhotos(paths),'Fotografías archivadas eliminadas.');
  const saveCustomerEdit=(params)=>mutation(()=>updateCustomer({
@@ -1657,7 +1658,7 @@ export default function HomePage(){
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} busy={busy}/>:  
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
       tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
