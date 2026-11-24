@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
-  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock,
+  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder,
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
+import AdminAccounts from './admin-accounts.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
-import { formatAvailableDozens, formatModelDozenPrice } from '../lib/dashboard-presentation.js';
+import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
@@ -33,7 +34,7 @@ const displayDate=iso=>iso?new Intl.DateTimeFormat('es-BO',{
 }).format(new Date(iso)):'—';
 const initials=name=>String(name||'EV').trim().split(/\s+/).slice(0,2).map(s=>s[0]?.toUpperCase()).join('');
 const rup=number=>new Intl.NumberFormat('es-BO').format(Number(number)||0);
-const statusLabels={saved:'Compromiso anterior',in_review:'Revisión histórica',expired:'Histórico vencido',converted:'Convertido a pedido',active:'En preparación',completed:'Completado',draft:'Borrador'};
+const statusLabels={saved:'Compromiso anterior',in_review:'Revisión histórica',expired:'Histórico vencido',converted:'Convertido a pedido',active:'En preparación',completed:'Completado',voided:'Anulado',draft:'Borrador'};
 
 function ColorChip({color,selected=false,onClick,compact=false,disabled=false}){
  const colorValid=/^#[\da-f]{6}$/i.test(color?.hex_code||'');
@@ -58,10 +59,10 @@ function ModelColors({model,colors,compact=false}){
  </div>:<span className="muted">Sin colores registrados</span>;
 }
 function ProductImage({model,large=false}){
- return model.imageUrl?<img className={'product-image '+(large?'large':'')} src={model.imageUrl}
+ return model.is_active&&model.imageUrl?<img className={'product-image '+(large?'large':'')} src={model.imageUrl}
    alt={'Fotografía del producto '+model.name} loading="lazy"/>:
   <div className={'product-image product-fallback '+(large?'large':'')}>
-    <span className="fallback-mark">E</span><span>Fotografía pendiente</span>
+    <span className="fallback-mark">E</span><span>{model.is_active?'Fotografía pendiente':'Modelo archivado'}</span>
   </div>;
 }
 function Status({value}){return <span className={'status status-'+value}>{statusLabels[value]||value}</span>;}
@@ -150,7 +151,7 @@ function ClientForm({onCreate,busy,compact=false}){
   </button></div>
  </form>;
 }
-function DashboardProductCard({model,stock}){
+function DashboardProductCard({model,stock,recent}){
  const blocked=Boolean(stock?.blocked);
  const available=Number(stock?.available??0);
  const exhausted=!blocked&&available===0;
@@ -162,6 +163,7 @@ function DashboardProductCard({model,stock}){
   </div>
   <div className="ev-model-details">
    <h3 title={model.name}>{model.name}</h3>
+   {recent&&<span className="ev-recent-model">Nuevo · últimas 48 h</span>}
    <span className="ev-stock-caption">Stock disponible</span>
    <strong className="ev-stock-count">{blocked?'En revisión':formatAvailableDozens(stock?.available??0)}</strong>
    <span className="ev-model-price">{formatModelDozenPrice(model.price_dozen_bs)}</span>
@@ -169,6 +171,11 @@ function DashboardProductCard({model,stock}){
  </article>;
 }
 function Dashboard({data,setTab}){
+ const activeModels=prioritizeModels(data.models);
+ const now=Date.now();
+ const recentModels=activeModels.filter(m=>isRecentModel(m,now));
+ const [showOlder,setShowOlder]=useState(false);
+ const visibleModels=recentModels.length&&!showOlder?recentModels:activeModels;
  const trackRef=useRef(null);
  const [trackEdges,setTrackEdges]=useState({prev:false,next:false});
  const updateTrackEdges=useCallback(()=>{
@@ -180,17 +187,18 @@ function Dashboard({data,setTab}){
   updateTrackEdges();
   window.addEventListener('resize',updateTrackEdges);
   return ()=>window.removeEventListener('resize',updateTrackEdges);
- },[updateTrackEdges,data.models.length]);
+ },[updateTrackEdges,visibleModels.length]);
  const shiftModels=direction=>{
   const el=trackRef.current;
   if(el)el.scrollBy({left:direction*Math.max(220,el.clientWidth*.72),behavior:'smooth'});
  };
  const totals=inventoryTotals(data.stock);
+ const availableActive=inventoryTotals(Object.fromEntries(activeModels.map(m=>[m.id,data.stock[m.id]||{}]))).available;
  const activeOrders=data.orders.filter(o=>o.status==='active')
   .sort((a,b)=>Date.parse(b.confirmed_at||0)-Date.parse(a.confirmed_at||0));
  const activeLegacy=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
- const pendingPayments=data.payments.filter(p=>p.status==='pending'||p.status==='observed');
- const blocked=data.models.filter(m=>data.stock[m.id]?.blocked);
+ const pendingPayments=data.payments.filter(p=>(p.status==='pending'||p.status==='observed')&&!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id))));
+ const blocked=activeModels.filter(m=>data.stock[m.id]?.blocked);
  const customerById=new Map(data.customers.map(c=>[c.id,c]));
  const ordersById=new Map(data.orders.map(o=>[o.id,o]));
  const legacyById=new Map(data.reservations.map(r=>[r.id,r]));
@@ -199,7 +207,7 @@ function Dashboard({data,setTab}){
    description="Registra compras confirmadas, gestiona cobros y controla la disponibilidad real de tus modelos."
    actions={<button className="button button-primary" onClick={()=>setTab('booking')}>＋ Nuevo pedido</button>}/>
   <div className="metrics-grid ev-overview">
-   <SummaryCard symbol="▧" label="Unidades disponibles" value={rup(totals.available)} sub="Libres para pedidos o venta física" kind="primary"/>
+   <SummaryCard symbol="▧" label="Unidades disponibles" value={rup(availableActive)} sub="Libres para pedidos o venta física" kind="primary"/>
    <SummaryCard symbol="▤" label="Prendas en pedidos" value={rup(totals.pending)} sub="Confirmadas y aún no retiradas"/>
    <SummaryCard symbol="⌑" label="Pedidos activos" value={activeOrders.length} sub="Por cobrar o entregar"/>
    <SummaryCard symbol="▣" label="Pagos por verificar" value={pendingPayments.length} sub="Pendientes y en observación"/>
@@ -215,20 +223,21 @@ function Dashboard({data,setTab}){
    <header className="ev-zone-header">
     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">♧</span>
      <div><h2 id="ev-models-heading">Modelos y stock disponible</h2>
-      <p>Existencia libre por modelo, expresada en docenas y unidades.</p></div>
+      <p>Modelos recientes de las últimas 48 horas. Los anteriores siguen disponibles en el catálogo.</p></div>
     </div>
     <div className="ev-zone-actions">
      <button type="button" className="ev-section-link" onClick={()=>setTab('catalog')}>Administrar productos <span aria-hidden="true">→</span></button>
-     {data.models.length>0&&<div className="ev-carousel-buttons" aria-label="Desplazar modelos">
+     {recentModels.length>0&&activeModels.length>recentModels.length&&<button type="button" className="ev-section-link" aria-pressed={showOlder} onClick={()=>setShowOlder(v=>!v)}>{showOlder?'Solo recientes':'Ver anteriores (' + (activeModels.length-recentModels.length)+')'}</button>}
+     {visibleModels.length>0&&<div className="ev-carousel-buttons" aria-label="Desplazar modelos">
       <button type="button" aria-label="Ver modelos anteriores" disabled={!trackEdges.prev} onClick={()=>shiftModels(-1)}>‹</button>
       <button type="button" aria-label="Ver más modelos" disabled={!trackEdges.next} onClick={()=>shiftModels(1)}>›</button>
      </div>}
     </div>
    </header>
-   {data.models.length?
+   {visibleModels.length?
     <div ref={trackRef} className="ev-model-track" role="region" tabIndex={0}
        aria-label="Carrusel de modelos y disponibilidad" onScroll={updateTrackEdges}>
-     {data.models.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]}/>)}
+     {visibleModels.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]} recent={isRecentModel(m,now)}/>)}
     </div>:
     <Empty title="Aún no hay modelos" detail="Registra un modelo y su inventario desde Productos."/>}
   </section>
@@ -354,21 +363,22 @@ function ModelEditor({model,onSave,busy}){
    {busy?'Guardando…':'Guardar corrección auditada'}</button>
  </form>;
 }
-function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,busy}){
+function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,onArchive,onCleanup,busy}){
  const [view,setView]=useState('list'),[search,setSearch]=useState(''),[editStock,setEditStock]=useState(null),[editCatalog,setEditCatalog]=useState(null);
  const [newColor,setNewColor]=useState(''),[newHex,setNewHex]=useState('#9b6682');
- const filtered=data.models.filter(m=>(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+ const pendingPhotos=[...new Set(data.models.filter(m=>!m.is_active&&m.image_path&&!data.models.some(x=>x.is_active&&x.image_path===m.image_path)).map(m=>m.image_path))];
+ const filtered=data.models.filter(m=>m.is_active&&(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  async function submitColor(e){e.preventDefault();const ok=await onCreateColor(newColor.trim(),newHex);if(ok)setNewColor('');}
  return <>
   <SectionHead eyebrow="CATÁLOGO E INVENTARIO" title="Productos que se venden."
    description="Cada modelo conserva su talla y su propio precio. Los colores son muestras visuales, no existencias individuales."
    actions={<button className="button button-primary" onClick={()=>setView(view==='new'?'list':'new')}>
      {view==='new'?'← Volver al catálogo':'＋ Registrar producto'}</button>}/>
-  {view==='new'?<div className="two-columns catalog-forms">
-   <section className="surface pad"><h2>Nuevo modelo</h2><p className="muted">Alta rápida para la próxima feria.</p>
+  {view==='new'?<div className="two-columns catalog-forms ev-product-registration">
+   <section className="surface pad ev-register-main"><header className="ev-register-heading"><span aria-hidden="true">▧</span><div><h2>Nuevo modelo</h2><p>Fotografía, datos comerciales y existencias iniciales.</p></div></header>
     <ModelForm colors={data.colors.filter(c=>c.is_active)} onCreate={async params=>{const ok=await onCreateModel(params);if(ok)setView('list');return ok;}} busy={busy}/>
    </section>
-   <section className="surface pad"><h2>Paleta de colores</h2>
+   <section className="surface pad ev-register-palette"><header className="ev-register-heading"><span aria-hidden="true">◉</span><div><h2>Paleta de colores</h2><p>Biblioteca reutilizable</p></div></header>
     <p className="muted">Primero registra colores reutilizables. El círculo refleja el tono que has elegido.</p>
     <form onSubmit={submitColor} className="palette-form"><Field title="Nombre del color">
      <input value={newColor} name="colorName" required maxLength={80} onChange={e=>setNewColor(e.target.value)}
@@ -386,6 +396,7 @@ function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,busy})
     <input type="search" aria-label="Buscar producto" placeholder="Buscar por modelo o talla…"
       value={search} onChange={e=>setSearch(e.target.value)}/></label>
     <span className="muted">{filtered.length} modelos</span></div>
+   {pendingPhotos.length>0&&<div className="ev-archive-pending" role="status"><span>{pendingPhotos.length} fotografía(s) de archivo pendientes de limpieza.</span><button type="button" className="button button-outline" disabled={busy} onClick={()=>onCleanup(pendingPhotos)}>Reintentar limpieza</button></div>}
    {filtered.length?<div className="product-grid">{filtered.map(m=>{const s=data.stock[m.id]||{};return <article className="product-card" key={m.id}>
     <div className="product-cover"><ProductImage model={m} large/>
      <span className="size-tag">TALLA {m.size_label}</span></div>
@@ -407,6 +418,9 @@ function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,busy})
       onClick={()=>{setEditCatalog(editCatalog===m.id?null:m.id);setEditStock(null);}}>
       {editCatalog===m.id?'Cerrar edición':'✎ Cambiar precio o fotografía'}</button>
      {editCatalog===m.id&&<ModelEditor key={m.id+'-'+m.updated_at} model={m} onSave={onUpdateModel} busy={busy}/>}
+     <button type="button" className="button full ev-archive-button" disabled={busy} onClick={()=>{
+      if(window.confirm('¿Inhabilitar '+m.name+'? Dejará de venderse y se eliminará su foto. El historial permanece. Esta operación no se puede revertir desde el catálogo.'))onArchive(m);
+     }}>Inhabilitar producto</button>
 
     </div>
    </article>})}</div>:<Empty title="No se encontraron productos" detail="Prueba otra búsqueda o registra un modelo."/>}
@@ -439,14 +453,16 @@ function ModelForm({colors,onCreate,busy}){
   }catch(err){setLocalError(err.message);}
  }
  return <form onSubmit={submit} className="model-form">
-  <div className="photo-field">
+  <div className="ev-register-section-title"><b>01</b> Fotografía del producto</div>
+   <div className="photo-field">
    <div className="photo-preview">{preview?<img alt="Vista previa de la foto elegida" src={preview}/>:
     <div className="upload-placeholder"><span>▧</span><b>Fotografía del modelo</b><small>JPG · PNG · WebP</small></div>}</div>
    <label className="file-label"><span className="button button-outline">Elegir fotografía</span>
     <input name="modelPhoto" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>choosePhoto(e.target.files?.[0])}/>
    </label>
   </div>
-  <div className="form-inline">
+  <div className="ev-register-section-title"><b>02</b> Información comercial</div>
+   <div className="form-inline">
    <Field title="Nombre del modelo"><input name="modelName" required maxLength={120} value={name}
      onChange={e=>{setName(e.target.value);requestId.current=null;}} placeholder="Nombre comercial…"/></Field>
    <Field title="Talla única del modelo"><input name="modelSize" required maxLength={24} value={size}
@@ -460,6 +476,7 @@ function ModelForm({colors,onCreate,busy}){
       onChange={e=>{setDocenas(e.target.value);requestId.current=null;}} required/></Field>
   </div>
   <div className="palette-selector">
+    <div className="ev-register-section-title"><b>03</b> Colores disponibles</div>
    <div className="palette-title"><strong>Colores que ofrece este modelo</strong><span>{selected.length} seleccionados</span></div>
    <p>Selecciona muestras de la paleta. No registraremos unidades por color.</p>
    {colors.length?<div className="color-select-grid">{colors.map(c=><ColorChip key={c.id} color={c}
@@ -521,7 +538,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
      value={search} placeholder="Buscar nombre o WhatsApp…" onChange={e=>setSearch(e.target.value)}/></label>
     {clients.length?<div className="client-list">{clients.map(c=>{
       const reservations=data.reservations.filter(r=>r.customer_id===c.id).length;
-      const orders=data.orders.filter(o=>o.customer_id===c.id).length;
+      const orders=data.orders.filter(o=>o.customer_id===c.id&&!o.archived_at).length;
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
        <div><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}{c.shipping_destination?' · '+c.shipping_destination:''}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span></div>
        <button className="button button-outline" type="button" disabled={busy}
@@ -909,7 +926,7 @@ function PaymentHistory({items=[],compact=false}){
   </div>)}
  </div>:<p className="small-note">Todavía no hay pagos informados.</p>;
 }
-function QrAdmin({settings,onSave,busy}){
+function QrAdmin({settings,onSave,busy,canManage=true}){
  const [file,setFile]=useState(null),[verified,setVerified]=useState(false);
  const [hint,setHint]=useState('');
  const req=useRef(null);
@@ -934,7 +951,7 @@ function QrAdmin({settings,onSave,busy}){
     <span className="pay-state pay-approved">QR verificado para reutilización</span>
     <button type="button" className="button button-outline" onClick={show}>Ver QR vigente</button>
    </div>:<p className="small-note">Todavía no hay un QR bancario vigente publicado.</p>}
-  <form onSubmit={submit} className="money-form">
+  {canManage?<form onSubmit={submit} className="money-form">
    <Field title="Imagen bancaria JPG, PNG o WebP (máx. 5 MB)">
     <input type="file" accept="image/jpeg,image/png,image/webp"
      onChange={e=>{setFile(e.target.files?.[0]||null);req.current=null;}} required/></Field>
@@ -943,7 +960,7 @@ function QrAdmin({settings,onSave,busy}){
      He comprobado que esta imagen es un QR real, vigente y reutilizable para recibir pagos.</label>
    <button className="button button-primary" type="submit" disabled={busy||!file||!verified}>
     {busy?'Guardando…':'Publicar QR para clientes'}</button>
-  </form>
+  </form>:<p className="small-note">Solo el propietario puede modificar el QR bancario.</p>}
   {hint&&<p role="status" className="small-note">{hint}</p>}
  </section>;
 }
@@ -1001,14 +1018,14 @@ function OrderLinkPanel({order,data,onIssue,onRevoke,busy}){
   {hint&&<p role="status" className="small-note">{hint}</p>}
  </div>;
 }
-function PaymentReview({data,onReview,onSaveQr,busy}){
+function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
  const [notes,setNotes]=useState({});
  const [filter,setFilter]=useState('pending');
  const pending=['pending','observed'];
- const list=data.payments.filter(p=>filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter));
+ const list=data.payments.filter(p=>!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id)))&&(filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter)));
  return <><SectionHead eyebrow="CONCILIACIÓN MANUAL" title="Verifica los pagos recibidos."
   description="Un aviso o comprobante NO confirma dinero ingresado. Comprueba la recepción fuera del sistema antes de aprobar."/>
-  <QrAdmin settings={data.qrSettings} onSave={onSaveQr} busy={busy}/>
+  <QrAdmin settings={data.qrSettings} onSave={onSaveQr} busy={busy} canManage={canManageQr}/>
   <div className="toolbar"><label className="field"><span className="field-label">Filtrar estado</span>
    <select value={filter} onChange={e=>setFilter(e.target.value)}>
     <option value="pending">Pendientes y en observación</option>
@@ -1271,13 +1288,16 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
  </form>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,busy}){
+function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,busy}){
  const [editingId,setEditingId]=useState(null);
+ const [showArchived,setShowArchived]=useState(false);
+ const visibleOrders=data.orders.filter(o=>Boolean(o.archived_at)===showArchived);
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Abre un pedido para consultar sus modelos y gestionar lo necesario."/>
-  <LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>
-  {data.orders.length?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
-   {data.orders.map(o=>{
+  {!showArchived&&<LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>}
+  <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>setShowArchived(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>setShowArchived(true)}>Archivados ({data.orders.filter(o=>o.archived_at).length})</button></div>
+  {visibleOrders.length?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
+   {visibleOrders.map(o=>{
     const customer=data.customers.find(x=>x.id===o.customer_id);
     const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
     const finance=data.finances[o.id]||{total:0,approved:0,pending:0,excess:0};
@@ -1294,6 +1314,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        !data.models.some(m=>m.id===l.model_id&&m.is_active))?'Composición antigua o modelo inactivo':
      o.lines.some(l=>data.stock[l.model_id]?.blocked)?'Modelo con inventario en revisión':
      !Number.isSafeInteger(o.revision)?'Falta habilitar la edición en Supabase':null;
+    const canArchive=!o.archived_at&&((o.status==='completed'&&!relatedPayments.some(p=>p.status==='pending'||p.status==='observed'))||(o.status==='active'&&!relatedPayments.length&&!data.deliveries.some(d=>d.order_id===o.id)&&Number(delivery.delivered)===0));
     const sizes=[...new Set(o.lines.map(l=>data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
     return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
      <summary className="ev-order-summary">
@@ -1312,10 +1333,21 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       <span className="ev-order-summary-end">
        <strong className="ev-order-summary-total">{formatBs(total)}</strong>
        <Status value={o.status}/>
+       {o.archived_at&&<span className="ev-order-archive-label">Archivado</span>}
       </span>
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
      </summary>
      <div className="ev-order-expanded">
+      {o.archived_at?<p className="small-note">Archivado · {displayDate(o.archived_at)} · {o.archive_reason}{o.status==='voided'?' · Sin cobros ni entregas pendientes.':''}</p>:
+       <div className="ev-order-archive-action">
+        <button type="button" className="button ev-archive-button" disabled={busy||!canArchive} onClick={()=>{
+         const explanation=o.status==='active'?'Anular este pedido libera las prendas comprometidas y desactiva su enlace.':'Archivar este pedido solo lo oculta. Conserva los cobros y las entregas registrados.';
+         if(!window.confirm(explanation+' ¿Continuar?'))return;
+         const reason=window.prompt('Motivo del archivo (máximo 300 caracteres)','Registro de prueba o error');
+         if(reason?.trim())onArchiveOrder(o.id,reason.trim());
+        }}>{o.status==='active'?'Anular y ocultar pedido':'Archivar pedido'}</button>
+        {!canArchive&&<span className="small-note">Resuelve primero los movimientos pendientes. No se anulan pedidos activos con pagos, avisos o entregas.</span>}
+       </div>}
       {o.status==='active'&&<div className="ev-order-edit-access">
        <button type="button" className="button button-outline ev-order-edit-button" disabled={busy||Boolean(editReason)}
         onClick={()=>setEditingId(current=>current===o.id?null:o.id)}>
@@ -1338,7 +1370,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        <div className="order-lines">
         {o.lines.map(l=>{const m=data.models.find(x=>x.id===l.model_id);
          return <div className="order-product" key={l.id||l.model_id}>
-          {m&&<ProductImage model={m}/>}
+          {m?.is_active&&<ProductImage model={m}/>}
           <div className="order-product-data">
            <strong>{m?.name||'Modelo'}</strong>
            <small>Talla {m?.size_label||'—'}</small>
@@ -1357,7 +1389,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        <section className="order-shipping-panel ev-order-shipping" aria-label="Entrega e impresión">
         {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
         {o.fulfillment_method==='legacy'&&<p>Pedido anterior a la clasificación de entregas. Indica cómo se entregará para habilitar la impresión.</p>}
-        {o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
+        {o.status!=='voided'&&o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
          onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Imprimir etiqueta de envío':'Imprimir detalle y total'}</button>}
         {o.status==='active'&&<details className="order-delivery-details">
          <summary>{o.fulfillment_method==='legacy'?'Clasificar entrega para imprimir':'Corregir destino o modalidad'}</summary>
@@ -1386,14 +1418,14 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
         {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
         <details className="ev-order-link-details">
          <summary>WhatsApp y enlace privado <span aria-hidden="true">⌄</span></summary>
-         <OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>
+         {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>}
         </details>
        </div>
       </details>
      </div>
     </details>;
    })}
-  </div>:<Empty title="Aún no hay pedidos" detail="Registra la primera compra confirmada desde Nuevo pedido."/>}
+  </div>:<Empty title={showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
  </>;
 }
 function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
@@ -1419,6 +1451,7 @@ function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
    <button className="button button-primary full" disabled={busy||logoutPending} type="submit">{busy?'Verificando…':'Entrar al panel'}</button>
    {logoutPending&&<button className="button button-outline full" type="button" disabled={busy} onClick={onRetryLogout}>Reintentar cierre de sesión</button>}
   </form>
+  <p className="small-note"><a href="/cuenta">¿Olvidaste tu contraseña?</a></p>
   <p className="small-note">En tu dispositivo personal puedes guardar la contraseña con el gestor del navegador. Cierra sesión al usar un dispositivo compartido. No existe registro público de cuentas.</p>
  </section></main>;
 }
@@ -1427,6 +1460,8 @@ export default function HomePage(){
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [logoutPending,setLogoutPending]=useState(false);
+ const [owner,setOwner]=useState(false);
+ const menu=owner?[...MENU,['security','Usuarios','⚙']]:MENU;
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
  const db=useMemo(()=>getSupabase(),[]);
  const configured=Boolean(db);
@@ -1434,6 +1469,7 @@ export default function HomePage(){
   authGeneration.current++;
   refreshGeneration.current++;
   authorizedUser.current=null;
+  setOwner(false);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
  },[]);
  const refresh=useCallback(async()=>{
@@ -1447,6 +1483,9 @@ export default function HomePage(){
    if(!permitted){
     clearAccess();setError('Tu acceso ya no está autorizado. Inicia sesión nuevamente.');return;
    }
+   const role=await db.rpc('is_evalia_owner');
+   if(generation!==refreshGeneration.current)return;
+   setOwner(!role.error&&role.data===true);
    const snapshot=await loadWorkspace();
    if(generation===refreshGeneration.current)setData(snapshot);
   }catch(e){
@@ -1454,7 +1493,7 @@ export default function HomePage(){
    setData(null);
    throw e;
   }
- },[clearAccess]);
+ },[clearAccess,db]);
  useEffect(()=>{
   let active=true;
   if(!db){setReady(true);return;}
@@ -1532,6 +1571,12 @@ export default function HomePage(){
     expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
   }catch(e){if(imagePath)await removePhoto(imagePath).catch(()=>{});throw e;}
  },'Precio/fotografía actualizados; los pedidos históricos no cambiaron.');
+ const archiveProduct=(model)=>mutation(async()=>{
+   const result=await archiveModel(model);
+   if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch(err){await refresh();throw new Error('Producto inhabilitado; fotografía pendiente de limpieza. '+err.message);}}
+  },'Producto inhabilitado; el historial permanece intacto.');
+ const archiveSelectedOrder=(orderId,reason)=>mutation(()=>archiveOrder(orderId,reason),'Pedido archivado; historial conservado.');
+ const cleanArchivedPhotos=(paths)=>mutation(()=>cleanupArchivedPhotos(paths),'Fotografías archivadas eliminadas.');
  const saveCustomerEdit=(params)=>mutation(()=>updateCustomer({
   customerId:params.customer.id,name:params.name,whatsapp:params.whatsapp,
   method:params.method,destination:params.destination,
@@ -1591,14 +1636,14 @@ export default function HomePage(){
   <aside className="sidebar"><div className="brand"><span className="brand-icon">E</span>
    <div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
    <p className="sidebar-label">ESPACIO DE TRABAJO</p>
-   <nav className="sidebar-nav" aria-label="Navegación principal">{MENU.map(([id,label,symbol])=>
+   <nav className="sidebar-nav" aria-label="Navegación principal">{menu.map(([id,label,symbol])=>
     <button key={id} onClick={()=>setTab(id)} aria-current={tab===id?'page':undefined}
       className={tab===id?'active':''}><span className="nav-icon">{symbol}</span>{label}</button>)}</nav>
    <div className="sidebar-bottom"><span className="connected-dot"/><div><strong>Base de datos conectada</strong><small>Sesión administrativa</small></div></div>
   </aside>
   <div className="workspace">
    <header className="topbar"><div className="breadcrumb">EVALIA <span>/</span>
-    <strong>{MENU.find(x=>x[0]===tab)?.[1]}</strong></div>
+    <strong>{menu.find(x=>x[0]===tab)?.[1]}</strong></div>
     <div className="top-actions"><span className="live-label"><span className="connected-dot"/> Supabase</span>
      <button className="button button-ghost" onClick={()=>mutation(async()=>refresh(),'Datos actualizados.')} disabled={busy}>↻ Actualizar</button>
      <button className="button button-ghost" onClick={logout} disabled={busy}>Salir</button></div>
@@ -1609,15 +1654,16 @@ export default function HomePage(){
       onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
-      tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} busy={busy}/>: 
+      tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} busy={busy}/>:  
-      tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy}/>:  
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} busy={busy}/>:  
+      tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
+      tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
    </main>
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
   </div>
-  <nav className="mobile-nav" aria-label="Navegación móvil">{MENU.map(([id,label,sign])=>
+  <nav className={'mobile-nav'+(owner?' mobile-nav-owner':'')} aria-label="Navegación móvil">{menu.map(([id,label,sign])=>
    <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)} className={tab===id?'active':''}>
     <span>{sign}</span><small>{id==='booking'?'Nuevo':label}</small></button>)}</nav>
  </div>;

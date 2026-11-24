@@ -1,0 +1,6 @@
+# Registro y archivo de modelos
+
+Alta: solo presentación. Dashboard: recientes en 48 h, anteriores disponibles, stock libre solo activos. Archivo: todos los administradores activos; bloqueo de inventario compartido con pedidos; se permite la baja con compromisos activos. No borra modelos ni líneas; mantiene precio y nombre. El archivo físico se elimina por Storage API, nunca SQL; una ruta compartida activa no se elimina. Si falla, reintentar limpieza desde catálogo sin mostrar fichas inactivas. No cambia precios, cantidades, pagos ni entregas. Los activos anteriores siguen vendibles. Pruebas pgTAP con rollback. Preview pendiente de aprobación.
+
+## Corrección de validación
+La baja de modelo puede hacerse con cualquier pedido vinculado. No modifica cantidades, cobros, compromisos ni entregas. Las líneas de modelos inactivos se muestran sin fotografía. No se admiten nuevas ventas del modelo archivado. Edición de composición de pedidos con un modelo inactivo mantiene la restricción existente; cierre, impresión y cobros permanecen habilitados. Archivo de pedidos: completados se ocultan conservando movimientos; activos sin pagos/avisos/entregas se anulan, liberando compromisos sin alterar existencia física. Motivo y actor registrados, enlaces revocados. Filtro Archivados permite consultar sin reactivar. Clientes, colores y usuarios no se modifican.

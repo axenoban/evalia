@@ -1,0 +1,29 @@
+name: EVALIA | Alta de clientes por administradores
+on:
+  push:
+    branches: [feature/evalia-clientes-permisos]
+  pull_request:
+    branches: [feature/evalia-d9-admin-cuentas]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: evalia-customer-grants-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run check
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - run: supabase start
+      - run: supabase test db
+      - if: always()
+        run: supabase stop --no-backup || true

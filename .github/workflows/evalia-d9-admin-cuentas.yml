@@ -1,0 +1,49 @@
+name: EVALIA | D9 gestión privada de cuentas
+on:
+  push:
+    branches:
+      - feature/evalia-d9-admin-cuentas
+  pull_request:
+    branches: [feature/evalia-v1-consolidada]
+permissions:
+  contents: read
+concurrency:
+  group: evalia-d9-accounts-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm run check
+  next:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - run: supabase start
+      - run: supabase test db
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
+        working-directory: web
+      - run: node scripts/test-admin-auth-flow.mjs
+        working-directory: web
+      - if: always()
+        run: supabase stop --no-backup || true

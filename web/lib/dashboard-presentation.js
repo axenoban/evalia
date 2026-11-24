@@ -16,3 +16,13 @@ export function formatModelDozenPrice(price) {
   if(!Number.isFinite(amount)||amount<=0)return 'Precio no registrado';
   return 'Bs '+new Intl.NumberFormat('es-BO',{maximumFractionDigits:2}).format(amount)+' / docena';
 }
+
+export function isRecentModel(model,now=Date.now()){
+ const date=Date.parse(model.created_at);
+ return Number.isFinite(date)&&date>=now-48*60*60*1000&&date<=now;
+}
+export function prioritizeModels(models,now=Date.now()){
+ const date=m=>Date.parse(m.created_at)||0;
+ const recent=m=>isRecentModel(m,now);
+ return models.filter(m=>m.is_active).sort((a,b)=>Number(recent(b))-Number(recent(a))||date(b)-date(a));
+}

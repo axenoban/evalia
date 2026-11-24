@@ -216,3 +216,5 @@
  .ev-order-edit-footer>div{width:100%}
  .ev-order-edit-footer .button{flex:1}
 }
+
+.ev-order-archive-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.ev-order-archive-toolbar [aria-pressed=true]{background:var(--plum);color:white}.ev-order-archive-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.ev-order-archive-label{font-size:10px;color:#746176;font-weight:700}.status-voided{background:#f3e5e8;color:#8c4050}
