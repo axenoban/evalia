@@ -36,7 +36,7 @@ test('operaciones secundarias están plegadas sin deshabilitar el flujo express'
 });
 test('modalidad de entrega e impresión conservan condiciones y etiqueta anterior',()=>{
  assert.match(orders,/o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"/);
- assert.match(orders,/o.fulfillment_method==='shipping'\?'Imprimir etiqueta de envío':'Imprimir detalle y total'/);
+ assert.match(orders,/o.fulfillment_method==='shipping'\?'Vista previa de etiqueta de envío':'Vista previa del comprobante'/);
  assert.match(orders,/o.status==='active'&&<details className="order-delivery-details"/);
 });
 test('estilos se aíslan del resto del panel y son responsive',()=>{
