@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {createClient} from '@supabase/supabase-js';
+import {BrandMark} from '../brand.jsx';
 import {accountFragment,passwordValid,validEmail} from '../../lib/admin-account-contract.js';
 
 export default function Cuenta(){
@@ -57,7 +58,7 @@ export default function Cuenta(){
   finally{setBusy(false);}
  }
  return <main className="login-screen"><section className="login-card">
-  <div className="brand brand-large"><span className="brand-icon">E</span><div><b>EVALIA</b><small>SEGURIDAD DE CUENTA</small></div></div>
+  <div className="brand brand-large"><BrandMark/><div><b>EVALIA</b><small>SEGURIDAD DE CUENTA</small></div></div>
   <h1>{mode==='password'?'Define tu contraseña':mode==='done'?'Cuenta actualizada':'Recupera tu acceso'}</h1>
   {mode==='loading'&&<p role="status">Verificando enlace privado…</p>}
   {mode==='request'&&<form method="post" onSubmit={requestReset}>

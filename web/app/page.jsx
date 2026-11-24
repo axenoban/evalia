@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
-  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder,
+  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder, setOrderPrepared,
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
 import AdminAccounts from './admin-accounts.jsx';
+import {BrandMark,UiIcon} from './brand.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
 import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
@@ -62,7 +63,7 @@ function ProductImage({model,large=false}){
  return model.is_active&&model.imageUrl?<img className={'product-image '+(large?'large':'')} src={model.imageUrl}
    alt={'Fotografía del producto '+model.name} loading="lazy"/>:
   <div className={'product-image product-fallback '+(large?'large':'')}>
-    <span className="fallback-mark">E</span><span>{model.is_active?'Fotografía pendiente':'Modelo archivado'}</span>
+    <BrandMark className="ev-product-mark"/><span>{model.is_active?'Fotografía pendiente':'Modelo archivado'}</span>
   </div>;
 }
 function Status({value}){return <span className={'status status-'+value}>{statusLabels[value]||value}</span>;}
@@ -103,7 +104,7 @@ function ToastNotifications({error,message,onCloseError,onCloseMessage}){
  </div>;
 }
 function SummaryCard({label,value,sub,kind='',symbol}){return <div className={'metric '+kind}>
-  <div className="ev-metric-heading">{symbol&&<span className="ev-metric-icon" aria-hidden="true">{symbol}</span>}
+  <div className="ev-metric-heading">{symbol&&<span className="ev-metric-icon" aria-hidden="true"><UiIcon name={symbol}/></span>}
    <span className="metric-label">{label}</span></div>
   <strong>{value}</strong><small>{sub}</small>
  </div>;}
@@ -221,7 +222,7 @@ function Dashboard({data,setTab}){
 
   <section className="ev-zone ev-zone-catalog" aria-labelledby="ev-models-heading">
    <header className="ev-zone-header">
-    <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">♧</span>
+    <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="catalog"/></span>
      <div><h2 id="ev-models-heading">Modelos y stock disponible</h2>
       <p>Modelos recientes de las últimas 48 horas. Los anteriores siguen disponibles en el catálogo.</p></div>
     </div>
@@ -245,7 +246,7 @@ function Dashboard({data,setTab}){
   <div className="ev-support-grid">
    <section className="ev-zone ev-zone-orders" aria-labelledby="ev-orders-heading">
     <header className="ev-zone-header">
-     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">▤</span>
+     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="orders"/></span>
       <div><h2 id="ev-orders-heading">Pedidos pendientes</h2>
        <p>Compras confirmadas que aún requieren seguimiento.</p></div>
      </div>
@@ -267,7 +268,7 @@ function Dashboard({data,setTab}){
    </section>
    <section className="ev-zone ev-zone-payments" aria-labelledby="ev-payments-heading">
     <header className="ev-zone-header">
-     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true">▣</span>
+     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="payments"/></span>
       <div><h2 id="ev-payments-heading">Pagos por verificar</h2>
        <p>Declaraciones pendientes de validación administrativa.</p></div>
      </div>
@@ -1288,7 +1289,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
  </form>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,busy}){
+function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
  const [editingId,setEditingId]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
  const visibleOrders=data.orders.filter(o=>Boolean(o.archived_at)===showArchived);
@@ -1332,7 +1333,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       </span>
       <span className="ev-order-summary-end">
        <strong className="ev-order-summary-total">{formatBs(total)}</strong>
-       <Status value={o.status}/>
+       {o.status==='active'&&!o.archived_at?<button type="button" className="ev-preparation-toggle" data-prepared={Boolean(o.prepared_at)} disabled={busy} aria-label={(o.prepared_at?'Volver a en preparación: ':'Marcar preparado: ')+(customer?.name||'Cliente')} onClick={e=>{e.preventDefault();e.stopPropagation();onPreparation(o);}}><strong>{o.prepared_at?'✓ Preparado':'En preparación'}</strong><small>{o.prepared_at?'Deshacer':'Marcar preparado'}</small></button>:<Status value={o.status}/>}
        {o.archived_at&&<span className="ev-order-archive-label">Archivado</span>}
       </span>
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
@@ -1361,7 +1362,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       {o.status==='active'&&<div className="ev-order-finance-brief" aria-label="Situación del cobro">
        {amountCents(finance.pending)>0n?
         <span className="ev-order-balance-due"><span>Saldo por cobrar</span><strong>{formatBs(amountCents(finance.pending))}</strong></span>:
-        <span className="ev-order-balance-ready">{Number(delivery.remaining)>0?'Pago verificado · listo para entregar':'Pago y entrega registrados'}</span>}
+        <span className="ev-order-balance-ready">{Number(delivery.remaining)>0?'Pago verificado · entrega pendiente':'Pago y entrega registrados'}</span>}
        {amountCents(finance.pending)>0n&&amountCents(finance.approved)>0n&&
         <small>Abonos aprobados: {formatBs(amountCents(finance.approved))}</small>}
       </div>}
@@ -1431,7 +1432,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
 function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
  const [showPassword,setShowPassword]=useState(false);
  return <main className="login-screen"><section className="login-card">
-  <div className="brand brand-large"><span className="brand-icon">E</span><div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
+  <div className="brand brand-large"><BrandMark/><div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
   <p className="eyebrow">ACCESO ADMINISTRATIVO</p><h1>Tu catálogo, tus pedidos, tu control.</h1>
   <p className="description">Inicia sesión para trabajar con información real de tu base de datos Supabase.</p>
   {process.env.NEXT_PUBLIC_EVALIA_STATIC_PREVIEW==='1'&&<Notice>Vista administrativa en GitHub Pages. El portal privado del cliente requiere alojamiento Next.js con servidor.</Notice>}
@@ -1575,6 +1576,7 @@ export default function HomePage(){
    const result=await archiveModel(model);
    if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch(err){await refresh();throw new Error('Producto inhabilitado; fotografía pendiente de limpieza. '+err.message);}}
   },'Producto inhabilitado; el historial permanece intacto.');
+ const changePreparation=o=>mutation(()=>setOrderPrepared({orderId:o.id,prepared:!o.prepared_at,expectedVersion:o.preparation_version}),o.prepared_at?'Pedido nuevamente en preparación.':'Pedido marcado como preparado.');
  const archiveSelectedOrder=(orderId,reason)=>mutation(()=>archiveOrder(orderId,reason),'Pedido archivado; historial conservado.');
  const cleanArchivedPhotos=(paths)=>mutation(()=>cleanupArchivedPhotos(paths),'Fotografías archivadas eliminadas.');
  const saveCustomerEdit=(params)=>mutation(()=>updateCustomer({
@@ -1623,7 +1625,7 @@ export default function HomePage(){
 
 
  if(!configured)return <main className="setup-screen"><section className="setup-card">
-  <span className="brand-icon">E</span><h1>Configuración de EVALIA</h1>
+  <BrandMark/><h1>Configuración de EVALIA</h1>
   <p>La aplicación operativa no tiene conexión a Supabase. La base ya está inicializada. Configura <code>NEXT_PUBLIC_SUPABASE_URL</code> y <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> en <code>web/.env.local</code>, usando únicamente la clave pública de tu proyecto. Después inicia sesión como administrador autorizado.</p>
   <p>No se mostrarán datos ficticios como si fueran operaciones reales.</p>
  </section></main>;
@@ -1633,16 +1635,16 @@ export default function HomePage(){
   <button className="button button-outline" onClick={()=>{setForbidden(false);setError('');}}>Volver al acceso</button>
  </section></main>:<Login onLogin={login} onRetryLogout={logout} logoutPending={logoutPending} busy={busy} error={error}/>;
  return <div className="app-shell">
-  <aside className="sidebar"><div className="brand"><span className="brand-icon">E</span>
+  <aside className="sidebar"><div className="brand"><BrandMark/>
    <div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
    <p className="sidebar-label">ESPACIO DE TRABAJO</p>
    <nav className="sidebar-nav" aria-label="Navegación principal">{menu.map(([id,label,symbol])=>
     <button key={id} onClick={()=>setTab(id)} aria-current={tab===id?'page':undefined}
-      className={tab===id?'active':''}><span className="nav-icon">{symbol}</span>{label}</button>)}</nav>
+      className={tab===id?'active':''}><span className="nav-icon"><UiIcon name={id}/></span>{label}</button>)}</nav>
    <div className="sidebar-bottom"><span className="connected-dot"/><div><strong>Base de datos conectada</strong><small>Sesión administrativa</small></div></div>
   </aside>
   <div className="workspace">
-   <header className="topbar"><div className="breadcrumb">EVALIA <span>/</span>
+   <header className="topbar"><div className="breadcrumb"><BrandMark className="ev-mobile-brand"/>EVALIA <span>/</span>
     <strong>{menu.find(x=>x[0]===tab)?.[1]}</strong></div>
     <div className="top-actions"><span className="live-label"><span className="connected-dot"/> Supabase</span>
      <button className="button button-ghost" onClick={()=>mutation(async()=>refresh(),'Datos actualizados.')} disabled={busy}>↻ Actualizar</button>
@@ -1656,7 +1658,7 @@ export default function HomePage(){
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} busy={busy}/>:  
+      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
       tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
@@ -1665,6 +1667,6 @@ export default function HomePage(){
   </div>
   <nav className={'mobile-nav'+(owner?' mobile-nav-owner':'')} aria-label="Navegación móvil">{menu.map(([id,label,sign])=>
    <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)} className={tab===id?'active':''}>
-    <span>{sign}</span><small>{id==='booking'?'Nuevo':label}</small></button>)}</nav>
+    <span><UiIcon name={id}/></span><small>{id==='booking'?'Nuevo':label}</small></button>)}</nav>
  </div>;
 }

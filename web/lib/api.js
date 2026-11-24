@@ -30,8 +30,8 @@ export async function loadWorkspace(){
     db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at').order('created_at',{ascending:false}),
     db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at').order('created_at',{ascending:false}).limit(200),
     db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units'),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason').is('archived_at',null).order('confirmed_at',{ascending:false}).limit(200),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason').not('archived_at','is',null).order('archived_at',{ascending:false}).limit(200),
+    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version').is('archived_at',null).order('confirmed_at',{ascending:false}).limit(200),
+    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version').not('archived_at','is',null).order('archived_at',{ascending:false}).limit(200),
     db.from('order_lines').select('id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs'),
     db.from('reservation_extra_colors').select('reservation_line_id,color_id,position').order('position'),
     db.from('order_extra_colors').select('order_line_id,color_id,position').order('position'),
@@ -123,6 +123,9 @@ export async function cleanupArchivedPhotos(paths){
   const removed=unwrap(await db.rpc('finalize_evalia_archived_photo',{p_image_path:path}),'Verificar eliminación');
   if(!removed)throw new Error('La fotografía aún existe o está vinculada a un modelo activo.');
  }
+}
+export async function setOrderPrepared({orderId,prepared,expectedVersion}){
+ return unwrap(await client().rpc('set_evalia_order_prepared',{p_order_id:orderId,p_prepared:prepared,p_expected_version:expectedVersion}),'Actualizar preparación');
 }
 export async function archiveOrder(orderId,reason){
  return unwrap(await client().rpc('archive_evalia_order',{p_order_id:orderId,p_reason:reason}),'Archivar pedido');
