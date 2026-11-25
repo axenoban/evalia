@@ -8,6 +8,8 @@ import {
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
+import {inspectAdminMfa} from '../lib/mfa-client.js';
+import MfaGate from './mfa-gate.jsx';
 import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmation.js';
 import AdminAccounts from './admin-accounts.jsx';
 import {BrandMark,UiIcon} from './brand.jsx';
@@ -1463,6 +1465,7 @@ export default function HomePage(){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [logoutPending,setLogoutPending]=useState(false);
  const [owner,setOwner]=useState(false);
+ const [mfaGate,setMfaGate]=useState(null),pendingIdentity=useRef(null);
  const menu=owner?[...MENU,['security','Usuarios','⚙']]:MENU;
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
  const db=useMemo(()=>getSupabase(),[]);
@@ -1470,7 +1473,7 @@ export default function HomePage(){
  const clearAccess=useCallback(()=>{
   authGeneration.current++;
   refreshGeneration.current++;
-  authorizedUser.current=null;
+  authorizedUser.current=null;pendingIdentity.current=null;setMfaGate(null);
   setOwner(false);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
  },[]);
@@ -1496,27 +1499,43 @@ export default function HomePage(){
    throw e;
   }
  },[clearAccess,db]);
+ const authorize=useCallback(async(user,generation)=>{
+  if(!user||generation!==authGeneration.current)return 'cancelled';
+  pendingIdentity.current=user.id;
+  const state=await inspectAdminMfa(db,user.id);
+  if(generation!==authGeneration.current)return 'cancelled';
+  if(state.step==='enroll'||state.step==='challenge'){
+   setMfaGate({identity:user.id,...state});return 'mfa';
+  }
+  if(state.step!=='check-server'||!await adminAllowed()){
+   if(generation!==authGeneration.current)return 'cancelled';
+   pendingIdentity.current=null;setMfaGate(null);return 'denied';
+  }
+  if(generation!==authGeneration.current)return 'cancelled';
+  pendingIdentity.current=null;setMfaGate(null);authorizedUser.current=user.id;setAuthenticated(true);setForbidden(false);
+  try{await refresh();}catch{setError('Acceso autorizado, pero no se pudieron cargar los datos. Pulsa Actualizar.');}
+  return 'authorized';
+ },[db,refresh]);
  useEffect(()=>{
   let active=true;
   if(!db){setReady(true);return;}
   const generation=authGeneration.current;
   authUser().then(async user=>{
     if(!active||generation!==authGeneration.current||!user)return;
-    const permitted=await adminAllowed();
-    if(!active||generation!==authGeneration.current)return;
-    setForbidden(!permitted);
-    if(permitted){authorizedUser.current=user.id;setAuthenticated(true);await refresh();}
+    const outcome=await authorize(user,generation);
+    if(active&&generation===authGeneration.current)setForbidden(outcome==='denied');
   }).catch(()=>{if(active&&generation===authGeneration.current)setError('No se pudo verificar el acceso. Inténtalo nuevamente.');})
    .finally(()=>{if(active)setReady(true);});
   const {data:listener}=db.auth.onAuthStateChange((event,session)=>{
     if(!active)return;
     if(event==='SIGNED_OUT'){clearAccess();return;}
-    if(event==='SIGNED_IN'&&authorizedUser.current&&session?.user?.id!==authorizedUser.current){
+    const expected=authorizedUser.current||pendingIdentity.current;
+    if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED')&&expected&&session?.user?.id!==expected){
      clearAccess();setError('La cuenta cambió en otra pestaña. Inicia sesión nuevamente.');
     }
   });
   return ()=>{active=false;refreshGeneration.current++;authGeneration.current++;listener.subscription.unsubscribe();};
- },[db,refresh,clearAccess]);
+ },[db,authorize,clearAccess]);
  useEffect(()=>{
   if(!authenticated)return;
   const revalidate=()=>{
@@ -1533,19 +1552,24 @@ export default function HomePage(){
   try{
    const session=await signIn(email,password);
    if(generation!==authGeneration.current)return;
-   if(!session?.user||!await adminAllowed()){
+   const outcome=session?.user?await authorize(session.user,generation):'denied';
+   if(outcome==='denied'){
     if(generation!==authGeneration.current)return;
     clearAccess();
     try{await signOut();setLogoutPending(false);setError('No se pudo iniciar sesión. Verifica tus credenciales y autorización.');}
     catch{setLogoutPending(true);setError('No se pudo cerrar la sesión no autorizada. Reintenta el cierre.');}
     return;
    }
-   if(generation!==authGeneration.current)return;
-   authorizedUser.current=session.user.id;setAuthenticated(true);
-   try{await refresh();}catch{setError('Acceso autorizado, pero no se pudieron cargar los datos. Pulsa Actualizar.');}
   }catch{
    if(generation===authGeneration.current)setError('No se pudo iniciar sesión. Verifica tus credenciales y conexión.');
   }finally{setBusy(false);}
+ }
+ async function finishMfa(identity){
+  if(pendingIdentity.current!==identity)return;
+  const generation=authGeneration.current,user=await authUser();
+  if(user?.id!==identity||generation!==authGeneration.current)throw Error('La sesión cambió.');
+  const outcome=await authorize(user,generation);
+  if(outcome!=='authorized'&&outcome!=='cancelled')throw Error('No se pudo autorizar el acceso. Cierra sesión e inténtalo nuevamente.');
  }
  async function logout(){
   if(busy)return;
@@ -1662,6 +1686,7 @@ export default function HomePage(){
   <p>No se mostrarán datos ficticios como si fueran operaciones reales.</p>
  </section></main>;
  if(!ready)return <main className="loading">Verificando acceso administrativo…</main>;
+ if(!authenticated&&mfaGate)return <MfaGate key={mfaGate.identity+':'+mfaGate.step} db={db} identity={mfaGate.identity} step={mfaGate.step} factors={mfaGate.factors} onVerified={finishMfa} onCancel={logout}/>;
  if(!authenticated)return forbidden?<main className="setup-screen"><section className="setup-card">
   <h1>Acceso restringido</h1><p>La cuenta no figura como administradora de EVALIA.</p>
   <button className="button button-outline" onClick={()=>{setForbidden(false);setError('');}}>Volver al acceso</button>
