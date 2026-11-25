@@ -36,6 +36,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
       - uses: supabase/setup-cli@v3
         with:
           version: '3.4.0'
@@ -74,5 +76,8 @@ jobs:
           PY
       - run: supabase start
       - run: supabase test db
+      - run: npm ci --prefix web --no-audit --no-fund
+      - name: E1 real SDK Auth and concurrency (isolated)
+        run: node web/tests/e1-auth-live.mjs
       - if: always()
         run: supabase stop --no-backup || true
