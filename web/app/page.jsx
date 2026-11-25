@@ -8,6 +8,7 @@ import {
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
+import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmation.js';
 import AdminAccounts from './admin-accounts.jsx';
 import {BrandMark,UiIcon} from './brand.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
@@ -1554,10 +1555,29 @@ export default function HomePage(){
   finally{setBusy(false);}
  }
  async function mutation(fn,success){
-  if(busy)return false;
+  if(busy||!authorizedUser.current)return false;
+  const actor=authorizedUser.current;
   setBusy(true);setError('');setMessage('');
-  try{await fn();await refresh();setMessage(success);return true;}
-  catch(e){setError(e.message);return false;}finally{setBusy(false);}
+  try{
+   const result=await writeThenRefresh(fn,refresh);
+   if(!result.confirmed){
+    if(authorizedUser.current===actor)setError(result.error?.message||'No se pudo confirmar la operación. Verifica el registro antes de reintentar.');
+    return false;
+   }
+   if(authorizedUser.current===actor){
+    setMessage(success);
+    if(!result.refreshed)setError(CONFIRMED_REFRESH_WARNING);
+   }
+   return true;
+  }finally{setBusy(false);}
+ }
+ async function refreshManually(){
+  if(busy||!authorizedUser.current)return;
+  const actor=authorizedUser.current;
+  setBusy(true);setError('');setMessage('');
+  try{await refresh();if(authorizedUser.current===actor)setMessage('Datos actualizados.');}
+  catch(e){if(authorizedUser.current===actor)setError(e.message||'No se pudieron actualizar los datos.');}
+  finally{setBusy(false);}
  }
  async function addModel(values){
   return mutation(async()=>{
@@ -1608,11 +1628,23 @@ export default function HomePage(){
  const saveQr=(file,verified,requestId)=>mutation(()=>saveRealQr(file,verified,requestId),
   'QR real registrado y disponible para pedidos activos.');
  async function issueLink(orderId){
-  if(busy)return null;
-  setBusy(true);setError('');
-  try{const link=await issueOrderLink(orderId);await refresh();setMessage('Enlace privado creado; compártelo solo con el destinatario.');return link;}
-  catch(e){setError(e.message);return null;}
-  finally{setBusy(false);}
+  if(busy||!authorizedUser.current)return null;
+  const actor=authorizedUser.current;
+  setBusy(true);setError('');setMessage('');
+  try{
+   const result=await writeThenRefresh(()=>issueOrderLink(orderId),refresh);
+   if(authorizedUser.current!==actor)return null;
+   if(!result.confirmed){
+    setError(result.error?.message||'No se pudo confirmar la creación del enlace. Verifica el estado antes de reintentar.');
+    return null;
+   }
+   if(!result.refreshed){
+    setError('El enlace fue creado, pero no se pudo actualizar el pedido. Actualiza antes de compartir o reemplazar el enlace.');
+    return null;
+   }
+   setMessage('Enlace privado creado; compártelo solo con el destinatario.');
+   return result.value;
+  }finally{setBusy(false);}
  }
  const revokeLink=(orderId)=>mutation(()=>revokeOrderLink(orderId),'Enlace privado revocado.');
 
@@ -1647,7 +1679,7 @@ export default function HomePage(){
    <header className="topbar"><div className="breadcrumb"><BrandMark className="ev-mobile-brand"/>EVALIA <span>/</span>
     <strong>{menu.find(x=>x[0]===tab)?.[1]}</strong></div>
     <div className="top-actions"><span className="live-label"><span className="connected-dot"/> Supabase</span>
-     <button className="button button-ghost" onClick={()=>mutation(async()=>refresh(),'Datos actualizados.')} disabled={busy}>↻ Actualizar</button>
+     <button className="button button-ghost" onClick={refreshManually} disabled={busy}>↻ Actualizar</button>
      <button className="button button-ghost" onClick={logout} disabled={busy}>Salir</button></div>
    </header>
    <main id="main" className="main-content">
