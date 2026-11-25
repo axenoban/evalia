@@ -37,6 +37,16 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: latest
+      # Candidato E1: generar versión con CLI real y probar todas las migraciones.
+      - name: Generate E1 session policy migration in isolated CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration new e1_session_policy
+          migration="$(find supabase/migrations -maxdepth 1 -name '*_e1_session_policy.sql')"
+          test -f "$migration"
+          cp ops/security/e1-session-policy.sql "$migration"
+          echo "E1 session migration candidate: $migration"
       - run: supabase start
       - run: supabase test db
       - if: always()
