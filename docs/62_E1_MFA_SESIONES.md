@@ -25,3 +25,11 @@ Owner AAL1 sin factor: no comercial, sí acceso al flujo de enrolamiento; owner 
 
 ## Dependencia
 No activar autenticación nueva ni publicar antes de resolver el CI de E1-03 y versionar su migración. Las pruebas nuevas de estado puro son independientes del SQL y no alteran el login vigente.
+
+## Incremento de implementación
+- E1-03: CI 45716595374: 557/557 pgTAP y Node/Next correctos; migración de ACL generada por CLI, versionada como 20261125225217_e1_align_service_role.sql. No aplicada a producción.
+- mfa-client.js y mfa-gate.jsx integrados en HomePage, con perfil propio y comprobación server-side antes de workspace. TOTP manual, secreto solo en memoria; opción voluntaria de enrolamiento de operador. No habilitar esta Preview contra datos comerciales para QA.
+- Gestión de cuentas y cambio de QR usan sesión efímera propia de reautenticación con contraseña + TOTP; cierre scope local. Validar en prueba física que no invalide la sesión principal, y ensayar recuperación de factor. QR no borra objeto tras resultado incierto.
+- Candidato ops/security/e1-session-policy.sql: predicado privado de sesión vinculada a auth.uid, 720 horas, not_after, AAL y factor verificado; predicados admin/owner conservan firmas y grants; QR escritura exige contraseña reciente/MFA, borrado protege QR publicado. CI genera migración con CLI en entorno local. Pendiente materializar archivo versionado y retirar generación temporal tras verde.
+- 13 archivos históricos pgTAP adaptan solo sus fixtures de autenticación (sesiones/claims y factor sintético para propietario), sin eliminar aserciones comerciales. Nuevo 091_e1_sessions_mfa.sql aporta 27 comprobaciones. No se ha probado aún la interacción real con SDK/Auth. No publicar hasta CI y QA física aislada.
+- La prueba de respaldo en equipo del propietario sigue siendo requisito independiente para E1-01/02; se corrigió el flag oficial de CLI --db-url antes de iniciar el ensayo.
