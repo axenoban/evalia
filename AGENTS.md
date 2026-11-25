@@ -1,5 +1,8 @@
 # Reglas de desarrollo — EVALIA
 
+## Evolución V1.1 — 25-11-2026
+Leer [docs/59_PLAN_EVOLUCION_V1_1.md](docs/59_PLAN_EVOLUCION_V1_1.md): E1–E4 y D01–D10 aprobados. E1 en feature/evalia-e1-estabilidad; baseline main/dev dffbb41. No aplicar migraciones ni activar cambios remotos de seguridad sin autorización de publicación. Las referencias históricas a estados anteriores no prevalecen sobre este contrato.
+
 ## Baseline actualizado — 23-11-2026
 Antes de cualquier cambio, verificar HEAD real de `dev/evalia-core` y leer la actualización al inicio de `docs/50_DOCUMENTO_MAESTRO_EVALIA.md`. Identidad visual y preparación física aprobadas: docs/51 y docs/52. No modificar reglas ni estados comerciales para representar preparación. Mantener main sin cambios salvo autorización. El flujo de correo de D9 conserva su QA específica.
 
