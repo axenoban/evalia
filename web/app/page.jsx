@@ -8,7 +8,7 @@ import {
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
-import {inspectAdminMfa} from '../lib/mfa-client.js';
+import {inspectAdminMfa,withOwnerReauthentication} from '../lib/mfa-client.js';
 import MfaGate from './mfa-gate.jsx';
 import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmation.js';
 import AdminAccounts from './admin-accounts.jsx';
@@ -945,7 +945,9 @@ function QrAdmin({settings,onSave,busy,canManage=true}){
   e.preventDefault();setHint('');
   if(!file||!verified)return;
   if(!req.current)req.current=uuid();
-  const ok=await onSave(file,verified,req.current);
+  const form=e.currentTarget,values=new FormData(form),password=values.get('password'),code=values.get('code');
+  form.elements.password.value='';form.elements.code.value='';
+  const ok=await onSave(file,verified,req.current,password,code);
   if(ok){req.current=null;setFile(null);setVerified(false);setHint('QR vigente publicado para los enlaces de pedidos activos.');}
  }
  return <section className="surface pad qr-admin">
@@ -962,6 +964,8 @@ function QrAdmin({settings,onSave,busy,canManage=true}){
    <label className="qr-confirm"><input type="checkbox" checked={verified}
      onChange={e=>{setVerified(e.target.checked);req.current=null;}}/>
      He comprobado que esta imagen es un QR real, vigente y reutilizable para recibir pagos.</label>
+   <Field title="Confirma tu contraseña"><input name="password" type="password" autoComplete="current-password" required/></Field>
+   <Field title="Código del autenticador"><input name="code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required/></Field>
    <button className="button button-primary" type="submit" disabled={busy||!file||!verified}>
     {busy?'Guardando…':'Publicar QR para clientes'}</button>
   </form>:<p className="small-note">Solo el propietario puede modificar el QR bancario.</p>}
@@ -1466,6 +1470,7 @@ export default function HomePage(){
  const [logoutPending,setLogoutPending]=useState(false);
  const [owner,setOwner]=useState(false);
  const [mfaGate,setMfaGate]=useState(null),pendingIdentity=useRef(null);
+ const [canEnrollMfa,setCanEnrollMfa]=useState(false);
  const menu=owner?[...MENU,['security','Usuarios','⚙']]:MENU;
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
  const db=useMemo(()=>getSupabase(),[]);
@@ -1473,7 +1478,7 @@ export default function HomePage(){
  const clearAccess=useCallback(()=>{
   authGeneration.current++;
   refreshGeneration.current++;
-  authorizedUser.current=null;pendingIdentity.current=null;setMfaGate(null);
+  authorizedUser.current=null;pendingIdentity.current=null;setMfaGate(null);setCanEnrollMfa(false);
   setOwner(false);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
  },[]);
@@ -1512,7 +1517,7 @@ export default function HomePage(){
    pendingIdentity.current=null;setMfaGate(null);return 'denied';
   }
   if(generation!==authGeneration.current)return 'cancelled';
-  pendingIdentity.current=null;setMfaGate(null);authorizedUser.current=user.id;setAuthenticated(true);setForbidden(false);
+  pendingIdentity.current=null;setMfaGate(null);setCanEnrollMfa(state.factors.length===0);authorizedUser.current=user.id;setAuthenticated(true);setForbidden(false);
   try{await refresh();}catch{setError('Acceso autorizado, pero no se pudieron cargar los datos. Pulsa Actualizar.');}
   return 'authorized';
  },[db,refresh]);
@@ -1563,6 +1568,11 @@ export default function HomePage(){
   }catch{
    if(generation===authGeneration.current)setError('No se pudo iniciar sesión. Verifica tus credenciales y conexión.');
   }finally{setBusy(false);}
+ }
+ function startOptionalMfa(){
+  if(busy||!canEnrollMfa||!authorizedUser.current)return;
+  const identity=authorizedUser.current;
+  clearAccess();pendingIdentity.current=identity;setMfaGate({identity,step:'enroll',factors:[]});
  }
  async function finishMfa(identity){
   if(pendingIdentity.current!==identity)return;
@@ -1649,7 +1659,7 @@ export default function HomePage(){
   'Retirada física registrada; inventario actualizado.');
  const complete=(orderId)=>mutation(()=>completeOrder({orderId,requestId:uuid()}),
   'Pedido COMPLETADO con pago y entrega íntegros.');
- const saveQr=(file,verified,requestId)=>mutation(()=>saveRealQr(file,verified,requestId),
+ const saveQr=(file,verified,requestId,password,code)=>mutation(()=>withOwnerReauthentication(db,password,code,scoped=>saveRealQr(file,verified,requestId,scoped)),
   'QR real registrado y disponible para pedidos activos.');
  async function issueLink(orderId){
   if(busy||!authorizedUser.current)return null;
@@ -1705,6 +1715,7 @@ export default function HomePage(){
     <strong>{menu.find(x=>x[0]===tab)?.[1]}</strong></div>
     <div className="top-actions"><span className="live-label"><span className="connected-dot"/> Supabase</span>
      <button className="button button-ghost" onClick={refreshManually} disabled={busy}>↻ Actualizar</button>
+     {canEnrollMfa&&<button className="button button-ghost" onClick={startOptionalMfa} disabled={busy}>Activar MFA</button>}
      <button className="button button-ghost" onClick={logout} disabled={busy}>Salir</button></div>
    </header>
    <main id="main" className="main-content">
