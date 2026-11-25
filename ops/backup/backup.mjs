@@ -29,7 +29,7 @@ export function validateSource(project,db,endpoint){
  const pool=u.hostname.endsWith('.pooler.supabase.com')&&decodeURIComponent(u.username)==='postgres.'+project;
  if(!['postgres:','postgresql:'].includes(u.protocol)||(!direct&&!pool)||u.port!=='5432'||u.pathname!=='/postgres'||!u.password||!['require','verify-ca','verify-full'].includes(u.searchParams.get('sslmode')))
   throw Error('Usa conexión directa o session pooler del proyecto esperado, puerto 5432 y TLS');
- if(s.protocol!=='https:'||s.hostname!==project+'.supabase.co'||s.pathname!=='/storage/v1/s3'||s.search||s.hash||s.username||s.password||s.port)
+ if(s.protocol!=='https:'||![project+'.supabase.co',project+'.storage.supabase.co'].includes(s.hostname)||s.pathname!=='/storage/v1/s3'||s.search||s.hash||s.username||s.password||s.port)
   throw Error('Endpoint S3 no corresponde al proyecto esperado');
 }
 function inside(child,parent){
@@ -127,5 +127,5 @@ async function main(){
  }
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- main().catch(e=>{console.error('EVALIA backup: '+(e.message?.includes('://')?'Error de configuración o ejecución':e.message));process.exitCode=1;});
+ main().catch(e=>{console.error('EVALIA backup: '+(e instanceof TypeError?'Error de configuración o ejecución':String(e.message||'Error desconocido').replace(/postgres(?:ql)?:\/\/[^\s]+/gi,'[conexión omitida]')));process.exitCode=1;});
 }
