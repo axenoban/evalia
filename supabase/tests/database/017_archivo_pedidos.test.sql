@@ -5,11 +5,14 @@ set local search_path=public,extensions;
 select plan(20);
 insert into auth.users(id,email) values('19110000-0000-4000-8000-000000000001','order-archive@example.invalid');
 insert into public.admin_profiles(user_id) values('19110000-0000-4000-8000-000000000001');
+-- Sesiones sintéticas válidas, no hay cambios en aserciones comerciales.
+insert into auth.sessions(id,user_id,created_at,updated_at,aal) values ('19110000-0000-4000-8000-000000000001','19110000-0000-4000-8000-000000000001',now(),now(),'aal1');
 insert into public.customers(id,name,whatsapp) values('39110000-0000-4000-8000-000000000001','Cliente archivo','70012345');
 insert into public.models(id,name,size_label,price_dozen_bs) values('29110000-0000-4000-8000-000000000001','Modelo','M',360);
 update public.model_inventory set on_hand=48 where model_id='29110000-0000-4000-8000-000000000001';
 set local role authenticated;
 set local request.jwt.claim.sub='19110000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"19110000-0000-4000-8000-000000000001","session_id":"19110000-0000-4000-8000-000000000001","aal":"aal1"}';
 select lives_ok($q$select public.create_evalia_order_delivery('39110000-0000-4000-8000-000000000001','[{"modelId":"29110000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]','59110000-0000-4000-8000-000000000001','pickup',null)$q$,'pedido erróneo de prueba');
 select is((public.get_model_stock('29110000-0000-4000-8000-000000000001')->>'available')::integer,36,'cupo comprometido');
 select lives_ok($q$select public.archive_evalia_order((select id from public.orders where request_id='59110000-0000-4000-8000-000000000001'),'Registro de prueba')$q$,'anular sin movimientos');
