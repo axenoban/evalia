@@ -82,10 +82,14 @@ export async function loadWorkspace(){
 export async function createColor(name,hex){
   return unwrap(await client().from('colors').insert({name,hex_code:hex}).select('id').single(),'Crear color');
 }
-export async function createCustomer({name,whatsapp,method,destination}){
- return unwrap(await client().from('customers').insert({
-  name,whatsapp,delivery_preference:method,shipping_destination:destination
- }).select('id').single(),'Crear cliente');
+export async function createCustomer({name,whatsapp,method,destination,requestId,confirmDuplicate=false}){
+ const result=unwrap(await client().rpc('create_evalia_customer',{
+  p_name:name,p_whatsapp:whatsapp,p_method:method,p_destination:destination,
+  p_request_id:requestId,p_confirm_duplicate:confirmDuplicate
+ }),'Crear cliente');
+ if(result?.state==='duplicate'&&Number.isInteger(result.count)&&result.count>0)return result;
+ if(result?.state!=='created'||!result.id)throw Error('No se pudo confirmar el alta. Verifica antes de repetir.');
+ return result;
 }
 export async function uploadPhoto(file,requestId=crypto.randomUUID()){
   if(!file)return null;
