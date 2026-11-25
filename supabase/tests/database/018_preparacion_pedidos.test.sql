@@ -5,11 +5,14 @@ set local search_path=public,extensions;
 select plan(18);
 insert into auth.users(id,email) values('19180000-0000-4000-8000-000000000001','prep-admin@example.invalid'),('19180000-0000-4000-8000-000000000002','prep-second@example.invalid'),('19180000-0000-4000-8000-000000000003','prep-outsider@example.invalid');
 insert into public.admin_profiles(user_id) values('19180000-0000-4000-8000-000000000001'),('19180000-0000-4000-8000-000000000002');
+-- Sesiones sintéticas válidas, no hay cambios en aserciones comerciales.
+insert into auth.sessions(id,user_id,created_at,updated_at,aal) values ('19180000-0000-4000-8000-000000000001','19180000-0000-4000-8000-000000000001',now(),now(),'aal1'),('19180000-0000-4000-8000-000000000002','19180000-0000-4000-8000-000000000002',now(),now(),'aal1');
 insert into public.customers(id,name,whatsapp) values('39180000-0000-4000-8000-000000000001','Cliente preparación','70012345');
 insert into public.models(id,name,size_label,price_dozen_bs) values('29180000-0000-4000-8000-000000000001','Modelo preparación','M',360);
 update public.model_inventory set on_hand=48 where model_id='29180000-0000-4000-8000-000000000001';
 set local role authenticated;
 set local request.jwt.claim.sub='19180000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"19180000-0000-4000-8000-000000000001","session_id":"19180000-0000-4000-8000-000000000001","aal":"aal1"}';
 select lives_ok($q$select public.create_evalia_order_delivery('39180000-0000-4000-8000-000000000001','[{"modelId":"29180000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]','59180000-0000-4000-8000-000000000001','pickup',null)$q$,'pedido nuevo');
 select ok((select prepared_at is null and preparation_version=0 from public.orders where request_id='59180000-0000-4000-8000-000000000001'),'empieza en preparación');
 select is(public.set_evalia_order_prepared((select id from public.orders where request_id='59180000-0000-4000-8000-000000000001'),true,0),1::bigint,'marcar preparado');
@@ -19,6 +22,7 @@ select is((public.get_evalia_order_finance((select id from public.orders where r
 select is((public.get_evalia_order_delivery((select id from public.orders where request_id='59180000-0000-4000-8000-000000000001'))->>'remaining')::integer,12,'misma entrega pendiente');
 select throws_ok($q$select public.set_evalia_order_prepared((select id from public.orders where request_id='59180000-0000-4000-8000-000000000001'),false,0)$q$,'40001','El pedido cambió. Actualiza antes de modificar la preparación','evitar sobreescritura concurrente');
 set local request.jwt.claim.sub='19180000-0000-4000-8000-000000000002';
+set local request.jwt.claims='{"sub":"19180000-0000-4000-8000-000000000002","session_id":"19180000-0000-4000-8000-000000000002","aal":"aal1"}';
 select is(public.set_evalia_order_prepared((select id from public.orders where request_id='59180000-0000-4000-8000-000000000001'),false,1),2::bigint,'otro administrador puede deshacer');
 select ok((select prepared_at is null and prepared_by is null from public.orders where request_id='59180000-0000-4000-8000-000000000001'),'reversión persistente');
 select is((select count(*) from public.order_preparation_events),2::bigint,'auditoría de ambos cambios');
@@ -28,6 +32,7 @@ select ok((select prepared_at is null and preparation_version=4 from public.orde
 select lives_ok($q$select public.archive_evalia_order((select id from public.orders where request_id='59180000-0000-4000-8000-000000000001'),'Prueba')$q$,'archivar pedido');
 select throws_ok($q$select public.set_evalia_order_prepared((select id from public.orders where request_id='59180000-0000-4000-8000-000000000001'),true,4)$q$,'23514','Solo pedidos activos sin archivar','archivado no modificable');
 set local request.jwt.claim.sub='19180000-0000-4000-8000-000000000003';
+set local request.jwt.claims='{"sub":"19180000-0000-4000-8000-000000000003","session_id":"19180000-0000-4000-8000-000000000003","aal":"aal1"}';
 select throws_ok($q$select public.set_evalia_order_prepared('59180000-0000-4000-8000-000000000001',true,0)$q$,'42501','Acceso administrativo requerido','no administrador rechazado');
 select ok(not has_function_privilege('anon','public.set_evalia_order_prepared(uuid,boolean,bigint)','execute'),'anónimo sin permiso');
 select * from finish();
