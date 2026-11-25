@@ -133,29 +133,36 @@ function ClientForm({onCreate,busy,compact=false,customers=[]}){
  const [name,setName]=useState(''),[phone,setPhone]=useState('');
  const [method,setMethod]=useState(''),[destination,setDestination]=useState(''),[error,setError]=useState('');
  const [duplicateConfirmed,setDuplicateConfirmed]=useState(false);
+ const [serverDuplicate,setServerDuplicate]=useState(false);
+ const requestId=useRef(null),submitting=useRef(false);
  const matches=matchingCustomers(customers,phone);
+ const duplicate=matches.length>0||serverDuplicate;
+ function changed(){requestId.current=null;setDuplicateConfirmed(false);setServerDuplicate(false);}
+
  async function submit(e){
-  e.preventDefault();if(busy)return;setError('');
+  e.preventDefault();if(busy||submitting.current)return;submitting.current=true;setError('');
   try{
    if(!name.trim()||!phone.trim())throw new Error('Nombre y WhatsApp obligatorios.');
-   if(matches.length&&!duplicateConfirmed)throw Error('Confirma que deseas registrar otra ficha con este número.');
+   if(duplicate&&!duplicateConfirmed)throw Error('Confirma que deseas registrar otra ficha con este número.');
    const delivery=validateDelivery(method,destination);
-   const ok=await onCreate({name:name.trim(),whatsapp:phone.trim(),...delivery});
-   if(ok){setName('');setPhone('');setMethod('');setDestination('');setDuplicateConfirmed(false);}
-  }catch(e){setError(e.message);}
+   if(!requestId.current)requestId.current=uuid();
+   const ok=await onCreate({name:name.trim(),whatsapp:phone.trim(),...delivery,requestId:requestId.current,confirmDuplicate:duplicateConfirmed});
+   if(ok?.state==='duplicate'){setServerDuplicate(true);setDuplicateConfirmed(false);return;}
+   if(ok===true){requestId.current=null;setServerDuplicate(false);setName('');setPhone('');setMethod('');setDestination('');setDuplicateConfirmed(false);}
+  }catch(e){setError(e.message);}finally{submitting.current=false;}
  }
  return <form className={'customer-form '+(compact?'mini-form':'')} onSubmit={submit}>
   <div className="form-inline">
    <Field title="Nombre del cliente"><input name="clientName" value={name} required maxLength={130}
-    autoComplete="name" placeholder="Nombre completo…" onChange={e=>setName(e.target.value)}/></Field>
+    autoComplete="name" placeholder="Nombre completo…" onChange={e=>{changed();setName(e.target.value);}}/></Field>
    <Field title="WhatsApp"><input name="clientPhone" type="tel" value={phone} required maxLength={30}
-    autoComplete="tel" inputMode="tel" placeholder="Número de WhatsApp…" onChange={e=>{setPhone(e.target.value);setDuplicateConfirmed(false);}}/></Field>
+    autoComplete="tel" inputMode="tel" placeholder="Número de WhatsApp…" onChange={e=>{changed();setPhone(e.target.value);}}/></Field>
   </div>
-  <DeliveryPreferenceFields method={method} setMethod={setMethod}
-   destination={destination} setDestination={setDestination}/>
-  {matches.length>0&&<div className="surface pad" role="status"><p className="small-note">Posible cliente duplicado: {matches.map(c=>c.name).join(', ')}. Puedes crear otra ficha si corresponde a otra persona.</p><label className="qr-confirm"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/>Confirmo registrar otra ficha con este WhatsApp.</label></div>}
+  <DeliveryPreferenceFields method={method} setMethod={v=>{changed();setMethod(v);}}
+   destination={destination} setDestination={v=>{changed();setDestination(v);}}/>
+  {duplicate&&<div className="surface pad" role="status"><p className="small-note">Posible cliente duplicado{matches.length?': '+matches.map(c=>c.name).join(', '):' detectado en la base de datos'}. Puedes crear otra ficha si corresponde a otra persona.</p><label className="qr-confirm"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/>Confirmo registrar otra ficha con este WhatsApp.</label></div>}
   {error&&<p className="form-error" role="alert">{error}</p>}
-  <div className="form-actions"><button className="button button-primary" disabled={busy||(matches.length>0&&!duplicateConfirmed)} type="submit">
+  <div className="form-actions"><button className="button button-primary" disabled={busy||(duplicate&&!duplicateConfirmed)} type="submit">
    {busy?'Guardando…':'Guardar cliente'}
   </button></div>
  </form>;
@@ -816,7 +823,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
        <span className="ev-chosen-tag">✓ Seleccionado</span>
       </div>}
      {addClient&&<div className="inline-client"><ClientForm compact busy={busy} customers={data.customers}
-       onCreate={async(payload)=>{const ok=await onCreateClient(payload);if(ok){setAddClient(false);setCustomerSearch(payload.whatsapp);setCustomerListOpen(true);setHighlightedCustomer(0);}return ok;}}/></div>}
+       onCreate={async(payload)=>{const ok=await onCreateClient(payload);if(ok===true){setAddClient(false);setCustomerSearch(payload.whatsapp);setCustomerListOpen(true);setHighlightedCustomer(0);}return ok;}}/></div>}
     </section>
     <section className={'form-section order-step-card '+(2<stage?'done':2===stage?'current':'next')}>
      <OrderStepHeader number={2} title="Seleccionar productos" description="Agrega modelos y elige docenas; despliega unidades y colores solo cuando lo necesites." state={2<stage?'done':2===stage?'current':'next'}/>
@@ -1653,7 +1660,14 @@ export default function HomePage(){
   expectedUpdatedAt:params.customer.updated_at,requestId:params.requestId
  }),'Ficha y destino corregidos con auditoría.');
  const addColor=(name,hex)=>mutation(()=>createColor(name,hex),'Color registrado.');
- const addClient=(payload)=>mutation(()=>createCustomer(payload),'Cliente registrado con categoría de entrega.');
+ async function addClient(payload){
+  let duplicate=null;
+  const ok=await mutation(async()=>{
+   const result=await createCustomer(payload);
+   if(result.state==='duplicate'){duplicate=result;throw Error('Se encontró otra ficha con ese WhatsApp. Confirma antes de continuar.');}
+  },'Cliente registrado con categoría de entrega.');
+  return duplicate||ok;
+ }
  const updateStock=(modelId,operation,units,version,requestId)=>
   mutation(()=>adjustStock({modelId,operation,units,version,requestId:requestId||uuid()}),'Stock actualizado.');
  const order=(customerId,lines,requestId,delivery)=>mutation(()=>createOrder(customerId,lines,requestId||uuid(),delivery),'Pedido confirmado con destino y precios congelados.');
