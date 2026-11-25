@@ -87,13 +87,24 @@ export async function createCustomer({name,whatsapp,method,destination}){
   name,whatsapp,delivery_preference:method,shipping_destination:destination
  }).select('id').single(),'Crear cliente');
 }
-export async function uploadPhoto(file){
+export async function uploadPhoto(file,requestId=crypto.randomUUID()){
   if(!file)return null;
   const allowed=['image/png','image/jpeg','image/webp'];
-  if(!allowed.includes(file.type)||file.size>5*1024*1024)throw new Error('La foto debe ser JPG, PNG o WebP de hasta 5 MB.');
+  if(!allowed.includes(file.type)||file.size>5*1024*1024||file.size===0)throw new Error('La foto debe ser JPG, PNG o WebP de hasta 5 MB.');
+  if(!/^[0-9a-f-]{36}$/i.test(requestId))throw Error('Identificador de carga inválido.');
   const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
-  const path='models/'+crypto.randomUUID()+'.'+ext;
-  unwrap(await client().storage.from('evalia-models').upload(path,file,{contentType:file.type,upsert:false}),'Subir fotografía');
+  const bytes=await file.arrayBuffer(),digest=await crypto.subtle.digest('SHA-256',bytes);
+  const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  const path='models/'+requestId+'-'+hash+'.'+ext;
+  const storage=client().storage.from('evalia-models');
+  const result=await storage.upload(path,file,{contentType:file.type,upsert:false});
+  if(result.error){
+   // No aceptar un 409 a ciegas: confirmar que los bytes existentes son los mismos.
+   if(!['409','Duplicate'].includes(String(result.error.statusCode??result.error.code))&&!/already exists/i.test(result.error.message||''))unwrap(result,'Subir fotografía');
+   const existing=unwrap(await storage.download(path),'Verificar fotografía del intento anterior');
+   const prior=await crypto.subtle.digest('SHA-256',await existing.arrayBuffer());
+   if(Array.from(new Uint8Array(prior),b=>b.toString(16).padStart(2,'0')).join('')!==hash)throw Error('La fotografía anterior no coincide; revisa antes de reintentar.');
+  }
   return path;
 }
 export async function removePhoto(path){
