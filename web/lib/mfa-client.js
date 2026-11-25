@@ -33,3 +33,33 @@ export async function verifyAdminTotp(db,expected,factorId,value){
  const state=await inspectAdminMfa(db,expected);
  if(state.step!=='check-server')throw Error('No se pudo confirmar el segundo factor.');
 }
+
+// Una sesión efímera no reemplaza la sesión del panel ni persiste sus credenciales.
+export async function withOwnerReauthentication(db,password,value,operation){
+ const code=normalizeTotp(value);
+ if(typeof password!=='string'||!password||!code)throw Error('Confirma tu contraseña y los seis dígitos del autenticador.');
+ const current=await db.auth.getUser(),user=current.data?.user;
+ if(current.error||!user?.email)throw Error('No se pudo confirmar la identidad.');
+ const {createClient}=await import('@supabase/supabase-js');
+ const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+ if(!url||!key)throw Error('Autenticación no configurada.');
+ const scoped=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'evalia-reauth-'+crypto.randomUUID()}});
+ try{
+  const auth=await scoped.auth.signInWithPassword({email:user.email,password});
+  if(auth.error||auth.data?.user?.id!==user.id)throw Error('No se pudo confirmar tu contraseña.');
+  const factors=await scoped.auth.mfa.listFactors();
+  if(factors.error)throw Error('No se pudo consultar tu autenticador.');
+  const factor=factors.data?.totp?.find(f=>f.status==='verified');
+  if(!factor)throw Error('Configura primero un autenticador TOTP.');
+  await verifyAdminTotp(scoped,user.id,factor.id,code);
+  const permission=await scoped.rpc('can_manage_evalia_accounts');
+  if(permission.error||permission.data!==true)throw Error('Reautenticación de propietario requerida.');
+  await checkIdentity(db,user.id);
+  const session=await scoped.auth.getSession();
+  if(session.error||!session.data?.session?.access_token)throw Error('No se pudo obtener la sesión de verificación.');
+  return await operation(scoped,session.data.session.access_token);
+ }finally{
+  // Nunca cerrar globalmente las sesiones del propietario.
+  await scoped.auth.signOut({scope:'local'}).catch(()=>{});
+ }
+}
