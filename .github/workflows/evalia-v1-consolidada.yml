@@ -37,18 +37,6 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: latest
-      # E1 candidate: generate with the actual CLI before testing. Replace this
-      # temporary step with the committed migration after validation.
-      - name: Generate E1 permission migration in isolated CI
-        if: ${{ hashFiles('ops/security/e1-align-service-role.sql') != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          supabase migration new e1_align_service_role
-          migration="$(find supabase/migrations -maxdepth 1 -name '*_e1_align_service_role.sql')"
-          test -f "$migration"
-          cp ops/security/e1-align-service-role.sql "$migration"
-          echo "E1 migration candidate: $migration"
       - run: supabase start
       - run: supabase test db
       - if: always()
