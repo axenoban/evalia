@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
-  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder, setOrderPrepared,
+  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder, setOrderPrepared,
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
@@ -16,6 +16,7 @@ import {BrandMark,UiIcon} from './brand.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
 import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
+import {matchingCustomers,normalizedWhatsApp} from '../lib/customer-duplicates.js';
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
 import {
@@ -128,16 +129,19 @@ function DeliveryPreferenceFields({method,setMethod,destination,setDestination,n
   </Field>}
  </div>;
 }
-function ClientForm({onCreate,busy,compact=false}){
+function ClientForm({onCreate,busy,compact=false,customers=[]}){
  const [name,setName]=useState(''),[phone,setPhone]=useState('');
  const [method,setMethod]=useState(''),[destination,setDestination]=useState(''),[error,setError]=useState('');
+ const [duplicateConfirmed,setDuplicateConfirmed]=useState(false);
+ const matches=matchingCustomers(customers,phone);
  async function submit(e){
-  e.preventDefault();setError('');
+  e.preventDefault();if(busy)return;setError('');
   try{
    if(!name.trim()||!phone.trim())throw new Error('Nombre y WhatsApp obligatorios.');
+   if(matches.length&&!duplicateConfirmed)throw Error('Confirma que deseas registrar otra ficha con este número.');
    const delivery=validateDelivery(method,destination);
    const ok=await onCreate({name:name.trim(),whatsapp:phone.trim(),...delivery});
-   if(ok){setName('');setPhone('');setMethod('');setDestination('');}
+   if(ok){setName('');setPhone('');setMethod('');setDestination('');setDuplicateConfirmed(false);}
   }catch(e){setError(e.message);}
  }
  return <form className={'customer-form '+(compact?'mini-form':'')} onSubmit={submit}>
@@ -145,12 +149,13 @@ function ClientForm({onCreate,busy,compact=false}){
    <Field title="Nombre del cliente"><input name="clientName" value={name} required maxLength={130}
     autoComplete="name" placeholder="Nombre completo…" onChange={e=>setName(e.target.value)}/></Field>
    <Field title="WhatsApp"><input name="clientPhone" type="tel" value={phone} required maxLength={30}
-    autoComplete="tel" inputMode="tel" placeholder="Número de WhatsApp…" onChange={e=>setPhone(e.target.value)}/></Field>
+    autoComplete="tel" inputMode="tel" placeholder="Número de WhatsApp…" onChange={e=>{setPhone(e.target.value);setDuplicateConfirmed(false);}}/></Field>
   </div>
   <DeliveryPreferenceFields method={method} setMethod={setMethod}
    destination={destination} setDestination={setDestination}/>
+  {matches.length>0&&<div className="surface pad" role="status"><p className="small-note">Posible cliente duplicado: {matches.map(c=>c.name).join(', ')}. Puedes crear otra ficha si corresponde a otra persona.</p><label className="qr-confirm"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/>Confirmo registrar otra ficha con este WhatsApp.</label></div>}
   {error&&<p className="form-error" role="alert">{error}</p>}
-  <div className="form-actions"><button className="button button-primary" disabled={busy} type="submit">
+  <div className="form-actions"><button className="button button-primary" disabled={busy||(matches.length>0&&!duplicateConfirmed)} type="submit">
    {busy?'Guardando…':'Guardar cliente'}
   </button></div>
  </form>;
@@ -492,17 +497,20 @@ function ModelForm({colors,onCreate,busy}){
    {busy?'Guardando modelo…':'Registrar producto e inventario'}</button>
  </form>;
 }
-function ClientEditForm({customer,onSave,onCancel,busy}){
+function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
  const [name,setName]=useState(customer.name),[phone,setPhone]=useState(customer.whatsapp);
  const [method,setMethod]=useState(customer.delivery_preference==='unclassified'?'':customer.delivery_preference);
  const [destination,setDestination]=useState(customer.shipping_destination??'');
  const [error,setError]=useState('');
  const requestId=useRef(null);
+ const [duplicateConfirmed,setDuplicateConfirmed]=useState(false);
+ const matches=normalizedWhatsApp(phone)===normalizedWhatsApp(customer.whatsapp)?[]:matchingCustomers(customers,phone,customer.id);
  async function submit(e){
-  e.preventDefault();setError('');
+  e.preventDefault();if(busy)return;setError('');
   try{
    const delivery=validateDelivery(method,destination);
    if(!name.trim()||!phone.trim())throw new Error('Nombre y WhatsApp obligatorios.');
+   if(matches.length&&!duplicateConfirmed)throw Error('Confirma el uso compartido de este WhatsApp.');
    if(!requestId.current)requestId.current=uuid();
    const ok=await onSave({customer,name:name.trim(),whatsapp:phone.trim(),...delivery,requestId:requestId.current});
    if(ok){requestId.current=null;onCancel();}
@@ -516,13 +524,14 @@ function ClientEditForm({customer,onSave,onCancel,busy}){
    <Field title="Nombre"><input value={name} maxLength={130} required
     onChange={e=>{setName(e.target.value);requestId.current=null;}}/></Field>
    <Field title="WhatsApp"><input value={phone} maxLength={30} type="tel" inputMode="tel" required
-    onChange={e=>{setPhone(e.target.value);requestId.current=null;}}/></Field>
+    onChange={e=>{setPhone(e.target.value);requestId.current=null;setDuplicateConfirmed(false);}}/></Field>
   </div>
   <DeliveryPreferenceFields method={method} setMethod={v=>{setMethod(v);requestId.current=null;}}
    destination={destination} setDestination={v=>{setDestination(v);requestId.current=null;}}/>
+  {matches.length>0&&<div className="surface pad" role="status"><p className="small-note">Este WhatsApp coincide con: {matches.map(c=>c.name).join(', ')}.</p><label className="qr-confirm"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/>Confirmo usar el mismo número en fichas diferentes.</label></div>}
   {error&&<p role="alert" className="form-error">{error}</p>}
   <div className="form-actions">
-   <button type="submit" disabled={busy||!touched} className="button button-primary">Guardar ficha y destino</button>
+   <button type="submit" disabled={busy||!touched||(matches.length>0&&!duplicateConfirmed)} className="button button-primary">Guardar ficha y destino</button>
    <button type="button" className="button button-outline" onClick={onCancel}>Cancelar</button>
   </div>
  </form>;
@@ -536,7 +545,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
   <div className="two-columns customer-layout">
    <section className="surface pad"><h2>Registrar cliente</h2>
     <p className="muted">Indica si compra para retiro o para envíos. Si recibe envíos, registra siempre su destino habitual.</p>
-    <ClientForm onCreate={onCreate} busy={busy}/></section>
+    <ClientForm onCreate={onCreate} busy={busy} customers={data.customers}/></section>
    <section className="surface pad"><h2>{data.customers.length} fichas registradas</h2>
     <label className="search"><span aria-hidden>⌕</span><input type="search" aria-label="Buscar cliente"
      value={search} placeholder="Buscar nombre o WhatsApp…" onChange={e=>setSearch(e.target.value)}/></label>
@@ -548,7 +557,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
        <button className="button button-outline" type="button" disabled={busy}
         onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button></div>
        {editing===c.id&&<ClientEditForm key={c.id+'-'+c.updated_at} customer={c}
-        onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy}/>}
+        onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy} customers={data.customers}/>}
       </div>
     })}</div>:<Empty title="Sin clientes coincidentes" detail="Registra una ficha o cambia la búsqueda."/>}
    </section>
@@ -806,7 +815,7 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
        <div><b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp}</small></div>
        <span className="ev-chosen-tag">✓ Seleccionado</span>
       </div>}
-     {addClient&&<div className="inline-client"><ClientForm compact busy={busy}
+     {addClient&&<div className="inline-client"><ClientForm compact busy={busy} customers={data.customers}
        onCreate={async(payload)=>{const ok=await onCreateClient(payload);if(ok){setAddClient(false);setCustomerSearch(payload.whatsapp);setCustomerListOpen(true);setHighlightedCustomer(0);}return ok;}}/></div>}
     </section>
     <section className={'form-section order-step-card '+(2<stage?'done':2===stage?'current':'next')}>
@@ -1615,21 +1624,26 @@ export default function HomePage(){
  }
  async function addModel(values){
   return mutation(async()=>{
-   const req=values.requestId||uuid(),path=values.photo?await uploadPhoto(values.photo):null;
+   const req=values.requestId||uuid(),path=values.photo?await uploadPhoto(values.photo,req):null;
    await createModel({...values,imagePath:path,requestId:req});
   },'El modelo y su stock se registraron en Supabase.');
  }
  const saveModelEdit=(params)=>mutation(async()=>{
-  const imagePath=params.photo?await uploadPhoto(params.photo):null;
-  try{
-   await updateModel({modelId:params.model.id,price:params.price,imagePath,
-    expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
-  }catch(e){if(imagePath)await removePhoto(imagePath).catch(()=>{});throw e;}
+  const imagePath=params.photo?await uploadPhoto(params.photo,params.requestId):null;
+  // No eliminar una carga tras un fallo de respuesta: el RPC pudo confirmar.
+  await updateModel({modelId:params.model.id,price:params.price,imagePath,
+   expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
  },'Precio/fotografía actualizados; los pedidos históricos no cambiaron.');
- const archiveProduct=(model)=>mutation(async()=>{
+ async function archiveProduct(model){
+  const actor=authorizedUser.current;
+  let cleanupPending=false;
+  const ok=await mutation(async()=>{
    const result=await archiveModel(model);
-   if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch(err){await refresh();throw new Error('Producto inhabilitado; fotografía pendiente de limpieza. '+err.message);}}
+   if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch{cleanupPending=true;}}
   },'Producto inhabilitado; el historial permanece intacto.');
+  if(ok&&cleanupPending&&authorizedUser.current===actor)setMessage('Producto inhabilitado; fotografía pendiente de limpieza. Actualiza y utiliza la opción de limpieza.');
+  return ok;
+ }
  const changePreparation=o=>mutation(()=>setOrderPrepared({orderId:o.id,prepared:!o.prepared_at,expectedVersion:o.preparation_version}),o.prepared_at?'Pedido nuevamente en preparación.':'Pedido marcado como preparado.');
  const archiveSelectedOrder=(orderId,reason)=>mutation(()=>archiveOrder(orderId,reason),'Pedido archivado; historial conservado.');
  const cleanArchivedPhotos=(paths)=>mutation(()=>cleanupArchivedPhotos(paths),'Fotografías archivadas eliminadas.');
