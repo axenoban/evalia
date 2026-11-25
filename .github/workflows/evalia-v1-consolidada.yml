@@ -45,7 +45,7 @@ jobs:
           supabase migration new e1_session_policy
           migration="$(find supabase/migrations -maxdepth 1 -name '*_e1_session_policy.sql')"
           test -f "$migration"
-          cp ops/security/e1-session-policy.sql "$migration"
+          cat ops/security/e1-session-policy.sql ops/security/e1-customer-create.sql > "$migration"
           echo "E1 session migration candidate: $migration"
       - run: supabase start
       - run: supabase test db
