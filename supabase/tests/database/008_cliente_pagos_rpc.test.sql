@@ -5,11 +5,14 @@ set local search_path=public,extensions;
 select plan(22);
 insert into auth.users(id,email) values('10000000-0000-4000-8000-000000000001','evalia-portal-qa@example.invalid');
 insert into public.admin_profiles(user_id) values('10000000-0000-4000-8000-000000000001');
+-- Sesiones sintéticas válidas, no hay cambios en aserciones comerciales.
+insert into auth.sessions(id,user_id,created_at,updated_at,aal) values ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',now(),now(),'aal1');
 insert into public.models(id,name,size_label,price_dozen_bs) values('20000000-0000-4000-8000-000000000001','Modelo portal QA','M',360.00);
 update public.model_inventory set on_hand=72 where model_id='20000000-0000-4000-8000-000000000001';
 insert into public.customers(id,name,whatsapp) values('30000000-0000-4000-8000-000000000001','QA A','00001'),('30000000-0000-4000-8000-000000000002','QA B','00002');
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"10000000-0000-4000-8000-000000000001","session_id":"10000000-0000-4000-8000-000000000001","aal":"aal1"}';
 select lives_ok($test$select public.create_evalia_order('30000000-0000-4000-8000-000000000001'::uuid,'[{"modelId":"20000000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]'::jsonb,'50000000-0000-4000-8000-000000000101'::uuid)$test$,'pedido A creado');
 select lives_ok($test$select public.create_evalia_order('30000000-0000-4000-8000-000000000002'::uuid,'[{"modelId":"20000000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]'::jsonb,'50000000-0000-4000-8000-000000000102'::uuid)$test$,'pedido B creado');
 select lives_ok($test$select public.issue_evalia_order_link((select id from public.orders where request_id='50000000-0000-4000-8000-000000000101'::uuid),repeat('a',64))$test$,'token A emitido');
@@ -32,6 +35,7 @@ select throws_ok($test$select public.client_evalia_order(repeat('f',64))$test$,'
 reset role;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"10000000-0000-4000-8000-000000000001","session_id":"10000000-0000-4000-8000-000000000001","aal":"aal1"}';
 select lives_ok($test$select public.review_evalia_payment((select id from public.payment_reports where request_id='60000000-0000-4000-8000-000000000101'::uuid),'approve','60000000-0000-4000-8000-000000000103'::uuid,'Verificado')$test$,'admin aprueba solo tras constatar ingreso');
 reset role;
 set local role service_role;
@@ -40,6 +44,7 @@ select is((select (public.client_evalia_order(repeat('b',64))->>'approved')::num
 reset role;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"10000000-0000-4000-8000-000000000001","session_id":"10000000-0000-4000-8000-000000000001","aal":"aal1"}';
 select lives_ok($test$select public.revoke_evalia_order_link((select id from public.orders where request_id='50000000-0000-4000-8000-000000000101'::uuid))$test$,'revocar enlace A');
 reset role;
 set local role service_role;
