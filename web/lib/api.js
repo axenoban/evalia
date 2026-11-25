@@ -236,23 +236,22 @@ export async function getAdminQrUrl(path){
  return unwrapStorage(await client().storage.from('evalia-qr')
   .createSignedUrl(path,120),'Mostrar QR').signedUrl;
 }
-export async function saveRealQr(file,verified,requestId){
+export async function saveRealQr(file,verified,requestId,db=client()){
  if(!verified)throw new Error('Antes de compartirlo confirma que el QR bancario es real, vigente y reutilizable.');
  if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5242880||file.size===0)
   throw new Error('El QR debe ser una imagen JPG, PNG o WebP de hasta 5 MB.');
  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
  const path='qr/'+requestId+'.'+ext;
- const result=await client().storage.from('evalia-qr')
+ const result=await db.storage.from('evalia-qr')
   .upload(path,file,{contentType:file.type,upsert:false});
  if(result.error && !String(result.error.message||'').toLowerCase().includes('already exists'))
   throw new Error('Carga del QR: '+result.error.message);
  try{
-  return unwrap(await client().rpc('update_evalia_qr',{
+  return unwrap(await db.rpc('update_evalia_qr',{
    p_image_path:path,p_verified_reusable:true,p_request_id:requestId
   }),'Actualizar QR de EVALIA');
  }catch(err){
-  // No eliminar archivo repetido, podría estar enlazado a un intento anterior.
-  if(!result.error)await client().storage.from('evalia-qr').remove([path]);
+  // Una respuesta perdida no demuestra rollback: preservar archivo hasta conciliación segura.
   throw err;
  }
 }
