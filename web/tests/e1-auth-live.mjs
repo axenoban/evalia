@@ -86,6 +86,9 @@ try{
  await another.auth.signOut({scope:'local'});
  // Ensure the sensitive operation uses a separate actual session and that
  // signing out that session does not invalidate the original owner session.
+ // A sensitive reauthentication must use a fresh time window, not replay
+ // the code used to enroll the original session.
+ await new Promise(r=>setTimeout(r,30000-Date.now()%30000+300));
  await withOwnerReauthentication(owner.db,owner.password,await currentCode(factor.secret),async scoped=>{
   assert.equal(checked(await scoped.rpc('can_manage_evalia_accounts'),'sensitive permission'),true);
  });
