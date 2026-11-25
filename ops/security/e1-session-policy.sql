@@ -71,7 +71,12 @@ begin
  return true;
 end;$function$;
 alter policy evalia_qr_admin_upload on storage.objects with check (
- bucket_id='evalia-qr' and name ~ '^qr/[A-Za-z0-9_-]+\\.(png|jpg|jpeg|webp)$'
+ bucket_id='evalia-qr' and name ~ '^qr/[A-Za-z0-9_-]+[.](png|jpg|jpeg|webp)
+ and (select public.can_manage_evalia_accounts()));
+alter policy evalia_qr_admin_delete on storage.objects using (
+ bucket_id='evalia-qr' and (select public.can_manage_evalia_accounts())
+ and not exists(select 1 from public.payment_qr q where q.image_path=storage.objects.name));
+
  and (select public.can_manage_evalia_accounts()));
 alter policy evalia_qr_admin_delete on storage.objects using (
  bucket_id='evalia-qr' and (select public.can_manage_evalia_accounts())
