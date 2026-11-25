@@ -32,15 +32,20 @@ insert into auth.users (id,email) values
 insert into public.admin_profiles(user_id,role,active) values
  ('f1700000-0000-4000-8000-000000000001','owner',true),
  ('f1700000-0000-4000-8000-000000000002','operator',true);
+-- Sesión y factor sintéticos para probar permisos bajo MFA obligatorio.
+insert into auth.mfa_factors(id,user_id,factor_type,status,created_at,updated_at) values('f1700000-0000-4000-8000-000000000012','f1700000-0000-4000-8000-000000000001','totp','verified',now(),now());
+insert into auth.sessions(id,user_id,created_at,updated_at,aal,factor_id) values('f1700000-0000-4000-8000-000000000011','f1700000-0000-4000-8000-000000000001',now(),now(),'aal2','f1700000-0000-4000-8000-000000000012'),('f1700000-0000-4000-8000-000000000013','f1700000-0000-4000-8000-000000000002',now(),now(),'aal1',null);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','f1700000-0000-4000-8000-000000000001',true);
+set local request.jwt.claims='{"sub":"f1700000-0000-4000-8000-000000000001","session_id":"f1700000-0000-4000-8000-000000000011","aal":"aal2"}';
 select lives_ok(
  $$insert into public.customers(name,whatsapp,delivery_preference,shipping_destination)
    values('QA cliente permiso owner','70000111','pickup',null) returning id$$,
  'el propietario puede registrar un cliente de retiro');
 
 select set_config('request.jwt.claim.sub','f1700000-0000-4000-8000-000000000002',true);
+set local request.jwt.claims='{"sub":"f1700000-0000-4000-8000-000000000002","session_id":"f1700000-0000-4000-8000-000000000013","aal":"aal1"}';
 select lives_ok(
  $$insert into public.customers(name,whatsapp,delivery_preference,shipping_destination)
    values('QA cliente permiso operator','70000222','shipping','Santa Cruz, Bolivia') returning id$$,
@@ -52,6 +57,7 @@ reset role;
 update public.admin_profiles set active=false where user_id='f1700000-0000-4000-8000-000000000002';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','f1700000-0000-4000-8000-000000000002',true);
+set local request.jwt.claims='{"sub":"f1700000-0000-4000-8000-000000000002","session_id":"f1700000-0000-4000-8000-000000000013","aal":"aal1"}';
 select throws_ok(
  $$insert into public.customers(name,whatsapp,delivery_preference,shipping_destination)
    values('QA cliente permiso suspended','70000333','pickup',null)$$,
@@ -59,6 +65,7 @@ select throws_ok(
  'operador suspendido no crea clientes');
 
 select set_config('request.jwt.claim.sub','f1700000-0000-4000-8000-000000000003',true);
+set local request.jwt.claims='{"sub":"f1700000-0000-4000-8000-000000000003","session_id":"f1700000-0000-4000-8000-000000000003","aal":"aal1"}';
 select throws_ok(
  $$insert into public.customers(name,whatsapp,delivery_preference,shipping_destination)
    values('QA cliente permiso outsider','70000444','pickup',null)$$,
