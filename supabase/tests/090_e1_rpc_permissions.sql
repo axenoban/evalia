@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(156);
+select plan(160);
 -- Inventario cerrado: toda ampliación exige revisión explícita.
 create temporary table e1_expected(sig text primary key, authenticated boolean, service boolean);
 insert into e1_expected values
@@ -13,6 +13,7 @@ insert into e1_expected values
  ('public.client_evalia_payment(text,numeric,text,uuid)',false,true),
  ('public.complete_evalia_order(uuid,uuid)',true,false),
  ('public.confirm_evalia_reservation(uuid,uuid)',true,false),
+ ('public.create_evalia_customer(text,text,text,text,uuid,boolean)',true,false),
  ('public.create_evalia_model(text,text,numeric,uuid[],integer,uuid,text)',true,false),
  ('public.create_evalia_order_delivery(uuid,jsonb,uuid,text,text)',true,false),
  ('public.create_evalia_order(uuid,jsonb,uuid)',true,false),
@@ -45,7 +46,7 @@ insert into e1_expected values
  ('public.update_evalia_model(uuid,numeric,text,timestamp with time zone,uuid)',true,false),
  ('public.update_evalia_order_delivery(uuid,text,text,uuid)',true,false),
  ('public.update_evalia_qr(text,boolean,uuid)',true,false);
-select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef),40,'Inventario de SECURITY DEFINER');
+select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef),41,'Inventario de SECURITY DEFINER');
 select is((select count(*)::integer from e1_expected e where to_regprocedure(e.sig) is null),0,'Todas las firmas existen');
 select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef and not coalesce(p.proconfig @> array['search_path=""'],false)),0,'Todas tienen search_path vacío');
 select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a where n.nspname='public' and p.prosecdef and a.grantee=0 and a.privilege_type='EXECUTE'),0,'Ninguna concede EXECUTE a PUBLIC');
@@ -64,6 +65,7 @@ select throws_ok('select public.archive_evalia_model(null::uuid,null::timestamp 
 select throws_ok('select public.archive_evalia_order(null::uuid,null::text)','42501',null,'Sin perfil: archive_evalia_order denegada');
 select throws_ok('select public.complete_evalia_order(null::uuid,null::uuid)','42501',null,'Sin perfil: complete_evalia_order denegada');
 select throws_ok('select public.confirm_evalia_reservation(null::uuid,null::uuid)','42501',null,'Sin perfil: confirm_evalia_reservation denegada');
+select throws_ok('select public.create_evalia_customer(null::text,null::text,null::text,null::text,null::uuid,null::boolean)','42501',null,'Sin perfil: create_evalia_customer denegada');
 select throws_ok('select public.create_evalia_model(null::text,null::text,null::numeric,null::uuid[],null::integer,null::uuid,null::text)','42501',null,'Sin perfil: create_evalia_model denegada');
 select throws_ok('select public.create_evalia_order_delivery(null::uuid,null::jsonb,null::uuid,null::text,null::text)','42501',null,'Sin perfil: create_evalia_order_delivery denegada');
 select throws_ok('select public.create_evalia_order(null::uuid,null::jsonb,null::uuid)','42501',null,'Sin perfil: create_evalia_order denegada');
