@@ -87,7 +87,7 @@ async function main(){
    return {names,objects:canonicalInventory(objects)};
   };
   const before=list();
-  const dump=(name,flags)=>run('supabase',['db','dump','--remote='+db,'-f',join(payload,name),...flags],'Dump '+name);
+  const dump=(name,flags)=>run('supabase',['db','dump','--db-url',db,'-f',join(payload,name),...flags],'Dump '+name);
   dump('roles.sql',['--role-only']);
   dump('schema.sql',[]);
   dump('data.sql',['--data-only','--use-copy','-x','storage.buckets_vectors','-x','storage.vector_indexes']);
