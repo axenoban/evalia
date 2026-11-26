@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(10);
+select plan(14);
 insert into auth.users(id,email) values('e1070000-0000-4000-8000-000000000001','model1@example.invalid'),('e1070000-0000-4000-8000-000000000002','model2@example.invalid');
 insert into public.admin_profiles(user_id,role) values('e1070000-0000-4000-8000-000000000001','operator'),('e1070000-0000-4000-8000-000000000002','operator');
 insert into auth.sessions(id,user_id,created_at,updated_at,aal) values('e1070000-0000-4000-8000-000000000011','e1070000-0000-4000-8000-000000000001',now(),now(),'aal1'),('e1070000-0000-4000-8000-000000000012','e1070000-0000-4000-8000-000000000002',now(),now(),'aal1');
@@ -21,6 +21,10 @@ select throws_ok($$select public.create_evalia_model('QA E1 legacy','M',360,arra
 set local request.jwt.claim.sub='e1070000-0000-4000-8000-000000000002';
 set local request.jwt.claims='{"sub":"e1070000-0000-4000-8000-000000000002","session_id":"e1070000-0000-4000-8000-000000000012","aal":"aal1"}';
 select throws_ok($$select public.create_evalia_model('QA E1 modelo','M',360,array['e1070000-0000-4000-8000-000000000031','e1070000-0000-4000-8000-000000000032']::uuid[],72,'e1070000-0000-4000-8000-000000000021',null)$$,'23505',null,'otro actor no reutiliza request');
+select throws_ok($$insert into public.models(name,size_label,price_dozen_bs) values('QA bypass','M',360)$$,'42501','permission denied for table models','admin cannot bypass model RPC');
+select ok(not has_column_privilege('authenticated','public.model_colors','model_id','INSERT'),'colors cannot be assigned outside catalog RPC');
+select ok(not has_table_privilege('authenticated','public.model_colors','DELETE'),'colors cannot be removed outside catalog RPC');
+select is((select on_hand from public.model_inventory where model_id=(select id from public.models where name='QA E1 modelo')),72,'retry never adds stock twice');
 reset role;
 select ok(not has_table_privilege('authenticated','evalia_security.model_create_requests','SELECT'),'ledger privado');
 select * from finish();
