@@ -79,5 +79,13 @@ jobs:
       - run: npm ci --prefix web --no-audit --no-fund
       - name: E1 real SDK Auth and concurrency (isolated)
         run: node web/tests/e1-auth-live.mjs
+      - name: Install age for disposable recovery drill
+        run: |
+          if ! command -v age >/dev/null || ! command -v age-keygen >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y age
+          fi
+      - name: E1 encrypted synthetic recovery (isolated)
+        run: node web/tests/e1-recovery-live.mjs
       - if: always()
         run: supabase stop --no-backup || true
