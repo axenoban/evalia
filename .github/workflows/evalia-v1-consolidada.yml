@@ -74,14 +74,6 @@ jobs:
               for s in sockets:
                   s.close()
           PY
-      - name: Generate E1 catalog write gate in isolated CI
-        run: |
-          set -euo pipefail
-          supabase migration new e1_catalog_write_gate
-          migration=$(find supabase/migrations -maxdepth 1 -name '*_e1_catalog_write_gate.sql')
-          test -f "$migration"
-          cat ops/security/e1-catalog-write-gate.sql > "$migration"
-          echo "E1 catalog migration candidate: $migration"
       - run: supabase start
       - run: supabase test db
       - run: npm ci --prefix web --no-audit --no-fund
