@@ -40,18 +40,18 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','f1700000-0000-4000-8000-000000000001',true);
 set local request.jwt.claims='{"sub":"f1700000-0000-4000-8000-000000000001","session_id":"f1700000-0000-4000-8000-000000000011","aal":"aal2"}';
 select lives_ok(
- $select public.create_evalia_customer('QA cliente permiso owner','70000111','pickup',null,'f1700000-0000-4000-8000-000000000021',false)$,
+ $$select public.create_evalia_customer('QA cliente permiso owner','70000111','pickup',null,'f1700000-0000-4000-8000-000000000021',false)$$,
  'el propietario puede registrar un cliente de retiro');
 
 select set_config('request.jwt.claim.sub','f1700000-0000-4000-8000-000000000002',true);
 set local request.jwt.claims='{"sub":"f1700000-0000-4000-8000-000000000002","session_id":"f1700000-0000-4000-8000-000000000013","aal":"aal1"}';
 select lives_ok(
- $select public.create_evalia_customer('QA cliente permiso operator','70000222','shipping','Santa Cruz, Bolivia','f1700000-0000-4000-8000-000000000022',false)$,
+ $$select public.create_evalia_customer('QA cliente permiso operator','70000222','shipping','Santa Cruz, Bolivia','f1700000-0000-4000-8000-000000000022',false)$$,
  'el operador activo puede registrar un cliente de envio');
 select is((select count(*) from public.customers where name like 'QA cliente permiso %'),2::bigint,
  'ambos clientes quedaron disponibles para los admins');
 
-select throws_ok($insert into public.customers(name,whatsapp) values('QA bypass','70000222')$,'42501','permission denied for table customers','admin no puede eludir RPC de alta');
+select throws_ok($$insert into public.customers(name,whatsapp) values('QA bypass','70000222')$$,'42501','permission denied for table customers','admin no puede eludir RPC de alta');
 select is((select shipping_destination from public.customers where name='QA cliente permiso operator'),'Santa Cruz, Bolivia','destino conservado mediante RPC');
 
 reset role;
@@ -60,14 +60,14 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','f1700000-0000-4000-8000-000000000002',true);
 set local request.jwt.claims='{"sub":"f1700000-0000-4000-8000-000000000002","session_id":"f1700000-0000-4000-8000-000000000013","aal":"aal1"}';
 select throws_ok(
- $select public.create_evalia_customer('QA cliente permiso suspended','70000333','pickup',null,'f1700000-0000-4000-8000-000000000023',false)$,
+ $$select public.create_evalia_customer('QA cliente permiso suspended','70000333','pickup',null,'f1700000-0000-4000-8000-000000000023',false)$$,
  '42501',null,
  'operador suspendido no crea clientes');
 
 select set_config('request.jwt.claim.sub','f1700000-0000-4000-8000-000000000003',true);
 set local request.jwt.claims='{"sub":"f1700000-0000-4000-8000-000000000003","session_id":"f1700000-0000-4000-8000-000000000003","aal":"aal1"}';
 select throws_ok(
- $select public.create_evalia_customer('QA cliente permiso outsider','70000444','pickup',null,'f1700000-0000-4000-8000-000000000024',false)$,
+ $$select public.create_evalia_customer('QA cliente permiso outsider','70000444','pickup',null,'f1700000-0000-4000-8000-000000000024',false)$$,
  '42501',null,
  'usuario sin perfil no crea clientes');
 
