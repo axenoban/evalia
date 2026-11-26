@@ -20,10 +20,17 @@ foreach ($check in $checks) {
         continue
     }
     try {
-        $result = & $check.Command @($check.Arguments) 2>&1
+        $command = $check.Command
+        $arguments = $check.Arguments
+        $result = & $command @arguments 2>&1
         if ($LASTEXITCODE -ne 0) { throw 'Comando no disponible' }
         $first = @($result)[0].ToString().Trim()
-        Write-Host ('OK: ' + $check.Name + ' - ' + $first)
+        if ($check.Name -eq 'Node.js' -and $first -notmatch '^v22\.') {
+            Write-Host ('REVISAR: Node.js 22 requerido; detectado ' + $first)
+            $missing += 'Node.js 22'
+        } else {
+            Write-Host ('OK: ' + $check.Name + ' - ' + $first)
+        }
     } catch {
         Write-Host ('REVISAR: ' + $check.Name)
         $missing += $check.Name
