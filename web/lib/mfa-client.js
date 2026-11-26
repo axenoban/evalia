@@ -18,7 +18,11 @@ export async function inspectAdminMfa(db,expected){
 export async function enrollAdminTotp(db,expected){
  await checkIdentity(db,expected);
  const {data,error}=await db.auth.mfa.enroll({factorType:'totp',friendlyName:'EVALIA '+new Date().toISOString()});
- if(error||!data?.id||!data.totp?.secret)throw Error('No se pudo preparar el autenticador.');
+ if(error){
+  const code=typeof error.code==='string'&&/^[a-z0-9_]{1,64}$/.test(error.code)?error.code:'auth_error';
+  const failure=Error('No se pudo preparar el autenticador.');failure.code=code;throw failure;
+ }
+ if(!data?.id||!data.totp?.secret)throw Error('El autenticador no devolvió los datos esperados.');
  await checkIdentity(db,expected);
  // Mostrar clave manual; no renderizar SVG/HTML recibido ni guardar el secreto en disco.
  return {id:data.id,secret:data.totp.secret};
