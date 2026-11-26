@@ -72,4 +72,4 @@ begin
  insert into evalia_security.model_create_requests(request_id,actor_id,model_id,fingerprint)
  values(p_request_id,auth.uid(),v_id,v_fingerprint);
  return v_id;
-end;$;
+end;$$;
