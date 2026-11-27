@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase.js';
 import { assembleWorkspace } from './workspace-assembly.js';
+import { readAllPages } from './workspace-pagination.js';
 
 function unwrap(result,action) {
   if(result.error) throw new Error(action+': '+result.error.message);
@@ -25,23 +26,23 @@ export async function loadWorkspace(){
   const [modelData,colorData,modelColorData,customerData,reservationData,
     reservationLineData,orderData,archivedOrderData,orderLineData,reservationColorData,orderColorData,revisionData,
     paymentData,paymentReviewData,deliveryData,deliveryLineData,linkData,qrData]=await Promise.all([
-    db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at,updated_at').order('created_at',{ascending:false}),
-    db.from('colors').select('id,name,hex_code,is_active').order('name'),
-    db.from('model_colors').select('model_id,color_id'),
-    db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at').order('created_at',{ascending:false}),
-    db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at').order('created_at',{ascending:false}).limit(200),
-    db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units'),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version,revision').is('archived_at',null).order('confirmed_at',{ascending:false}).limit(200),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version,revision').not('archived_at','is',null).order('archived_at',{ascending:false}).limit(200),
-    db.from('order_lines').select('id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs'),
-    db.from('reservation_extra_colors').select('reservation_line_id,color_id,position').order('position'),
-    db.from('order_extra_colors').select('order_line_id,color_id,position').order('position'),
-    db.from('reservation_revisions').select('reservation_id,created_at,actor_id').order('created_at',{ascending:false}).limit(500),
-    db.from('payment_reports').select('id,request_id,order_id,reservation_id,amount_bs,status,origin,note,public_note,receipt_path,created_at,approved_at').order('created_at',{ascending:false}).limit(500),
-    db.from('payment_reviews').select('id,report_id,action,note,created_at,actor_id').order('created_at',{ascending:false}).limit(500),
-    db.from('deliveries').select('id,order_id,delivered_at,actor_id').order('delivered_at',{ascending:false}).limit(500),
-    db.from('delivery_lines').select('delivery_id,order_line_id,order_id,quantity'),
-    db.from('order_access_links').select('order_id,issued_at,revoked_at,version'),
+    readAllPages(()=>db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at,updated_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'models'),
+    readAllPages(()=>db.from('colors').select('id,name,hex_code,is_active',{count:'exact'}).order('name').order('id',{ascending:true}),["id"],'colors'),
+    readAllPages(()=>db.from('model_colors').select('model_id,color_id',{count:'exact'}).order('model_id',{ascending:true}).order('color_id',{ascending:true}),["model_id","color_id"],'model_colors'),
+    readAllPages(()=>db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'customers'),
+    readAllPages(()=>db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'reservations'),
+    readAllPages(()=>db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units',{count:'exact'}).order('id',{ascending:true}),["id"],'reservation_lines'),
+    readAllPages(()=>db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version,revision',{count:'exact'}).is('archived_at',null).order('confirmed_at',{ascending:false}).order('id',{ascending:true}),["id"],'orders'),
+    readAllPages(()=>db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version,revision',{count:'exact'}).not('archived_at','is',null).order('archived_at',{ascending:false}).order('id',{ascending:true}),["id"],'orders'),
+    readAllPages(()=>db.from('order_lines').select('id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs',{count:'exact'}).order('id',{ascending:true}),["id"],'order_lines'),
+    readAllPages(()=>db.from('reservation_extra_colors').select('reservation_line_id,color_id,position',{count:'exact'}).order('position').order('reservation_line_id',{ascending:true}).order('color_id',{ascending:true}),["reservation_line_id","color_id"],'reservation_extra_colors'),
+    readAllPages(()=>db.from('order_extra_colors').select('order_line_id,color_id,position',{count:'exact'}).order('position').order('order_line_id',{ascending:true}).order('color_id',{ascending:true}),["order_line_id","color_id"],'order_extra_colors'),
+    readAllPages(()=>db.from('reservation_revisions').select('id,reservation_id,created_at,actor_id',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'reservation_revisions'),
+    readAllPages(()=>db.from('payment_reports').select('id,request_id,order_id,reservation_id,amount_bs,status,origin,note,public_note,receipt_path,created_at,approved_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'payment_reports'),
+    readAllPages(()=>db.from('payment_reviews').select('id,report_id,action,note,created_at,actor_id',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'payment_reviews'),
+    readAllPages(()=>db.from('deliveries').select('id,order_id,delivered_at,actor_id',{count:'exact'}).order('delivered_at',{ascending:false}).order('id',{ascending:true}),["id"],'deliveries'),
+    readAllPages(()=>db.from('delivery_lines').select('delivery_id,order_line_id,order_id,quantity',{count:'exact'}).order('delivery_id',{ascending:true}).order('order_line_id',{ascending:true}),["delivery_id","order_line_id"],'delivery_lines'),
+    readAllPages(()=>db.from('order_access_links').select('order_id,issued_at,revoked_at,version',{count:'exact'}).order('order_id',{ascending:true}),["order_id"],'order_access_links'),
     db.from('payment_qr').select('image_path,reusable_verified,updated_at').limit(1)
   ]);
   const models=unwrap(modelData,'Modelos'),colors=unwrap(colorData,'Colores'),
