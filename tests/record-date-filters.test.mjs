@@ -45,7 +45,7 @@ test('date filtering precedes pagination, with selectable 10/25/50/100 and no lo
   assert.equal(pageOf(filtered,999,size).page,first.pages);
  }
 });
-test('all three lists wire shared date filters and numbered paginator without changing historical data',()=>{
+test('all four lists wire shared date filters and numbered paginator without changing historical data',()=>{
  const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
  const controls=readFileSync(new URL('../web/app/record-list-controls.jsx',import.meta.url),'utf8');
  const pkg=JSON.parse(readFileSync(new URL('../web/package.json',import.meta.url),'utf8'));
@@ -56,8 +56,9 @@ test('all three lists wire shared date filters and numbered paginator without ch
  assert.match(orderApi,/archived\?'archived_at':'confirmed_at'/);
  assert.match(orderApi,/\.range\(\(page-1\)\*size,page\*size-1\)/);
  assert.match(page,/useRecordList\(payments,'created_at'\)/);
- assert.equal((page.match(/<RecordListControls list=\{list\}/g)||[]).length,3);
- assert.equal((page.match(/<ListPager view=\{view\}/g)||[]).length,3);
+ assert.match(page,/useRecordList\(filtered,'created_at'\)/);
+ assert.equal((page.match(/<RecordListControls list=\{list\}/g)||[]).length,4);
+ assert.equal((page.match(/<ListPager view=\{(?:view|page)\}/g)||[]).length,4);
  assert.match(controls,/import ReactPaginate from 'react-paginate'/);
  assert.match(controls,/forcePage=\{view.page-1\}/);
  assert.match(controls,/pageOf\(filtered,page,size\)/);
