@@ -4,13 +4,12 @@ import ReactPaginate from 'react-paginate';
 import {pageOf} from '../lib/workspace-pagination.js';
 import {dateRange,matchesDate,PAGE_SIZES} from '../lib/record-date-filters.js';
 
-export function useRecordList(rows,dateKey,resetToken=''){
+export function useRecordList(rows,dateKey){
  const [page,setPage]=useState(1),[size,setSize]=useState(25);
  const [preset,setPreset]=useState('all'),[from,setFrom]=useState(''),[to,setTo]=useState('');
  const range=dateRange(preset,from,to);
  const filtered=rows.filter(row=>matchesDate(row[dateKey],range));
  const view=pageOf(filtered,page,size);
- useEffect(()=>{setPage(1);},[resetToken,dateKey]);
  useEffect(()=>{if(page!==view.page)setPage(view.page);},[page,view.page]);
  function changePreset(value){setPreset(value);setPage(1);}
  function changeFrom(value){setFrom(value);setPage(1);}
