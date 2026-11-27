@@ -296,7 +296,7 @@ begin
  values(p_request_id,'model',p_id,auth.uid(),'reactivate',v_payload,to_jsonb(v_model),(select to_jsonb(m)||jsonb_build_object('on_hand',p_units) from public.models m where id=p_id));
  return p_id;
 end;$$;
-revoke execute on function public.save_evalia_color(uuid,text,text,boolean,timestamptz,uuid),public.edit_evalia_product(uuid,text,text,numeric,uuid[],text,timestamptz,uuid),public.get_evalia_stock_batch(uuid[]),public.reactivate_evalia_product(uuid,integer,timestamptz,uuid) from public,anon;
+revoke execute on function public.save_evalia_color(uuid,text,text,boolean,timestamptz,uuid),public.edit_evalia_product(uuid,text,text,numeric,uuid[],text,timestamptz,uuid),public.get_evalia_stock_batch(uuid[]),public.reactivate_evalia_product(uuid,integer,timestamptz,uuid) from public,anon,service_role;
 grant execute on function public.save_evalia_color(uuid,text,text,boolean,timestamptz,uuid),public.edit_evalia_product(uuid,text,text,numeric,uuid[],text,timestamptz,uuid),public.get_evalia_stock_batch(uuid[]),public.reactivate_evalia_product(uuid,integer,timestamptz,uuid) to authenticated;
 
 CREATE OR REPLACE FUNCTION public.create_evalia_model(p_name text, p_size text, p_price numeric, p_color_ids uuid[], p_initial_units integer, p_request_id uuid, p_image_path text DEFAULT NULL::text)
