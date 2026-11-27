@@ -217,7 +217,7 @@
  .ev-order-edit-footer .button{flex:1}
 }
 
-.ev-orders-heading{margin:0 0 14px}.ev-orders-heading h1{margin:0}.ev-order-archive-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0;padding-top:14px;border-top:1px solid var(--border)}.ev-order-archive-toolbar .button{min-height:44px}.ev-order-archive-toolbar [aria-pressed=true]{background:var(--plum);color:white}.ev-order-archive-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.ev-order-archive-label{font-size:10px;color:#746176;font-weight:700}.status-voided{background:#f3e5e8;color:#8c4050}
+.ev-orders-heading{margin:0 0 14px}.ev-orders-heading h1{margin:0}.ev-orders-heading .eyebrow{margin:0 0 5px}.ev-order-archive-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0;padding-top:14px;border-top:1px solid var(--border)}.ev-order-archive-toolbar .button{min-height:44px}.ev-order-archive-toolbar [aria-pressed=true]{background:var(--plum);color:white}.ev-order-archive-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.ev-order-archive-label{font-size:10px;color:#746176;font-weight:700}.status-voided{background:#f3e5e8;color:#8c4050}
 
 /* Preparación física: cambio rápido, independiente del estado comercial. */
 .ev-order-accordion[data-order-status="active"]{border-color:#E8D5A3}
