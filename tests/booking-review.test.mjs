@@ -1,0 +1,51 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {emptyBooking,findBookingCustomers,recentBookingCustomers,reviewBooking,repeatBooking,hasBookingDraft} from '../web/lib/booking-review.js';
+const colors=Array.from({length:7},(_,i)=>({id:'c'+i,is_active:true}));
+const models=[{id:'m',name:'Solera',is_active:true,price_dozen_bs:'380.00',colorIds:colors.map(c=>c.id)}];
+const stock={m:{available:48,blocked:false}};
+test('recent customers are unique by confirmed order time, not by phone or account creation',()=>{
+ const customers=[{id:'a',name:'José',whatsapp:'+591 7000-1234'},{id:'b',name:'Otro',whatsapp:'70001234'},{id:'c',name:'María',whatsapp:'12345678'}];
+ const orders=[{id:'1',customer_id:'b',confirmed_at:'2026-11-22',status:'active'},{id:'2',customer_id:'a',confirmed_at:'2026-11-27',status:'completed'},{id:'3',customer_id:'a',confirmed_at:'2026-11-25',status:'active'},{id:'4',customer_id:'c',confirmed_at:'2026-11-28',archived_at:'2026-11-29',status:'voided'}];
+ assert.deepEqual(recentBookingCustomers(customers,orders).map(c=>c.id),['a','b']);
+ assert.deepEqual(findBookingCustomers(customers,'jose').map(c=>c.id),['a']);
+ assert.deepEqual(findBookingCustomers(customers,'00591 70001234').map(c=>c.id),['a','b']);
+});
+test('strict review excludes incomplete rows and retains removed models and unavailable colors',()=>{
+ const valid=reviewBooking(models,{m:{dozens:'1',extraColorIds:['c1']}},stock,colors);
+ assert.equal(valid.ready,true);assert.equal(valid.total,41200n);assert.equal(valid.units,13);
+ assert.equal(valid.lines[0].expectedPrice,'380.00');
+ const invalid=reviewBooking(models,{m:{dozens:'0',extraColorIds:['c1']},gone:{dozens:'1',extraColorIds:[],previousName:'Anterior'}},stock,colors);
+ assert.equal(invalid.ready,false);assert.equal(invalid.total,0n);assert.equal(invalid.rows.length,2);
+ assert.equal(invalid.rows[1].selection.previousName,'Anterior');
+ assert.equal(reviewBooking(models,{m:{dozens:'5',extraColorIds:[]}},stock,colors).ready,false);
+ assert.equal(reviewBooking(models,{m:{dozens:'1',extraColorIds:['c1','c1']}},stock,colors).ready,false);
+ assert.equal(reviewBooking(models,{m:{dozens:'1',extraColorIds:['missing']}},stock,colors).ready,false);
+});
+test('repeat order only creates draft, uses current price and preserves unavailable historical selections',()=>{
+ const previous={customer_id:'a',fulfillment_method:'shipping',shipping_destination:'La Paz',lines:[{model_id:'m',dozen_count:1,extraColorIds:[],price_dozen_bs:360},{model_id:'old',model_name_snapshot:'Antiguo',dozen_count:1,extraColorIds:['old-color']}]};
+ const draft=repeatBooking(previous,models);
+ assert.equal(draft.attempt,null);assert.equal(draft.receipt,null);assert.equal(draft.customerId,'a');assert.equal(draft.destination,'La Paz');
+ assert.equal(draft.portions.old.previousName,'Antiguo');
+ const review=reviewBooking(models,draft.portions,stock,colors);
+ assert.equal(review.ready,false);assert.equal(review.lines[0].expectedPrice,'380.00');assert.equal(review.total,38000n);
+ assert.equal(hasBookingDraft(draft),true);assert.equal(hasBookingDraft(emptyBooking()),false);
+});
+test('new booking retains confirmed IDs, frozen retries, session-only state and explicit confirmation',()=>{
+ const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
+ const form=page.slice(page.indexOf('function BookingPanel('),page.indexOf('function LineComposition('));
+ assert.match(form,/onCreateClient\(payload,true\)/);assert.match(form,/id:result.id/);
+ assert.match(form,/if\(attempt\)\{await onOrder\(attempt\);return;\}/);
+ assert.match(form,/if\(!await ask\(\{severity:'normal',title:'Confirmar pedido'/);
+ assert.match(form,/await onOrder\(\{customerId,lines:review.lines,delivery,requestId:uuid\(\)\}\)/);
+ assert.match(page,/const \[bookingDraft,setBookingDraft\]=useState\(emptyBooking\)/);
+ assert.match(page,/setBookingDraft\(emptyBooking\(\)\);setFocusOrder\(null\)/);
+ assert.match(page,/bookingWrite.current=true/);
+ assert.match(page,/createOrder\(attempt.customerId,attempt.lines,attempt.requestId,attempt.delivery\)/);
+ assert.match(page,/setBookingDraft\(\{\.\.\.emptyBooking\(\),receipt:result.value\}\)/);
+ assert.match(page,/loadOrderById\(id,controller.signal\)/);
+ assert.match(page,/onClick=\{\(\)=>onRepeat\(o\)\}/);
+ assert.match(page,/useServerOrderList\(workspace,showArchived,focusOrder\)/);
+ assert.doesNotMatch(form,/localStorage|sessionStorage/);
+});
