@@ -22,14 +22,14 @@ export function buildOrderWhatsAppMessage({order,customer,models=[],colors=[],fi
   if(!Number.isSafeInteger(count)||count<6)throw new Error('Cantidad de pedido inválida.');
   const subtotal=amountCents(line.subtotal_bs);
   total+=subtotal;
-  const title=plain(model?.name)||'Modelo';
-  const size=plain(model?.size_label)||'Única';
+  const title=plain(line.model_name_snapshot??model?.name)||'Modelo';
+  const size=plain(line.size_label_snapshot??model?.size_label)||'Única';
   const dozens=Number(line.dozen_count);
   const extra=Array.isArray(line.extraColorIds)?line.extraColorIds:[];
   const composition=line.dozen_count===null||line.dozen_count===undefined
    ?count+' prendas'
    :portionBreakdown(dozens,Number(line.extra_units??extra.length));
-  const knownColors=extra.map(id=>plain(colorById.get(id)?.name)||'Color registrado');
+  const knownColors=line.extraColorsSnapshot?.map(c=>plain(c.name)||'Color registrado')??extra.map(id=>plain(colorById.get(id)?.name)||'Color registrado');
   return [
     (index+1)+'. *'+title+'* (talla '+size+')',
     '   '+composition+' · '+count+' prendas',
