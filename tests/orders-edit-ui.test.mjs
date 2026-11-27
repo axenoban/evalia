@@ -29,10 +29,13 @@ test('la edición usa la RPC revisada e impide cobrar o editar un pedido cerrado
  assert.match(api,/export async function reviseOrder\(/);
  assert.match(api,/rpc\('revise_evalia_order'/);
  assert.match(api,/p_expected_revision:expectedRevision/);
- const selects=[...api.matchAll(/db\.from\('orders'\)\.select\('([^']+)'(?:,\{count:'exact'\})?\)\.(is|not)\('archived_at'/g)];
- assert.equal(selects.length,2,'both active and archive lists must select the revision');
- assert.deepEqual(selects.map(x=>x[2]).sort(),['is','not']);
- for(const [,columns] of selects)assert.ok(columns.split(',').includes('revision'));
+ const orderApi=readFileSync(new URL('../web/lib/order-page.js',import.meta.url),'utf8');
+ const columns=orderApi.match(/ORDER_COLUMNS='([^']+)'/)?.[1].split(',')??[];
+ assert.ok(columns.includes('revision'),'the server page must select the revision');
+ assert.match(orderApi,/db\.from\('orders'\)\.select\(ORDER_COLUMNS,\{count:'exact'\}\)/);
+ assert.match(orderApi,/archived\?q\.not\('archived_at','is',null\):q\.is\('archived_at',null\)/);
+ assert.match(orderApi,/revision:o\.revision\?\?null/);
+ assert.match(orders,/useServerOrderList\(workspace,showArchived\)/);
  assert.doesNotMatch(api,/revisionMap|revisionResponse/);
  assert.match(orders,/!Number\.isSafeInteger\(o.revision\)/);
  const assembly=readFileSync(new URL('../web/lib/workspace-assembly.js',import.meta.url),'utf8');
