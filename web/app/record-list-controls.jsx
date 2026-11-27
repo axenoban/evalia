@@ -38,13 +38,15 @@ export function useServerOrderList(workspace,archived){
     if(value.redirect){setPage(value.redirect);return;}
     setResult({workspace,key,value,error:''});
    }).catch(e=>{
-    if(active&&!controller.signal.aborted)setResult({workspace,key,value:null,error:e.message||'No se pudieron cargar los pedidos.'});
+    if(active&&!controller.signal.aborted)setResult(prev=>({workspace,key,value:prev?.key===key?prev.value:null,error:e.message||'No se pudieron cargar los pedidos.'}));
    });
   return ()=>{active=false;controller.abort();};
  },[workspace,archived,page,size,from,to,valid,key,setPage]);
- const current=valid&&result?.workspace===workspace&&result.key===key?result:null;
- return {...filters,view:current?.value?.view??null,details:current?.value?.details??null,
-  loading:valid&&!current,error:current?.error??'',retry:()=>setRetry(n=>n+1)};
+ const prior=valid&&result?.key===key?result:null;
+ const current=prior?.workspace===workspace?prior:null;
+ const loading=valid&&!current;
+ return {...filters,view:prior?.value?.view??null,details:prior?.value?.details??null,
+  loading,refreshing:loading&&Boolean(prior?.value),error:current?.error??'',retry:()=>setRetry(n=>n+1)};
 }
 export function RecordListControls({list,dateLabel,busy,onChange}){
  function change(fn){fn();onChange?.();}
