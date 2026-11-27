@@ -51,7 +51,10 @@ test('all three lists wire shared date filters and numbered paginator without ch
  const pkg=JSON.parse(readFileSync(new URL('../web/package.json',import.meta.url),'utf8'));
  const lock=JSON.parse(readFileSync(new URL('../web/package-lock.json',import.meta.url),'utf8'));
  assert.match(page,/useRecordList\(clients,'created_at'\)/);
- assert.match(page,/useRecordList\(visibleOrders,showArchived\?'archived_at':'confirmed_at'\)/);
+ assert.match(page,/useServerOrderList\(workspace,showArchived\)/);
+ const orderApi=readFileSync(new URL('../web/lib/order-page.js',import.meta.url),'utf8');
+ assert.match(orderApi,/archived\?'archived_at':'confirmed_at'/);
+ assert.match(orderApi,/\.range\(\(page-1\)\*size,page\*size-1\)/);
  assert.match(page,/useRecordList\(payments,'created_at'\)/);
  assert.equal((page.match(/<RecordListControls list=\{list\}/g)||[]).length,3);
  assert.equal((page.match(/<ListPager view=\{view\}/g)||[]).length,3);
