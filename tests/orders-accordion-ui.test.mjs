@@ -23,8 +23,10 @@ test('detalle abierto mantiene todos los módulos operativos anteriores',()=>{
   '<LegacyCommitments','<LineComposition','<OrderQuickActions','<OrderDeliveryEditor',
   '<PaymentHistory','<PaymentForm','<OrderLinkPanel',
   'onReport','onComplete(o.id)','onQuick','onIssueLink','onRevokeLink',
-  'onUpdateFulfillment','onPrint(o,customer)','busy||Number(finance.pending)!==0'
+  'onUpdateFulfillment','onPrint(o,customer)','pageBusy||Number(finance.pending)!==0'
  ])assert.ok(orders.includes(fragment),'falta función '+fragment);
+ assert.match(orders,/const pageBusy=busy\|\|list.loading\|\|Boolean\(list.error\)/);
+ assert.match(orders,/disabled=\{pageBusy\|\|Number\(finance.pending\)!==0\|\|Number\(finance.excess\)!==0\|\|Number\(delivery.remaining\)!==0\}/);
 });
 test('operaciones secundarias están plegadas sin deshabilitar el flujo express',()=>{
  assert.match(orders,/<details className="ev-order-management"/);
