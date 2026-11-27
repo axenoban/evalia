@@ -34,3 +34,9 @@ export function stockProjection(stock,operation,value,unit){
  const valid=String(value).trim()!==''&&Number.isSafeInteger(Number(value))&&Number.isSafeInteger(units)&&units>=(operation==='set_total'?0:1)&&Number.isSafeInteger(target)&&target<=2147483647&&target>=committed&&!(stock.blocked&&operation==='physical_sale');
  return {units,committed,target,available:target-committed,valid};
 }
+
+export function equivalentProduct(model,{name,size,price,colorIds,photo}){
+ if(!model||photo)return false;
+ const oldPrice=Number(normalizePrice(model.price_dozen_bs)),newPrice=Number(normalizePrice(price));
+ return normalizeName(model.name)===normalizeName(name)&&normalizeSize(model.size_label)===normalizeSize(size)&&Number.isFinite(newPrice)&&oldPrice===newPrice&&JSON.stringify([...new Set(model.colorIds??[])].sort())===JSON.stringify([...new Set(colorIds)].sort());
+}
