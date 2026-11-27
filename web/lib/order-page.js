@@ -3,7 +3,7 @@ import {readAllPages} from './workspace-pagination.js';
 import {indexBy} from './workspace-assembly.js';
 
 export const ORDER_COLUMNS='id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version,revision';
-const LINE_COLUMNS='id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs';
+const LINE_COLUMNS='id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs,model_name_snapshot,size_label_snapshot';
 const PAYMENT_COLUMNS='id,request_id,order_id,reservation_id,amount_bs,status,origin,note,public_note,receipt_path,created_at,approved_at';
 const CUSTOMER_COLUMNS='id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at';
 
@@ -73,9 +73,9 @@ export async function loadOrderPage(db,params){
   rowsByIds(db,'order_access_links','order_id,issued_at,revoked_at,version','order_id',ids,['order_id'],signal),
   rowsByIds(db,'customers',CUSTOMER_COLUMNS,'id',view.items.map(o=>o.customer_id),['id'],signal)
  ]);
- const extraColors=await rowsByIds(db,'order_extra_colors','order_line_id,color_id,position','order_line_id',lines.map(l=>l.id),['order_line_id','color_id'],signal,[['position',true]]);
+ const extraColors=await rowsByIds(db,'order_extra_colors','order_line_id,color_id,position,color_name_snapshot,color_hex_snapshot','order_line_id',lines.map(l=>l.id),['order_line_id','color_id'],signal,[['position',true]]);
  const linesByOrder=indexBy(lines,'order_id'),colorsByLine=indexBy(extraColors,'order_line_id');
- const orders=view.items.map(o=>({...o,revision:o.revision??null,lines:(linesByOrder.get(o.id)??[]).map(l=>({...l,extraColorIds:(colorsByLine.get(l.id)??[]).map(c=>c.color_id)}))}));
+ const orders=view.items.map(o=>({...o,revision:o.revision??null,lines:(linesByOrder.get(o.id)??[]).map(l=>({...l,extraColorIds:(colorsByLine.get(l.id)??[]).map(c=>c.color_id),...((colorsByLine.get(l.id)??[]).some(c=>c.color_name_snapshot!=null)?{extraColorsSnapshot:(colorsByLine.get(l.id)??[]).map(c=>({id:c.color_id,name:c.color_name_snapshot,hex_code:c.color_hex_snapshot}))}:{})}))}));
  if(orders.some(o=>!o.lines.length)||customers.length!==new Set(orders.map(o=>o.customer_id)).size)throw Error('Detalle del pedido incompleto; actualiza para reintentar.');
  const financeEntries=[],deliveryEntries=[];
  // Bounded concurrency: never launch two RPCs for every order in the database at once.
