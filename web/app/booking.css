@@ -162,3 +162,45 @@
  .ev-client-type{font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){.ev-progress-bar span{transition:none}}
+
+/* Compact capture: selection first, no tall progress card, no desktop track stretching. */
+.ev-booking-v2 .order-progress.ev-order-progress{padding:12px 16px;margin-bottom:14px;border-radius:12px;box-shadow:none}
+.ev-booking-v2 .ev-progress-bar{height:4px}
+.ev-booking-v2 .ev-progress-labels{margin-top:8px}
+.ev-booking-v2 .order-step-card>.form-section-title{padding:10px 14px;margin-bottom:12px}
+.ev-booking-v2 .order-step-heading h2{margin:0}
+.ev-booking-v2 .order-step-card .step{width:30px;height:30px;font-size:14px}
+.ev-recent-buyers{display:grid;gap:4px;margin-top:12px}
+.ev-recent-buyers h3{font-size:12px;margin:0 0 4px;color:var(--ink-soft)}
+.ev-recent-buyers .ev-client-option{border-color:var(--border)}
+.ev-booking-sizes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.ev-booking-sizes .pill{min-height:44px;min-width:44px}
+.ev-booking-picker-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.ev-booking-v2 .product-picker.ev-booking-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));max-height:none;overflow:visible;gap:10px;padding:0}
+.ev-picker-card{display:grid;grid-template-rows:auto 1fr auto;gap:8px;border:1px solid var(--border);border-radius:12px;padding:8px;min-width:0;max-width:230px;width:100%}
+.ev-picker-photo{padding:0;border:0;border-radius:8px;overflow:hidden;background:#f4eaf0;display:block;aspect-ratio:4/3;cursor:zoom-in;width:100%}
+.ev-picker-photo .product-image{width:100%;height:100%;object-fit:contain}
+.ev-picker-info{min-width:0;display:grid;gap:4px}
+.ev-picker-info b,.ev-picker-info small{overflow-wrap:anywhere}
+.ev-picker-info small{font-size:11px;line-height:1.35}
+.ev-picker-card .button{min-height:44px;font-size:12px;padding:6px}
+.ev-booking .ev-portion-primary{grid-template-columns:minmax(0,1fr)}
+.ev-booking .ev-portion-fields[hidden]{display:none}
+.ev-booking .ev-portion-expand{min-height:36px;padding:6px 8px}
+.ev-booking .cart-model-head{flex-wrap:wrap}
+.ev-booking .cart-model-info{flex:1;min-width:120px}
+.ev-booking .ev-portion-quick .ev-quick-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ev-booking .ev-portion-quick .ev-quick-custom{grid-column:auto;grid-column:span 2}
+.ev-booking .ev-portion-quick .ev-quick-choice:first-child{grid-column:span 2}
+.ev-booking .checkout{scroll-margin-top:76px;max-height:calc(100dvh - 100px);overflow:auto}
+.ev-booking-mobile-total{display:none}
+.ev-booking-photo-dialog{width:min(90vw,650px);max-height:88dvh;border:1px solid var(--border);border-radius:14px;padding:12px;background:white}
+.ev-booking-photo-dialog::backdrop{background:#21141fcc}
+.ev-booking-photo-dialog img{display:block;max-width:100%;max-height:70dvh;object-fit:contain;margin:10px auto}
+.ev-booking-receipt{max-width:560px;margin:0 auto;display:grid;gap:12px}
+.ev-receipt-success{text-align:center}.ev-receipt-success>span{display:grid;place-items:center;border-radius:50%;background:#eaf5ee;color:#32714f;font-size:30px;width:56px;height:56px;margin:0 auto 10px}
+.ev-receipt-total{font-size:28px}.ev-receipt-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ev-receipt-actions>.button{white-space:normal;min-height:44px}
+@media(max-width:1180px){.ev-booking-v2 .checkout{max-height:none;overflow:visible}}
+@media(max-width:1000px){.ev-booking-v2{padding-bottom:86px}.ev-booking-mobile-total{position:fixed;z-index:39;bottom:calc(70px + env(safe-area-inset-bottom));left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:white;border-top:1px solid var(--border);box-shadow:0 -5px 16px #38213214}.ev-booking-mobile-total small,.ev-booking-mobile-total strong{display:block}.ev-booking-mobile-total small{font-size:11px}.ev-booking-mobile-total strong{font-size:19px}.ev-booking-mobile-total .button{min-height:44px}.ev-booking-v2 .checkout{scroll-margin-top:12px;scroll-margin-bottom:150px}}
+@media(max-width:600px){.ev-booking-v2 .product-picker.ev-booking-picker{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ev-picker-card{padding:7px;max-width:none}.ev-receipt-actions{grid-template-columns:1fr}.ev-booking .ev-selected-client .button{padding:8px 6px;font-size:11px}.ev-booking-picker-toolbar .button{font-size:11px;white-space:normal}}
