@@ -1,6 +1,6 @@
 /* Compact product catalog; preserve existing brand and tactile controls. */
 .ev-product-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
-.ev-compact-product-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));align-items:start}
+.ev-compact-product-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));align-items:start}
 .ev-compact-product{overflow:visible;min-width:0}
 .ev-product-main{display:grid;grid-template-columns:minmax(92px,34%) minmax(0,1fr);align-items:start;gap:0}
 .ev-compact-product .product-cover{height:auto;aspect-ratio:4/5;min-height:105px;border-radius:13px 0 0 0;overflow:hidden}
@@ -67,3 +67,18 @@
 @media(max-width:900px){.ev-product-registration{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:640px){.section-head:has(.ev-catalog-actions) .head-actions{width:100%;min-width:0}.ev-catalog-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:8px}.ev-catalog-actions>.button:only-child{grid-column:1/-1}.ev-catalog-actions>.button{padding:9px 5px;font-size:12px}.ev-quick-choice.pill{font-size:12px}.ev-stock-stepper{grid-template-columns:44px minmax(64px,1fr) 44px}}
 @media(min-width:1100px){.ev-quick-quantity .ev-quick-grid{grid-template-columns:repeat(8,minmax(0,1fr))}.ev-quick-quantity .ev-quick-custom,.ev-quick-quantity .ev-quick-choice:nth-child(9){grid-column:span 4}}
+
+/* Keep vacant tracks in desktop grids. A lone model must not stretch into a full-width card. */
+@media(min-width:901px){.ev-compact-product-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));justify-items:start}.ev-compact-product-grid>.ev-compact-product{width:100%;max-width:460px}.ev-compact-product .product-cover{max-height:190px}.ev-compact-product .product-card-body{align-self:start}}
+.ev-fixed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ev-delivery-options .ev-quick-choice{min-width:0}
+.ev-destination-shortcut{width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left;margin:5px 0;min-height:44px}
+.ev-portion-primary .ev-portion-dozens,.ev-booking .ev-portion-dozens{display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0}
+.ev-portion-quick{width:100%;min-width:0}
+.ev-portion-quick .ev-quick-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ev-portion-quick .ev-quick-custom{grid-column:span 3}
+.ev-portion-quick .ev-quick-choice{font-size:12px;min-height:40px}
+.ev-portion-quick .dozen-entry{display:grid;grid-template-columns:44px minmax(64px,1fr) 44px;width:100%;gap:6px}
+.ev-portion-quick .dozen-entry button,.ev-booking .ev-portion-quick .dozen-entry button{width:100%;height:44px}
+.ev-portion-quick .dozen-entry input,.ev-booking .ev-portion-quick .dozen-entry input{width:100%;min-width:0;height:44px}
+.money-form .ev-quick-grid{grid-template-columns:minmax(0,1fr)}
