@@ -1,0 +1,30 @@
+/* Compact product catalog; preserve existing brand and tactile controls. */
+.ev-product-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.ev-compact-product-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));align-items:start}
+.ev-compact-product{overflow:visible;min-width:0}
+.ev-product-main{display:grid;grid-template-columns:minmax(92px,34%) minmax(0,1fr);align-items:start;gap:0}
+.ev-compact-product .product-cover{height:auto;aspect-ratio:4/5;min-height:105px;border-radius:13px 0 0 0;overflow:hidden}
+.ev-compact-product .product-cover .product-image{width:100%;height:100%;object-fit:cover;object-position:center}
+.ev-compact-product .product-card-body{padding:12px;min-width:0}
+.ev-compact-product .product-card-header{gap:6px;align-items:start}
+.ev-compact-product .product-card-header h2{overflow-wrap:anywhere;font-size:16px;margin:0 0 4px}
+.ev-compact-product .availability{display:inline-flex;margin:3px 0 6px}
+.ev-compact-product .color-row{max-height:84px;overflow:auto}
+.ev-product-bottom{padding:0 12px 12px}.ev-product-bottom .stock-grid-mini{margin:8px 0}
+.ev-product-menu{position:relative;flex:none}
+.ev-product-menu summary{list-style:none;cursor:pointer;min-width:44px;min-height:44px;display:grid;place-items:center;font-size:22px;border:1px solid var(--border);border-radius:9px}
+.ev-product-menu summary::-webkit-details-marker{display:none}
+.ev-product-menu-options{position:absolute;right:0;top:100%;z-index:5;min-width:174px;padding:5px;background:#fff;border:1px solid var(--border);box-shadow:0 8px 20px #402b3e22;border-radius:9px}
+.ev-product-menu-options button{display:block;width:100%;min-height:44px;text-align:left;padding:9px;border:0;background:transparent;border-radius:6px;font:inherit;cursor:pointer}
+.ev-product-menu-options button:hover{background:#f6eaf1}
+.ev-stock-stepper{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:5px}
+.ev-stock-stepper input{width:100%;min-width:0;text-align:center}
+.ev-stock-stepper .button{padding:4px;min-height:44px}
+.ev-price-suggestions{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.ev-price-suggestions .pill{min-height:36px}
+.ev-palette-edit{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:44px;width:100%}
+.ev-product-history{display:grid;gap:6px;padding:12px 0}
+.ev-product-history>div{padding:10px;border:1px solid var(--border);border-radius:9px;overflow-wrap:anywhere}
+.ev-product-history small{display:block;margin-top:4px;color:#786b78}
+.ev-product-history p{margin:4px 0;font-size:12px}
+@media(max-width:480px){.ev-compact-product-grid{grid-template-columns:1fr}.ev-product-filters{gap:8px}.ev-product-main{grid-template-columns:minmax(92px,35%) minmax(0,1fr)}.ev-compact-product .product-card-body{padding:9px}.ev-product-bottom{padding:0 9px 9px}}
