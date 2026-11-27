@@ -59,7 +59,10 @@ export async function loadDashboardOrderLines(db,orders,signal){
 export async function loadOrderPage(db,params){
  const {page,size,signal}=params;
  const response=await buildOrderPageQuery(db,params);
- let view=serverPageView(checked(response,'Pedidos'),response.count,page,size);
+ // PostgREST can return PGRST103 for an offset beyond the new last page.
+ // Re-read page one rather than masking other API or authorization failures.
+ if(page>1&&response.error?.code==='PGRST103')return {redirect:1};
+ const view=serverPageView(checked(response,'Pedidos'),response.count,page,size);
  if(view.redirect)return {redirect:view.redirect};
  const ids=view.items.map(o=>o.id),origins=view.items.map(o=>o.origin_reservation_id).filter(Boolean);
  const [lines,payments,legacyPayments,deliveries,links,customers]=await Promise.all([
