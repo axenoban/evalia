@@ -23,16 +23,16 @@ export function useRecordList(rows,dateKey){
  useEffect(()=>{if(page!==view.page)setPage(view.page);},[page,view.page,setPage]);
  return {...filters,view,filtered};
 }
-export function useServerOrderList(workspace,archived){
+export function useServerOrderList(workspace,archived,orderId=null){
  const filters=useRecordFilters(),{page,size,range,setPage}=filters;
  const {from,to,valid}=range;
  const [result,setResult]=useState(null),[retry,setRetry]=useState(0);
- const key=JSON.stringify([archived,page,size,from,to,valid,retry]);
+ const key=JSON.stringify([archived,page,size,from,to,valid,retry,orderId]);
  useEffect(()=>{
   if(!valid)return;
   const controller=new AbortController();
   let active=true;
-  loadOrdersPage({archived,page,size,range:{from,to,valid},signal:controller.signal})
+  loadOrdersPage({archived,page,size,range:{from,to,valid},orderId,signal:controller.signal})
    .then(value=>{
     if(!active)return;
     if(value.redirect){setPage(value.redirect);return;}
@@ -41,7 +41,7 @@ export function useServerOrderList(workspace,archived){
     if(active&&!controller.signal.aborted)setResult(prev=>({workspace,key,value:prev?.key===key?prev.value:null,error:e.message||'No se pudieron cargar los pedidos.'}));
    });
   return ()=>{active=false;controller.abort();};
- },[workspace,archived,page,size,from,to,valid,key,setPage]);
+ },[workspace,archived,page,size,from,to,valid,key,setPage,orderId]);
  const prior=valid&&result?.key===key?result:null;
  const current=prior?.workspace===workspace?prior:null;
  const loading=valid&&!current;
