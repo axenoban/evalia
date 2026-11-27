@@ -15,6 +15,7 @@ import MfaGate from './mfa-gate.jsx';
 import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmation.js';
 import AdminAccounts from './admin-accounts.jsx';
 import {BrandMark,UiIcon} from './brand.jsx';
+import {ConfirmationProvider,useConfirmation} from './confirmation-dialog.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
 import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel, countModelsWithStock } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
@@ -396,6 +397,7 @@ function ModelEditor({model,models,colors,onSave,busy}){
  return <ModelForm model={model} models={models} colors={colors} onCreate={onSave} busy={busy}/>;
 }
 function Catalog({data,onSaveColor,onCreateModel,onAdjust,onUpdateModel,onArchive,onCleanup,onReactivate,busy}){
+ const {ask}=useConfirmation();
  const [view,setView]=useState('list'),[search,setSearch]=useState(''),[size,setSize]=useState('all'),[availability,setAvailability]=useState('all'),[archived,setArchived]=useState(false),[editing,setEditing]=useState(null),[section,setSection]=useState(''),[seed,setSeed]=useState(null);
  const pendingPhotos=[...new Set(data.models.filter(m=>!m.is_active&&m.image_path&&!data.models.some(x=>x.is_active&&x.image_path===m.image_path)).map(m=>m.image_path))];
  const sizes=productSizes(data.models);
@@ -425,7 +427,7 @@ function Catalog({data,onSaveColor,onCreateModel,onAdjust,onUpdateModel,onArchiv
      {m.is_active&&<button type="button" disabled={busy} onClick={()=>{setEditing(m.id);setView('edit');}}>Editar producto</button>}
      <button type="button" disabled={busy} onClick={()=>register(m)}>Duplicar producto</button>
      <button type="button" disabled={busy} onClick={()=>toggle(m.id,'history')}>Historial de cambios</button>
-     {m.is_active?<button type="button" className="error-text" disabled={busy} onClick={()=>{if(window.confirm('¿Inhabilitar '+m.name+'? Dejará de venderse y se eliminará su foto. El historial permanece.'))onArchive(m);}}>Inhabilitar producto</button>:<button type="button" disabled={busy} onClick={()=>toggle(m.id,'reactivate')}>Reactivar producto</button>}
+     {m.is_active?<button type="button" className="error-text" disabled={busy} onClick={async()=>{if(await ask({severity:'critical',title:'Inhabilitar producto',message:'El modelo dejará de venderse y se eliminará su fotografía. El historial permanece.',facts:[{label:'Modelo',value:m.name},{label:'Talla',value:m.size_label}],notice:'La fotografía no se recupera al reactivar el producto.',confirmLabel:'Inhabilitar'}))await onArchive(m);}}>Inhabilitar producto</button>:<button type="button" disabled={busy} onClick={()=>toggle(m.id,'reactivate')}>Reactivar producto</button>}
     </div></details></div>
     <span className={'availability '+(!m.is_active||stock.blocked?'bad':Number(stock.available)===0?'none':'ok')}>{!m.is_active?'Inhabilitado':stock.blocked?'Revisión':Number(stock.available)===0?'Agotado':'Disponible'}</span>
     <ModelColors model={m} colors={data.colors} compact/>
@@ -453,6 +455,7 @@ function QuickOptions({label,options,value,onSelect,busy,custom,onCustom,customL
  </fieldset>;
 }
 function ModelForm({colors,models=[],model=null,seed=null,onCreate,busy}){
+ const {ask}=useConfirmation();
  const original=model??seed;
  const [name,setName]=useState(original?.name??''),[size,setSize]=useState(original?.size_label??''),[customSize,setCustomSize]=useState(false),[price,setPrice]=useState(original?String(original.price_dozen_bs):'');
  const [docenas,setDocenas]=useState('0'),[selected,setSelected]=useState(()=>[...(original?.colorIds??[])]);
@@ -486,7 +489,7 @@ function ModelForm({colors,models=[],model=null,seed=null,onCreate,busy}){
    if(!validSelected.length||validSelected.length!==selected.length)throw Error('Selecciona al menos un color activo; retira los inactivos.');
    if(!model&&(!docenas.trim()||!Number.isSafeInteger(Number(docenas))||Number(docenas)<0||Number(docenas)>178956970))throw Error('Registra docenas completas publicables.');
    if(!requestId.current){
-    if(duplicates.length&&!window.confirm('Ya existe un modelo activo con nombre y talla iguales. ¿Continuar?'))return;
+    if(duplicates.length&&!await ask({severity:'warning',title:'Posible producto duplicado',message:'Ya existe un modelo activo con el mismo nombre y talla.',facts:[{label:'Modelo',value:n},{label:'Talla',value:t}],confirmLabel:'Continuar registro'}))return;
     requestId.current=uuid();
    }
    const ok=await onCreate({model,name:n,size:t,price:normalized,stockDocenas:Number(docenas),colorIds:validSelected,photo,requestId:requestId.current});
@@ -1158,6 +1161,7 @@ function DeliveryForm({order,data,onSave,busy}){
  </form>;
 }
 function LegacyCommitments({data,onConvert,busy}){
+ const {ask}=useConfirmation();
  const active=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
  if(!active.length)return null;
  return <details className="legacy-commitments surface">
@@ -1181,7 +1185,7 @@ function LegacyCommitments({data,onConvert,busy}){
      })}</div>
      {payments.length>0&&<PaymentHistory items={payments} compact/>}
      {canConvert?<button type="button" className="button button-outline" disabled={busy}
-       onClick={()=>{if(window.confirm('Confirma solo si el cliente aceptó comprar estas prendas. La operación pasará a Pedido sin descontar stock dos veces.'))onConvert(r.id);}}>
+       onClick={async()=>{if(await ask({severity:'normal',title:'Confirmar compra',message:'Confirma solo si el cliente aceptó comprar estas prendas. El registro pasará a pedido sin descontar stock dos veces.',facts:[{label:'Cliente',value:customer?.name||'Cliente'},{label:'Prendas',value:r.lines.reduce((sum,l)=>sum+Number(l.quantity),0)}],confirmLabel:'Convertir en pedido'}))await onConvert(r.id);}}>
        Confirmar compra y convertir en pedido</button>:
        <p className="small-note">{r.status==='in_review'?'Este registro antiguo tiene protección de depósito y requiere revisión administrativa; su cupo no se libera automáticamente.':'Su vigencia terminó. El procesador anterior liberará las prendas si no hay depósito oportuno.'}</p>}
     </article>;
@@ -1190,6 +1194,7 @@ function LegacyCommitments({data,onConvert,busy}){
  </details>;
 }
 function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
+ const {ask}=useConfirmation();
  const [note,setNote]=useState('');
  const attempt=useRef(null);
  const balance=amountCents(finance.pending??0);
@@ -1205,7 +1210,7 @@ function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
    :action==='deliver'
    ?'¿Confirmas que entregaste físicamente las '+remaining+' prendas restantes? El pedido se cerrará como COMPLETADO.'
    :'¿Confirmas que recibiste '+formatBs(balance)+' y entregaste físicamente las '+remaining+' prendas restantes? Se cerrará el pedido COMPLETADO.';
-  if(!window.confirm(details+'\n\nEsta operación se registrará en el historial y no puede deshacerse desde el panel.'))return;
+  if(!await ask({severity:'critical',title:action==='pay'?'Confirmar cobro':action==='deliver'?'Confirmar entrega':'Confirmar cobro y entrega',message:details,facts:[...(money?[{label:'Importe recibido',value:formatBs(balance)}]:[]),...(goods?[{label:'Prendas entregadas',value:remaining}]:[])],notice:'Esta operación se registra en el historial y no puede deshacerse desde el panel.',confirmLabel:action==='pay'?'Registrar cobro':action==='deliver'?'Registrar entrega':'Cobrar y entregar'}))return;
   if(!attempt.current||attempt.current.action!==action||attempt.current.note!==note)
    attempt.current={id:uuid(),action,note};
   const ok=await onQuick({orderId:order.id,action,requestId:attempt.current.id,
@@ -1271,6 +1276,7 @@ function OrderDeliveryEditor({order,customer,onSave,busy}){
  </form>;
 }
 function OrderEditPanel({order,data,busy,onSave,onCancel}){
+ const {ask}=useConfirmation();
  const requestId=useRef(null);
  const [search,setSearch]=useState('');
  const [error,setError]=useState('');
@@ -1299,7 +1305,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   e.preventDefault();setError('');
   try{
    const lines=checkedPortions(models,portions,effectiveStock,data.colors);
-   if(!window.confirm('¿Guardar los cambios del pedido? El inventario y el importe se actualizarán. Debes comunicar los cambios al comprador.'))return;
+   if(!await ask({severity:'warning',title:'Guardar cambios del pedido',message:'Se actualizarán el inventario y el importe del pedido.',facts:[{label:'Total actual',value:formatBs(order.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n))},{label:'Nuevo total',value:formatBs(preview)}],notice:'Comunica los cambios al comprador.',confirmLabel:'Guardar cambios'}))return;
    if(!requestId.current)requestId.current=uuid();
    await onSave({orderId:order.id,lines,expectedRevision:order.revision,requestId:requestId.current});
   }catch(err){setError(err.message);}
@@ -1342,6 +1348,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
  </form>;
 }
 function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
+ const {ask}=useConfirmation();
  const [editingId,setEditingId]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
  const list=useServerOrderList(workspace,showArchived);
@@ -1398,11 +1405,10 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
      <div className="ev-order-expanded">
       {o.archived_at?<p className="small-note">Archivado · {displayDate(o.archived_at)} · {o.archive_reason}{o.status==='voided'?' · Sin cobros ni entregas pendientes.':''}</p>:
        <div className="ev-order-archive-action">
-        <button type="button" className="button ev-archive-button" disabled={pageBusy||!canArchive} onClick={()=>{
+        <button type="button" className="button ev-archive-button" disabled={pageBusy||!canArchive} onClick={async()=>{
          const explanation=o.status==='active'?'Anular este pedido libera las prendas comprometidas y desactiva su enlace.':'Archivar este pedido solo lo oculta. Conserva los cobros y las entregas registrados.';
-         if(!window.confirm(explanation+' ¿Continuar?'))return;
-         const reason=window.prompt('Motivo del archivo (máximo 300 caracteres)','Registro de prueba o error');
-         if(reason?.trim())onArchiveOrder(o.id,reason.trim());
+         const decision=await ask({severity:o.status==='active'?'critical':'warning',title:o.status==='active'?'Anular pedido':'Archivar pedido',message:explanation,facts:[{label:'Cliente',value:customer?.name||'Cliente'},{label:'Total',value:formatBs(total)}],reasonRequired:true,confirmLabel:o.status==='active'?'Anular pedido':'Archivar pedido'});
+         if(decision?.confirmed&&decision.reason)await onArchiveOrder(o.id,decision.reason);
         }}>{o.status==='active'?'Anular y ocultar pedido':'Archivar pedido'}</button>
         {!canArchive&&<span className="small-note">Resuelve primero los movimientos pendientes. No se anulan pedidos activos con pagos, avisos o entregas.</span>}
        </div>}
@@ -1518,7 +1524,9 @@ function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
   <p className="small-note">En tu dispositivo personal puedes guardar la contraseña con el gestor del navegador. Cierra sesión al usar un dispositivo compartido. No existe registro público de cuentas.</p>
  </section></main>;
 }
-export default function HomePage(){
+export default function HomePage(){return <ConfirmationProvider><EvaliaWorkspace/></ConfirmationProvider>;}
+function EvaliaWorkspace(){
+ const {cancel:cancelConfirmation}=useConfirmation();
  const [tab,setTab]=useState('home'),[data,setData]=useState(null),[ready,setReady]=useState(false);
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
@@ -1531,13 +1539,15 @@ export default function HomePage(){
  const db=useMemo(()=>getSupabase(),[]);
  const configured=Boolean(db);
  const clearAccess=useCallback(()=>{
+  cancelConfirmation();
   authGeneration.current++;
   refreshGeneration.current++;
   authorizedUser.current=null;pendingIdentity.current=null;setMfaGate(null);setCanEnrollMfa(false);
   setOwner(false);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
- },[]);
+ },[cancelConfirmation]);
  const refresh=useCallback(async()=>{
+  cancelConfirmation();
   const generation=++refreshGeneration.current;
   const expected=authorizedUser.current;
   if(!expected)return;
@@ -1552,13 +1562,13 @@ export default function HomePage(){
    if(generation!==refreshGeneration.current)return;
    setOwner(!role.error&&role.data===true);
    const snapshot=await loadWorkspace();
-   if(generation===refreshGeneration.current)setData(snapshot);
+   if(generation===refreshGeneration.current){cancelConfirmation();setData(snapshot);}
   }catch(e){
    if(generation!==refreshGeneration.current)return;
-   setData(null);
+   cancelConfirmation();setData(null);
    throw e;
   }
- },[clearAccess,db]);
+ },[clearAccess,db,cancelConfirmation]);
  const authorize=useCallback(async(user,generation)=>{
   if(!user||generation!==authGeneration.current)return 'cancelled';
   pendingIdentity.current=user.id;
