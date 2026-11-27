@@ -22,7 +22,10 @@ test('alta conserva request en reintento y exige confirmación de coincidencia',
 });
 test('edición de foto no elimina carga con resultado incierto',()=>{
  const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
- const edit=page.slice(page.indexOf('const saveModelEdit='),page.indexOf('async function archiveProduct('));
+ const edit=page.slice(page.indexOf('async function saveModelEdit('),page.indexOf('async function archiveProduct('));
  assert.match(edit,/uploadPhoto\(params\.photo,params\.requestId\)/);
  assert.doesNotMatch(edit,/removePhoto/);
+ const commit=edit.indexOf('await editProduct('),cleanup=edit.indexOf('await cleanupReplacedPhoto(params.model.image_path)');
+ assert.ok(commit>=0&&cleanup>commit,'only clean previous photo after confirmed update');
+ assert.match(edit,/imagePath!==params.model.image_path/);
 });
