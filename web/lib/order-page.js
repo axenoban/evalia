@@ -13,11 +13,12 @@ export function dateBounds(range){
  const upper=range.to?new Date(Date.parse(range.to+'T00:00:00-04:00')+86400000).toISOString():null;
  return {lower,upper};
 }
-export function buildOrderPageQuery(db,{archived,range,page,size,signal}){
+export function buildOrderPageQuery(db,{archived,range,page,size,signal,orderId}){
  if(typeof archived!=='boolean'||!PAGE_SIZES.includes(size)||!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(page*size))throw Error('Página inválida');
  const {lower,upper}=dateBounds(range),date=archived?'archived_at':'confirmed_at';
  let q=db.from('orders').select(ORDER_COLUMNS,{count:'exact'});
  q=archived?q.not('archived_at','is',null):q.is('archived_at',null);
+ if(orderId){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId))throw Error('Pedido inválido');q=q.eq('id',orderId);}
  if(lower)q=q.gte(date,lower);
  if(upper)q=q.lt(date,upper);
  q=q.order(date,{ascending:false}).order('id',{ascending:true}).range((page-1)*size,page*size-1);
