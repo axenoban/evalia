@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,loadStockBatches,loadModelPhotos,productPriceOptions,QUICK_DOZENS} from '../web/lib/product-data.js';
+import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,loadStockBatches,loadModelPhotos,productPriceOptions,QUICK_DOZENS,paymentAmountOptions} from '../web/lib/product-data.js';
 const models=[{id:'a',name:'Blusa Princesa',size_label:'M',price_dozen_bs:'380.00',colorIds:['r','b'],is_active:true,image_path:'models/a.jpg'},{id:'b',name:'Blusa XL',size_label:'xl',price_dozen_bs:420,is_active:true,image_path:'models/b.jpg'},{id:'c',name:'Otro',size_label:'3XL',price_dozen_bs:450,is_active:false,image_path:'models/c.jpg'}];
 test('reusable sizes and suggestions respect free price entry and normalized duplicate names',()=>{
  assert.deepEqual(productSizes(models),['M','XL','2XL','3XL']);
@@ -82,4 +82,35 @@ test('mobile catalog puts quantity input on a full row, keeps quick selection an
  assert.match(css,/\.ev-stock-bottom\{grid-template-columns:minmax\(0,1fr\)/);
  assert.match(css,/\.ev-stock-stepper\{width:100%;grid-template-columns:minmax\(44px,1fr\) minmax\(64px,2fr\)/);
  assert.match(page,/aria-pressed=\{!custom&&String\(value\)===String\(option.value\)\}/);
+});
+
+test('quick payment amounts use the exact outstanding balance without crediting or inventing money',()=>{
+ assert.deepEqual(paymentAmountOptions('150,50'),[{value:'150.50',label:'Saldo: 150,50 Bs'}]);
+ assert.deepEqual(paymentAmountOptions(380),[{value:'380.00',label:'Saldo: 380,00 Bs'}]);
+ for(const v of [0,-1,'',null,'NaN','1.005','1e3'])assert.deepEqual(paymentAmountOptions(v),[]);
+});
+test('desktop catalog retains vacant grid tracks and limits cards; mobile keeps a single column',()=>{
+ const css=readFileSync(new URL('../web/app/product-catalog.css',import.meta.url),'utf8');
+ assert.match(css,/\.ev-compact-product-grid\{grid-template-columns:repeat\(auto-fill,minmax\(min\(100%,310px\),1fr\)\)/);
+ assert.match(css,/\.ev-compact-product-grid>\.ev-compact-product\{width:100%;max-width:460px\}/);
+ assert.match(css,/@media\(max-width:480px\)\{\.ev-compact-product-grid\{grid-template-columns:1fr\}/);
+});
+test('operational quick choices preserve stock, validation, explicit amounts and custom values',()=>{
+ const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
+ const portion=page.slice(page.indexOf('function PortionEditor('),page.indexOf('function OrderStepHeader('));
+ assert.match(portion,/\[0,\.\.\.QUICK_DOZENS\]/);
+ assert.match(portion,/disabled:n>0&&\(stock.blocked\|\|n>maximumDozens\)/);
+ assert.match(portion,/max=\{Math.min\(maximumDozens,178956969\)\}/);
+ assert.match(portion,/customLabel="Otra cantidad"/);
+ assert.match(portion,/quantity>=6&&!insufficient&&!stock.blocked/);
+ assert.match(page,/disabled=\{busy\|\|option.disabled\}/);
+ assert.equal((page.match(/<DeliveryMethodChoices label=/g)||[]).length,3);
+ assert.match(page,/known=\{chosenCustomer\?\.shipping_destination\}/);
+ assert.match(page,/known=\{customer\?\.shipping_destination\}/);
+ const payment=page.slice(page.indexOf('function PaymentForm('),page.indexOf('function PaymentHistory('));
+ assert.match(payment,/paymentAmountOptions\(balance\)/);
+ assert.match(payment,/useState\(''\)/);
+ assert.match(payment,/customLabel="Otro importe"/);
+ assert.match(payment,/amount:parsed,requestId:requestId.current/);
+ assert.match(page,/<PaymentForm targetId=\{o.id\} onSubmit=\{onReport\} busy=\{pageBusy\} balance=\{finance.pending\}/);
 });
