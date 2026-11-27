@@ -25,7 +25,7 @@ test('refrescar exige misma identidad y autorización antes de consultar el espa
  assert.ok(refresh.indexOf('await authUser()')>=0);
  assert.ok(refresh.indexOf('await adminAllowed()')>refresh.indexOf('await authUser()'));
  assert.ok(refresh.indexOf('await loadWorkspace()')>refresh.indexOf('if(!permitted)'));
- assert.match(refresh,/if\(generation===refreshGeneration\.current\)setData\(snapshot\)/);
+ assert.match(refresh,/if\(generation===refreshGeneration\.current\)\{cancelConfirmation\(\);setData\(snapshot\);\}/);
  assert.match(clear,/refreshGeneration\.current\+\+/);
  assert.match(clear,/authGeneration\.current\+\+/);
  assert.match(clear,/authorizedUser\.current=null/);
