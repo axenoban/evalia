@@ -16,7 +16,12 @@ function run(label,program,args,opts={}){
  try{return execFileSync(program,args,{env,encoding:'utf8',stdio:['pipe','pipe','pipe'],maxBuffer:64*1024*1024,windowsHide:true,timeout:30*60*1000,...opts});}
  catch(e){
   // SQLSTATE and line numbers only; never print dump rows, credentials, command line, or full stderr.
-  const diagnostic=String(e.stderr||'').match(/ERROR:\s+[0-9A-Z]{5}\b/g)?.slice(-1)[0]||'';
+  const stderr=String(e.stderr||'');
+  const code=stderr.match(/ERROR:\s+([0-9A-Z]{5})\b/)?.[1];
+  const line=stderr.match(/psql:<stdin>:(\d+):\s*ERROR:/)?.[1];
+  // Only allow safe SQL identifiers in the diagnostic, never raw stderr or COPY data.
+  const missing=stderr.match(/ERROR:\s+42703:\s+column\s+"([A-Za-z_][A-Za-z0-9_]*)"(?:\s+of relation\s+"([A-Za-z_][A-Za-z0-9_]*)")?\s+does not exist/i);
+  const diagnostic=[code&&'SQLSTATE '+code,line&&'línea '+line,missing&&'columna '+(missing[2]?missing[2]+'.':'')+missing[1]].filter(Boolean).join('; ');
   throw Error(label+' falló'+(diagnostic?' ('+diagnostic+')':'')+'.');
  }
 }
@@ -59,8 +64,28 @@ const countTables=(input,names)=>{
  for(const name of names)assert.ok(Object.hasOwn(found,name),'No se encontró COPY de '+name);
  return found;
 };
-function psql(input,transaction=false){
- return run('SQL local','docker',['exec','-i','supabase_db_'+project,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=sqlstate','-U','postgres','-d','postgres',...(transaction?['--single-transaction']:[]),'-f','-'],{input});
+function psql(input,transaction=false,label='SQL local'){
+ return run(label,'docker',['exec','-i','supabase_db_'+project,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-U','postgres','-d','postgres',...(transaction?['--single-transaction']:[]),'-f','-'],{input});
+}
+// Compare the backup's COPY headers with the freshly restored schema before writing any rows.
+function checkCopyColumns(data){
+ const declared=[];let inCopy=false;
+ for(const line of data.split(/\r?\n/)){
+  if(inCopy){if(line==='\\.')inCopy=false;continue;}
+  const m=line.match(/^COPY\s+"?([a-z_][a-z_0-9]*)"?\."?([a-z_][a-z_0-9]*)"?\s*\((.*)\)\s+FROM stdin;$/i);
+  if(!m)continue;
+  inCopy=true;
+  const cols=m[3].split(',').map(x=>x.trim().replace(/^"|"$/g,''));
+  if(cols.every(x=>/^[a-z_][a-z_0-9]*$/i.test(x)))declared.push([m[1]+'.'+m[2],cols]);
+ }
+ const local=JSON.parse(psql("select coalesce(jsonb_object_agg(t,cols),'{}'::jsonb) from (select table_schema||'.'||table_name t,jsonb_agg(column_name) cols from information_schema.columns group by table_schema,table_name) q;",false,'Comparar columnas locales').trim());
+ const absent=[];
+ for(const [table,cols] of declared){
+  if(!Object.hasOwn(local,table))absent.push(table+' (tabla ausente)');
+  else for(const col of cols)if(!local[table].includes(col))absent.push(table+'.'+col);
+ }
+ if(absent.length)throw Error('Incompatibilidad de esquema local: '+absent.join(', '));
+ console.log('Esquema compatible con las columnas del respaldo');
 }
 function check(r,label){if(r.error)throw Error(label+' falló ('+(r.error.code||r.error.status||'error')+')');return r.data;}
 function client(url,key){return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:randomUUID()}});}
@@ -105,8 +130,13 @@ try{
  assert.ok(anon&&secret);
  assert.equal(psql("select to_regclass('public.customers') is null;").trim(),'t','Destino no está vacío');
  console.log('2/5 Instancia nueva local verificada');
- psql(parts[0]+'\n'+parts[1]+'\nSET session_replication_role=replica;\n'+parts[2]+'\nRESET session_replication_role;\n',true);
- psql(parts[3]+'\n'+parts[4]+'\n'+policies,true);
+ // All writes are confined to a new disposable database; separate transactions isolate the failing phase.
+ psql(parts[0]+'\n'+parts[1],true,'Restaurar roles y esquema');
+ console.log('Roles y esquema recuperados');
+ checkCopyColumns(parts[2]);
+ psql('SET session_replication_role=replica;\n'+parts[2]+'\nRESET session_replication_role;\n',true,'Restaurar datos');
+ console.log('Datos SQL recuperados');
+ psql(parts[3]+'\n'+parts[4]+'\n'+policies,true,'Restaurar historial y políticas');
  psql("select cron.alter_job(jobid,active:=false) from cron.job where active;");
  for(const [name,count] of Object.entries({...expected,...history}))assert.equal(Number(psql('select count(*) from '+name+';').trim()),count,'Conteo de '+name);
  assert.equal(psql("select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and not c.relrowsecurity;").trim(),'0','RLS en tablas públicas');
