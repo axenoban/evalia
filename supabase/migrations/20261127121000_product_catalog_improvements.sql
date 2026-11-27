@@ -109,6 +109,7 @@ begin
  if v_pending and (v_model.size_label is distinct from btrim(p_size) or v_model.name is distinct from btrim(p_name)) then raise exception 'Resuelve los pedidos pendientes antes de corregir nombre o talla' using errcode='23514';end if;
  if exists(select 1 from public.order_extra_colors e join public.order_lines l on l.id=e.order_line_id join public.orders o on o.id=l.order_id where l.model_id=p_model_id and o.status='active' and not(e.color_id=any(v_colors))) or exists(select 1 from public.reservation_extra_colors e join public.reservation_lines l on l.id=e.reservation_line_id join public.reservations r on r.id=l.reservation_id where l.model_id=p_model_id and r.status in ('saved','in_review') and not(e.color_id=any(v_colors))) then raise exception 'No retires colores solicitados en pedidos pendientes' using errcode='23514';end if;
  select coalesce(array_agg(color_id order by color_id),'{}'::uuid[]) into v_old_colors from public.model_colors where model_id=p_model_id and is_offered;
+ if v_model.name=btrim(p_name) and v_model.size_label=btrim(p_size) and v_model.price_dozen_bs=p_price and (p_image_path is null or p_image_path=v_model.image_path) and v_old_colors=v_colors then return p_model_id;end if;
  v_old:=to_jsonb(v_model)||jsonb_build_object('colors',v_old_colors);
  perform public.update_evalia_model(p_model_id,p_price,p_image_path,p_expected,p_request_id);
  update public.models set name=btrim(p_name),size_label=btrim(p_size),updated_at=clock_timestamp() where id=p_model_id;
