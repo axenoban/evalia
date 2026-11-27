@@ -1,22 +1,50 @@
 'use client';
 import {useEffect,useState} from 'react';
 import ReactPaginate from 'react-paginate';
+import {loadOrdersPage} from '../lib/api.js';
 import {pageOf} from '../lib/workspace-pagination.js';
 import {dateRange,matchesDate,PAGE_SIZES} from '../lib/record-date-filters.js';
 
-export function useRecordList(rows,dateKey){
+function useRecordFilters(){
  const [page,setPage]=useState(1),[size,setSize]=useState(25);
  const [preset,setPreset]=useState('all'),[from,setFrom]=useState(''),[to,setTo]=useState('');
  const range=dateRange(preset,from,to);
- const filtered=rows.filter(row=>matchesDate(row[dateKey],range));
- const view=pageOf(filtered,page,size);
- useEffect(()=>{if(page!==view.page)setPage(view.page);},[page,view.page]);
  function changePreset(value){setPreset(value);setPage(1);}
  function changeFrom(value){setFrom(value);setPage(1);}
  function changeTo(value){setTo(value);setPage(1);}
  function changeSize(value){if(PAGE_SIZES.includes(value)){setSize(value);setPage(1);}}
  function clear(){setPreset('all');setFrom('');setTo('');setPage(1);}
- return {view,size,preset,from,to,range,setPage,changeSize,changePreset,changeFrom,changeTo,clear,filtered};
+ return {page,size,preset,from,to,range,setPage,changeSize,changePreset,changeFrom,changeTo,clear};
+}
+export function useRecordList(rows,dateKey){
+ const filters=useRecordFilters(),{page,size,range,setPage}=filters;
+ const filtered=rows.filter(row=>matchesDate(row[dateKey],range));
+ const view=pageOf(filtered,page,size);
+ useEffect(()=>{if(page!==view.page)setPage(view.page);},[page,view.page,setPage]);
+ return {...filters,view,filtered};
+}
+export function useServerOrderList(workspace,archived){
+ const filters=useRecordFilters(),{page,size,range,setPage}=filters;
+ const {from,to,valid}=range;
+ const [result,setResult]=useState(null),[retry,setRetry]=useState(0);
+ const key=JSON.stringify([archived,page,size,from,to,valid,retry]);
+ useEffect(()=>{
+  if(!valid)return;
+  const controller=new AbortController();
+  let active=true;
+  loadOrdersPage({archived,page,size,range:{from,to,valid},signal:controller.signal})
+   .then(value=>{
+    if(!active)return;
+    if(value.redirect){setPage(value.redirect);return;}
+    setResult({workspace,key,value,error:''});
+   }).catch(e=>{
+    if(active&&!controller.signal.aborted)setResult({workspace,key,value:null,error:e.message||'No se pudieron cargar los pedidos.'});
+   });
+  return ()=>{active=false;controller.abort();};
+ },[workspace,archived,page,size,from,to,valid,key,setPage]);
+ const current=valid&&result?.workspace===workspace&&result.key===key?result:null;
+ return {...filters,view:current?.value?.view??null,details:current?.value?.details??null,
+  loading:valid&&!current,error:current?.error??'',retry:()=>setRetry(n=>n+1)};
 }
 export function RecordListControls({list,dateLabel,busy,onChange}){
  function change(fn){fn();onChange?.();}
