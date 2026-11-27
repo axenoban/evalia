@@ -86,8 +86,8 @@ test('muestra únicamente el dato de pago útil y oculta destinos e impresión p
 
 test('pedidos prioriza listado, encabezado breve y acceso al archivo al final',()=>{
  assert.match(orders,/const \[showArchived,setShowArchived\]=useState\(false\)/);
- assert.match(orders,/<header className="ev-orders-heading"><h1>\{showArchived\?'Pedidos archivados':'Pedidos'\}<\/h1><\/header>/);
- assert.doesNotMatch(orders,/Desglose de pedidos|Abre un pedido para consultar|PEDIDOS CONFIRMADOS/);
+ assert.match(orders,/<header className="ev-orders-heading"><p className="eyebrow">\{showArchived\?'HISTORIAL COMERCIAL':'PEDIDOS CONFIRMADOS'\}<\/p><h1>\{showArchived\?'Pedidos archivados':'Pedidos'\}<\/h1><\/header>/);
+ assert.doesNotMatch(orders,/Desglose de pedidos|Abre un pedido para consultar|description=/);
  const filters=orders.indexOf('<RecordListControls');
  const records=orders.indexOf('aria-label="Lista de pedidos"');
  const pager=orders.indexOf('<ListPager');
