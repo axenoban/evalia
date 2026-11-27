@@ -46,9 +46,9 @@ function render({order,customer,models=[],colors=[]},format){
  const byModel=new Map(models.map(x=>[x.id,x])),byColor=new Map(colors.map(x=>[x.id,x]));
  const rows=order.lines.map(line=>{
   const m=byModel.get(line.model_id);
-  const colorNames=(line.extraColorIds??[]).map(id=>byColor.get(id)?.name).filter(Boolean).join(', ');
+  const colorNames=(line.extraColorsSnapshot?.map(c=>c.name)??(line.extraColorIds??[]).map(id=>byColor.get(id)?.name)).filter(Boolean).join(', ');
   const detail=line.dozen_count!=null?portionBreakdown(Number(line.dozen_count),Number(line.extra_units??0)):'Cantidad: '+line.quantity;
-  return '<tr><td><div class="model"><strong>'+esc(m?.name??'Modelo')+'</strong><span class="size">'+esc(m?.size_label??'Única')+'</span></div>'+
+  return '<tr><td><div class="model"><strong>'+esc(line.model_name_snapshot??m?.name??'Modelo')+'</strong><span class="size">'+esc(line.size_label_snapshot??m?.size_label??'Única')+'</span></div>'+
    '<div class="composition"><span>'+esc(detail)+'</span>'+(colorNames?'<small>Extras: '+esc(colorNames)+'</small>':'')+
    '</div><small class="inline-qty">'+esc(line.quantity)+' unidades</small></td><td class="qty">'+esc(line.quantity)+'</td><td class="amount">'+
    esc(money(centsFromBs(line.subtotal_bs)))+'</td></tr>';
