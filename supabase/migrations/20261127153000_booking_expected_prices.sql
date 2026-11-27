@@ -42,21 +42,9 @@ begin
  for v_entry in select * from public.evalia_validate_portions(p_lines) order by model_id loop
   select price_dozen_bs into v_price from public.models where id=v_entry.model_id for share;
   -- Optional quote guard for the new UI; preserve historical callers and exact idempotent retry.
-  select item->'expectedPrice' into v_expected from jsonb_array_elements(p_lines) item where item->>'modelId'=v_entry.model_id::text;
+  select item->'expectedPrice' into v_expected from jsonb_array_elements(p_lines) as q(item) where item->>'modelId'=v_entry.model_id::text;
   if v_expected is not null then
-   if jsonb_typeof(v_expected)<>'string' or (v_expected#>>'{}') !~ '^[0-9]+(\.[0-9]{1,2})?
-  insert into public.order_lines(order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs)
-  values(v_order,v_entry.model_id,v_entry.quantity,v_entry.dozen_count,v_entry.extra_units,
-         v_price,public.evalia_model_subtotal(v_price,v_entry.quantity))
-  returning id into v_line;
-  for v_i in 1..v_entry.extra_units loop
-   insert into public.order_extra_colors(order_line_id,model_id,color_id,position)
-   values(v_line,v_entry.model_id,v_entry.color_ids[v_i],v_i);
-  end loop;
- end loop;
- return v_order;
-end;$function$
- then
+   if jsonb_typeof(v_expected)<>'string' or (v_expected#>>'{}') !~ '^[0-9]+(\.[0-9]{1,2})?$' then
     raise exception 'Precio esperado inválido' using errcode='22023';
    end if;
    if (v_expected#>>'{}')::numeric is distinct from v_price then
