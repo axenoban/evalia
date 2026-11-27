@@ -1329,10 +1329,8 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
  const data=list.details?{...workspace,...list.details}:workspace;
  const pageBusy=busy||list.loading||Boolean(list.error);
  const changeArchive=archived=>{setShowArchived(archived);list.setPage(1);setEditingId(null);};
- return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
-   description="Abre un pedido para consultar sus modelos y gestionar lo necesario."/>
+ return <><header className="ev-orders-heading"><h1>{showArchived?'Pedidos archivados':'Pedidos'}</h1></header>
   {!showArchived&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
-  <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>changeArchive(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>changeArchive(true)}>Archivados ({workspace.orders.filter(o=>o.archived_at).length})</button></div>
   <RecordListControls list={list} dateLabel={showArchived?"Fecha de archivo":"Fecha de confirmación del pedido"} busy={busy} onChange={()=>setEditingId(null)}/>
   {list.loading&&<p className="small-note" role="status">{list.refreshing?'Actualizando pedidos; las acciones quedan temporalmente desactivadas.':'Cargando página de pedidos…'}</p>}
   {list.error&&<div role="alert" className="surface pad"><p>No se pudieron actualizar los pedidos. {view?'Los datos visibles no están verificados. ':''}{list.error}</p><button type="button" className="button button-outline" disabled={busy} onClick={list.retry}>Reintentar</button></div>}
@@ -1467,6 +1465,10 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
    })}
   </div>:<Empty title={list.preset!=='all'?"Sin pedidos en este rango":showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={list.preset!=='all'?"Cambia las fechas o quita el filtro.":showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
   {view&&<ListPager view={view} onPage={p=>{list.setPage(p);setEditingId(null);}} label="Páginas de pedidos" busy={busy||list.loading}/> }
+  <nav className="ev-order-archive-toolbar" aria-label="Vista de pedidos">
+   <button type="button" className="button button-outline" aria-pressed={!showArchived} disabled={busy} onClick={()=>changeArchive(false)}>Pedidos vigentes e historial</button>
+   <button type="button" className="button button-outline" aria-pressed={showArchived} disabled={busy} onClick={()=>changeArchive(true)}>Archivados ({workspace.orders.filter(o=>o.archived_at).length})</button>
+  </nav>
  </>;
 }
 function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
