@@ -8,6 +8,7 @@ import {
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
+import { pageOf } from '../lib/workspace-pagination.js';
 import {inspectAdminMfa,withOwnerReauthentication} from '../lib/mfa-client.js';
 import MfaGate from './mfa-gate.jsx';
 import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmation.js';
@@ -543,9 +544,19 @@ function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
   </div>
  </form>;
 }
+function ListPager({view,onPage,label,busy}){
+ if(view.pages<=1)return null;
+ return <nav aria-label={label} className="form-actions">
+  <button type="button" className="button button-outline" disabled={busy||view.page===1} onClick={()=>onPage(view.page-1)}>Anterior</button>
+  <span className="small-note" role="status">{view.first}–{view.last} de {view.total} · Página {view.page} de {view.pages}</span>
+  <button type="button" className="button button-outline" disabled={busy||view.page===view.pages} onClick={()=>onPage(view.page+1)}>Siguiente</button>
+ </nav>;
+}
 function ClientPanel({data,onCreate,onUpdate,busy}){
- const [search,setSearch]=useState(''),[editing,setEditing]=useState(null);
+ const [search,setSearch]=useState(''),[editing,setEditing]=useState(null),[page,setPage]=useState(1);
  const clients=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+ const view=pageOf(clients,page);
+ useEffect(()=>{if(page!==view.page)setPage(view.page);},[page,view.page]);
  return <>
   <SectionHead eyebrow="DIRECTORIO COMERCIAL" title="Clientes y compradores."
     description="Registra y actualiza los datos de contacto de tus compradores. El teléfono no fusiona fichas."/>
@@ -555,8 +566,8 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
     <ClientForm onCreate={onCreate} busy={busy} customers={data.customers}/></section>
    <section className="surface pad"><h2>{data.customers.length} fichas registradas</h2>
     <label className="search"><span aria-hidden>⌕</span><input type="search" aria-label="Buscar cliente"
-     value={search} placeholder="Buscar nombre o WhatsApp…" onChange={e=>setSearch(e.target.value)}/></label>
-    {clients.length?<div className="client-list">{clients.map(c=>{
+     value={search} placeholder="Buscar nombre o WhatsApp…" onChange={e=>{setSearch(e.target.value);setPage(1);setEditing(null);}}/></label>
+    {clients.length?<div className="client-list">{view.items.map(c=>{
       const reservations=data.reservations.filter(r=>r.customer_id===c.id).length;
       const orders=data.orders.filter(o=>o.customer_id===c.id&&!o.archived_at).length;
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
@@ -567,6 +578,7 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
         onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy} customers={data.customers}/>}
       </div>
     })}</div>:<Empty title="Sin clientes coincidentes" detail="Registra una ficha o cambia la búsqueda."/>}
+    <ListPager view={view} onPage={p=>{setPage(p);setEditing(null);}} label="Páginas de clientes" busy={busy}/>
    </section>
   </div>
  </>;
@@ -1314,14 +1326,17 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
 }
 function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
  const [editingId,setEditingId]=useState(null);
- const [showArchived,setShowArchived]=useState(false);
+ const [showArchived,setShowArchived]=useState(false),[page,setPage]=useState(1);
  const visibleOrders=data.orders.filter(o=>Boolean(o.archived_at)===showArchived);
+ const view=pageOf(visibleOrders,page);
+ useEffect(()=>{if(page!==view.page)setPage(view.page);},[page,view.page]);
+ const changeArchive=archived=>{setShowArchived(archived);setPage(1);setEditingId(null);};
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Abre un pedido para consultar sus modelos y gestionar lo necesario."/>
   {!showArchived&&<LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>}
-  <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>setShowArchived(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>setShowArchived(true)}>Archivados ({data.orders.filter(o=>o.archived_at).length})</button></div>
+  <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>changeArchive(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>changeArchive(true)}>Archivados ({data.orders.filter(o=>o.archived_at).length})</button></div>
   {visibleOrders.length?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
-   {visibleOrders.map(o=>{
+   {view.items.map(o=>{
     const customer=data.customers.find(x=>x.id===o.customer_id);
     const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
     const finance=data.finances[o.id]||{total:0,approved:0,pending:0,excess:0};
@@ -1450,6 +1465,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
     </details>;
    })}
   </div>:<Empty title={showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
+  <ListPager view={view} onPage={p=>{setPage(p);setEditingId(null);}} label="Páginas de pedidos" busy={busy}/>
  </>;
 }
 function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
