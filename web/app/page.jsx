@@ -1035,10 +1035,10 @@ function OrderLinkPanel({order,data,onIssue,onRevoke,busy}){
     <textarea id={'whatsapp-message-'+order.id} className="whatsapp-message-draft"
       rows={13} value={draft} onChange={e=>setDraft(e.target.value)} spellCheck={true}/>
     <div className="form-actions">
-     <button type="button" className="button button-primary" disabled={!draft.trim()}
+     <button type="button" className="button button-primary" disabled={busy||!draft.trim()}
       onClick={()=>copy(draft,'Mensaje de confirmación copiado. Pégalo en el chat del comprador.')}>
       Copiar mensaje para WhatsApp</button>
-     <button type="button" className="button button-outline"
+     <button type="button" className="button button-outline" disabled={busy}
       onClick={()=>copy(plain,'Enlace privado copiado. Pégalo únicamente en el chat del comprador.')}>
       Copiar solo enlace</button>
     </div>
@@ -1327,13 +1327,16 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
  const list=useServerOrderList(workspace,showArchived);
  const {view}=list;
  const data=list.details?{...workspace,...list.details}:workspace;
+ const pageBusy=busy||list.loading||Boolean(list.error);
  const changeArchive=archived=>{setShowArchived(archived);list.setPage(1);setEditingId(null);};
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Abre un pedido para consultar sus modelos y gestionar lo necesario."/>
   {!showArchived&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
   <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>changeArchive(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>changeArchive(true)}>Archivados ({workspace.orders.filter(o=>o.archived_at).length})</button></div>
   <RecordListControls list={list} dateLabel={showArchived?"Fecha de archivo":"Fecha de confirmación del pedido"} busy={busy} onChange={()=>setEditingId(null)}/>
-  {list.loading?<p className="loading" role="status">Cargando página de pedidos…</p>:list.error?<div role="alert" className="surface pad"><p>No se pudieron cargar los pedidos. {list.error}</p><button type="button" className="button button-outline" disabled={busy} onClick={list.retry}>Reintentar</button></div>:!list.range.valid?null:view?.total?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
+  {list.loading&&<p className="small-note" role="status">{list.refreshing?'Actualizando pedidos; las acciones quedan temporalmente desactivadas.':'Cargando página de pedidos…'}</p>}
+  {list.error&&<div role="alert" className="surface pad"><p>No se pudieron actualizar los pedidos. {view?'Los datos visibles no están verificados. ':''}{list.error}</p><button type="button" className="button button-outline" disabled={busy} onClick={list.retry}>Reintentar</button></div>}
+  {!list.range.valid||!view?null:view.total?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
    {view.items.map(o=>{
     const customer=data.customers.find(x=>x.id===o.customer_id);
     const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
@@ -1369,7 +1372,7 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
       </span>
       <span className="ev-order-summary-end">
        <strong className="ev-order-summary-total">{formatBs(total)}</strong>
-       {o.status==='active'&&!o.archived_at?<button type="button" className="ev-preparation-toggle" data-prepared={Boolean(o.prepared_at)} disabled={busy} aria-label={(o.prepared_at?'Volver a en preparación: ':'Marcar preparado: ')+(customer?.name||'Cliente')} onClick={e=>{e.preventDefault();e.stopPropagation();onPreparation(o);}}><strong>{o.prepared_at?'✓ Preparado':'En preparación'}</strong><small>{o.prepared_at?'Deshacer':'Marcar preparado'}</small></button>:<Status value={o.status}/>}
+       {o.status==='active'&&!o.archived_at?<button type="button" className="ev-preparation-toggle" data-prepared={Boolean(o.prepared_at)} disabled={pageBusy} aria-label={(o.prepared_at?'Volver a en preparación: ':'Marcar preparado: ')+(customer?.name||'Cliente')} onClick={e=>{e.preventDefault();e.stopPropagation();onPreparation(o);}}><strong>{o.prepared_at?'✓ Preparado':'En preparación'}</strong><small>{o.prepared_at?'Deshacer':'Marcar preparado'}</small></button>:<Status value={o.status}/>}
        {o.archived_at&&<span className="ev-order-archive-label">Archivado</span>}
       </span>
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
@@ -1377,7 +1380,7 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
      <div className="ev-order-expanded">
       {o.archived_at?<p className="small-note">Archivado · {displayDate(o.archived_at)} · {o.archive_reason}{o.status==='voided'?' · Sin cobros ni entregas pendientes.':''}</p>:
        <div className="ev-order-archive-action">
-        <button type="button" className="button ev-archive-button" disabled={busy||!canArchive} onClick={()=>{
+        <button type="button" className="button ev-archive-button" disabled={pageBusy||!canArchive} onClick={()=>{
          const explanation=o.status==='active'?'Anular este pedido libera las prendas comprometidas y desactiva su enlace.':'Archivar este pedido solo lo oculta. Conserva los cobros y las entregas registrados.';
          if(!window.confirm(explanation+' ¿Continuar?'))return;
          const reason=window.prompt('Motivo del archivo (máximo 300 caracteres)','Registro de prueba o error');
@@ -1386,14 +1389,14 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
         {!canArchive&&<span className="small-note">Resuelve primero los movimientos pendientes. No se anulan pedidos activos con pagos, avisos o entregas.</span>}
        </div>}
       {o.status==='active'&&<div className="ev-order-edit-access">
-       <button type="button" className="button button-outline ev-order-edit-button" disabled={busy||Boolean(editReason)}
+       <button type="button" className="button button-outline ev-order-edit-button" disabled={pageBusy||Boolean(editReason)}
         onClick={()=>setEditingId(current=>current===o.id?null:o.id)}>
         {editingId===o.id?'Cerrar edición':'✎ Editar pedido'}
        </button>
        {editReason&&<span className="ev-edit-restriction">{editReason}</span>}
       </div>}
       {editingId===o.id&&!editReason&&<OrderEditPanel key={o.id+'-'+o.revision}
-       order={o} data={data} busy={busy} onCancel={()=>setEditingId(null)}
+       order={o} data={data} busy={pageBusy} onCancel={()=>setEditingId(null)}
        onSave={async params=>{const ok=await onEdit(params);if(ok)setEditingId(null);return ok;}}/>}
       {o.status==='active'&&<div className="ev-order-finance-brief" aria-label="Situación del cobro">
        {amountCents(finance.pending)>0n?
@@ -1427,10 +1430,10 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
         {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
         {o.fulfillment_method==='legacy'&&<p>Pedido anterior a la clasificación de entregas. Indica cómo se entregará para habilitar la impresión.</p>}
         {o.status!=='voided'&&o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
-         onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Vista previa de etiqueta de envío':'Vista previa del comprobante'}</button>}
+         disabled={pageBusy} onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Vista previa de etiqueta de envío':'Vista previa del comprobante'}</button>}
         {o.status==='active'&&<details className="order-delivery-details">
          <summary>{o.fulfillment_method==='legacy'?'Clasificar entrega para imprimir':'Corregir destino o modalidad'}</summary>
-         <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={busy}/>
+         <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={pageBusy}/>
         </details>}
        </section>
       </details>
@@ -1439,23 +1442,23 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
        <summary><span>{o.status==='active'?'Cobro y cierre':'Historial y seguimiento'}</span></summary>
        <div className="order-operations ev-order-operations">
         {o.status==='active'&&<OrderQuickActions order={o} finance={finance} delivery={delivery}
-         payments={relatedPayments} onQuick={onQuick} busy={busy}/>}
+         payments={relatedPayments} onQuick={onQuick} busy={pageBusy}/>}
         <details className="order-advanced" aria-label="Abonos y comprobantes">
          <summary>Abonos y comprobantes <span>Ver historial</span></summary>
          <div className="order-advanced-body">
           <h3>Historial de pagos</h3>
           <PaymentHistory items={relatedPayments}/>
           {o.status==='active'&&Number(finance.pending)>0&&
-           <PaymentForm targetId={o.id} onSubmit={onReport} busy={busy}/>}
+           <PaymentForm targetId={o.id} onSubmit={onReport} busy={pageBusy}/>}
          </div>
         </details>
         {o.status==='active'&&<button className="button button-primary" type="button"
-         disabled={busy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
+         disabled={pageBusy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
          onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
         {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
         <details className="ev-order-link-details">
          <summary>WhatsApp y enlace privado <span aria-hidden="true">⌄</span></summary>
-         {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>}
+         {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={pageBusy}/>}
         </details>
        </div>
       </details>
