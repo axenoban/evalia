@@ -23,10 +23,12 @@ test('Selector completo no contiene sombreado local de stock ni botón anidado',
  assert.ok(from>0&&to>from);
  const booking=page.slice(from,to);
  assert.doesNotMatch(booking,/const stock\s*=\s*stock\[/);
- assert.match(booking,/initialModelPortion\(modelStock,colorCount\)/);
- assert.match(booking,/className="picker-item picker-add"/);
+ assert.match(booking,/initialModelPortion\(stock\[model.id\],activeColors\)/);
+ assert.match(booking,/<article key=\{m.id\} className="ev-picker-card">/);
+ assert.match(booking,/<button type="button" className="ev-picker-photo"/);
+ assert.match(booking,/disabled=\{locked\|\|!canAdd\|\|chosen.length>=100\}/);
  assert.match(booking,/aria-label=\{'Agregar '/);
  assert.match(booking,/OrderStepHeader/);
  assert.match(booking,/order-progress/);
- assert.match(booking,/onOrder\(customerId,lines,requestId.current,delivery\)/);
+ assert.match(booking,/onOrder\(\{customerId,lines:review.lines,delivery,requestId:uuid\(\)\}\)/);
 });
