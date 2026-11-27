@@ -125,6 +125,14 @@ export async function updateModel({modelId,price,imagePath=null,expectedUpdatedA
 export async function archiveModel(model){
  return unwrap(await client().rpc('archive_evalia_model',{p_model_id:model.id,p_expected_updated_at:model.updated_at}),'Inhabilitar producto');
 }
+export async function cleanupReplacedPhoto(path){
+ if(!/^models\/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(path))throw Error('Ruta de foto inválida');
+ const db=client();
+ const refs=unwrap(await db.from('models').select('id').eq('image_path',path).eq('is_active',true).limit(1),'Comprobar referencias');
+ if(refs.length)return false;
+ await cleanupArchivedPhotos([path]);
+ return true;
+}
 export async function cleanupArchivedPhotos(paths){
  const db=client();
  for(const path of new Set(paths)){
