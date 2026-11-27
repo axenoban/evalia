@@ -10,9 +10,10 @@ assert.ok(start>0&&end>start,'se debe conservar el componente Orders');
 const orders=page.slice(start,end);
 
 test('listado de pedidos usa acordeones nativos cerrados de inicio',()=>{
- assert.match(orders,/<details className="record order-record ev-order-accordion" key=\{o.id\} name="evalia-orders" data-order-status=\{o.status\}>/);
+ assert.match(orders,/<details className="record order-record ev-order-accordion" key=\{o.id\} name="evalia-orders" open=\{focusOrder===o.id\?true:undefined\} data-order-status=\{o.status\}>/);
  assert.match(orders,/<summary className="ev-order-summary">/);
- assert.doesNotMatch(orders,/<details className="record order-record ev-order-accordion"[^>]*\bopen=/);
+ assert.match(orders,/open=\{focusOrder===o.id\?true:undefined\}/);
+ assert.match(page,/\[focusOrder,setFocusOrder\]=useState\(null\)/);
  assert.match(orders,/customer\?\.name/);
  assert.match(orders,/displayDate\(o.confirmed_at\)/);
  assert.match(orders,/formatBs\(total\)/);
