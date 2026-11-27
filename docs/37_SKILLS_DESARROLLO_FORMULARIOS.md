@@ -29,3 +29,6 @@ Las skills son instrucciones reutilizables para agentes, **no implementan por s�
 
 ## Alcance presente
 La demo permanece en site/ con datos ficticios en localStorage, sin autenticación, transacciones entre dispositivos, Supabase operativo ni pagos reales. Las migraciones de supabase/ aún requieren ejecución y pgTAP local. No se han modificado las interfaces con este paquete; la siguiente fase de mejoras deberá revisarse y validarse como trabajo separado.
+
+## Actualización E2 — 27-11-2026
+El stack operativo es Next.js 16/React 19 y Supabase; las notas sobre demo y ausencia de React son históricas. Se agrega `evalia-react-performance` como skill propia compartida entre Codex y Claude Code. Referencias oficiales Vercel React/Next, composición y pautas web se consultan según necesidad; no se instalaron paquetes externos. La skill complementa PostgreSQL, seguridad, UX, formularios y pruebas existentes. No modifica contratos comerciales ni requiere costo adicional. Para E2 seguir docs/66 y usar el canal QA permanente configurado.
