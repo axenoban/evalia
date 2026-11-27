@@ -35,7 +35,7 @@ function ConfirmationDialog({options,onCancel,onConfirm}){
  },[onCancel]);
  return <dialog ref={dialog} className={'ev-confirm-dialog ev-confirm-'+severity}
    aria-labelledby="ev-confirm-title" aria-describedby="ev-confirm-description" role={severity==='critical'?'alertdialog':'dialog'}
-   onCancel={e=>{e.preventDefault();onCancel();}} onClose={()=>{if(dialog.current?.isConnected)onCancel();}}>
+   onCancel={e=>{e.preventDefault();onCancel();}} onClose={()=>{if(dialog.current?.isConnected&&!dialog.current.open)onCancel();}}>
   <form onSubmit={e=>{e.preventDefault();if(valid)onConfirm(reason);}}>
    <header className="ev-confirm-header">
     <div className="ev-confirm-icon" aria-hidden="true">
