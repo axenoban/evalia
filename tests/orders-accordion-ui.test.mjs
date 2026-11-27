@@ -83,3 +83,19 @@ test('muestra únicamente el dato de pago útil y oculta destinos e impresión p
  assert.match(orders,/o.fulfillment_method==='legacy'/);
  assert.match(orders,/onPrint\(o,customer\)/);
 });
+
+test('pedidos prioriza listado, encabezado breve y acceso al archivo al final',()=>{
+ assert.match(orders,/const \[showArchived,setShowArchived\]=useState\(false\)/);
+ assert.match(orders,/<header className="ev-orders-heading"><h1>\{showArchived\?'Pedidos archivados':'Pedidos'\}<\/h1><\/header>/);
+ assert.doesNotMatch(orders,/Desglose de pedidos|Abre un pedido para consultar|PEDIDOS CONFIRMADOS/);
+ const filters=orders.indexOf('<RecordListControls');
+ const records=orders.indexOf('aria-label="Lista de pedidos"');
+ const pager=orders.indexOf('<ListPager');
+ const archive=orders.indexOf('<nav className="ev-order-archive-toolbar"');
+ assert.ok(filters>=0&&filters<records&&records<pager&&pager<archive);
+ assert.match(orders,/aria-pressed=\{!showArchived\}/);
+ assert.match(orders,/aria-pressed=\{showArchived\}/);
+ assert.match(orders,/setShowArchived\(archived\);list.setPage\(1\)/);
+ assert.match(orders,/Pedidos vigentes e historial/);
+ assert.match(style,/\.ev-order-archive-toolbar\{[^}]*margin:20px 0 0/);
+});
