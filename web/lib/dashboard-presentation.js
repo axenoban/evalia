@@ -26,3 +26,13 @@ export function prioritizeModels(models,now=Date.now()){
  const recent=m=>isRecentModel(m,now);
  return models.filter(m=>m.is_active).sort((a,b)=>Number(recent(b))-Number(recent(a))||date(b)-date(a));
 }
+
+/** Count distinct active models with positive, verified free stock (not physical total). */
+export function countModelsWithStock(models,stock){
+ const ids=new Set();
+ for(const model of models){
+  const state=stock[model.id],available=Number(state?.available);
+  if(model.is_active&&state&&!state.blocked&&Number.isSafeInteger(available)&&available>0)ids.add(model.id);
+ }
+ return ids.size;
+}
