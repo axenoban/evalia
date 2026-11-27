@@ -706,9 +706,11 @@ function OrderStepHeader({number,title,state}){
  return <div className="form-section-title ev-booking-section-title"><span className="step" aria-hidden="true">{number}</span><div className="order-step-heading"><h2>{title}</h2></div>{state==='done'&&<span className="ev-section-complete" aria-label="Sección lista">✓</span>}</div>;
 }
 function BookingReceipt({id,data,onNew,onView,onPrint,onIssue,onRevoke,busy}){
- const [result,setResult]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0),[share,setShare]=useState(false);
- useEffect(()=>{const controller=new AbortController();setResult(null);setError('');
-  loadOrderById(id,controller.signal).then(value=>{if(!controller.signal.aborted)setResult(value);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
+ const [loaded,setLoaded]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0),[share,setShare]=useState(false);
+ const result=loaded?.id===id?loaded.value:null;
+ const verified=loaded?.id===id&&loaded.workspace===data&&loaded.retry===retry&&!error;
+ useEffect(()=>{const controller=new AbortController();setError('');
+  loadOrderById(id,controller.signal).then(value=>{if(!controller.signal.aborted)setLoaded({id,workspace:data,retry,value});}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
   return ()=>controller.abort();
  },[id,data,retry]);
  const order=result?.view.items[0],details=result?{...data,...result.details}:null;
@@ -718,9 +720,9 @@ function BookingReceipt({id,data,onNew,onView,onPrint,onIssue,onRevoke,busy}){
    {error?<Notice type="error">El pedido está registrado. No se pudo cargar su detalle: {error} <button type="button" className="button button-outline" onClick={()=>setRetry(n=>n+1)}>Actualizar detalle</button></Notice>:!order?<p role="status">Consultando pedido confirmado…</p>:<>
     <h3>{customer?.name||'Cliente'}</h3><p>{order.lines.length} modelos · {order.lines.reduce((n,l)=>n+Number(l.quantity),0)} prendas · {deliveryLabel(order.fulfillment_method)}</p>
     <strong className="ev-receipt-total">{formatBs(order.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n))}</strong>
-    <div className="ev-receipt-actions"><button className="button button-primary" type="button" disabled={busy||order.status!=='active'} onClick={()=>setShare(v=>!v)}>{share?'Cerrar mensaje':'Preparar mensaje de WhatsApp'}</button>
-     <button className="button button-outline" type="button" disabled={busy||order.status==='voided'||order.fulfillment_method==='legacy'} onClick={()=>onPrint(order,customer)}>{order.fulfillment_method==='shipping'?'Imprimir etiqueta':'Imprimir comprobante'}</button></div>
-    {share&&<OrderLinkPanel order={order} data={details} onIssue={onIssue} onRevoke={onRevoke} busy={busy}/>}
+    <div className="ev-receipt-actions"><button className="button button-primary" type="button" disabled={busy||!verified||order.status!=='active'} onClick={()=>setShare(v=>!v)}>{share?'Cerrar mensaje':'Preparar mensaje de WhatsApp'}</button>
+     <button className="button button-outline" type="button" disabled={busy||!verified||order.status==='voided'||order.fulfillment_method==='legacy'} onClick={()=>onPrint(order,customer)}>{order.fulfillment_method==='shipping'?'Imprimir etiqueta':'Imprimir comprobante'}</button></div>
+    {share&&<OrderLinkPanel order={order} data={details} onIssue={onIssue} onRevoke={onRevoke} busy={busy||!verified}/>}
    </>}
    <div className="ev-receipt-actions"><button className="button button-outline" type="button" disabled={busy} onClick={()=>onView(id)}>Ver pedido</button><button className="button button-primary" type="button" disabled={busy} onClick={onNew}>＋ Registrar otro pedido</button></div>
   </section></>;
@@ -809,7 +811,7 @@ function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint
      {availableModels.length?<div className="product-picker ev-booking-picker" aria-label="Productos disponibles para el pedido">{availableModels.slice(0,visibleLimit).map(({model:m,canAdd,activeColors})=><article key={m.id} className="ev-picker-card"><button type="button" className="ev-picker-photo" disabled={!m.imageUrl} onClick={()=>setPhoto(m)} aria-label={'Ampliar foto de '+m.name}><ProductImage model={m}/></button><div className="ev-picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small><small className={canAdd?'positive-text':'error-text'}>{canAdd?formatAvailableDozens(Number(stock[m.id]?.available))+' libres':stock[m.id]?.blocked?'Bloqueado':'Sin mínimo disponible'}</small></div><button type="button" className="button button-primary" disabled={locked||!canAdd||chosen.length>=100} aria-label={'Agregar '+m.name+' al pedido'} onClick={()=>addModel(m,activeColors)}>＋ Agregar</button></article>)}</div>:<p className="muted">No hay modelos disponibles con estos filtros.</p>}
      {availableModels.length>visibleLimit&&<button type="button" className="button button-outline full" disabled={locked} onClick={()=>setVisibleLimit(n=>n+12)}>Mostrar más modelos</button>}
      <div className="cart-subhead"><h3>Carrito ({chosen.length})</h3>{chosen.length>0&&<button type="button" className="button button-outline" disabled={locked} onClick={clearCart}>Vaciar</button>}</div>
-     {chosen.length?<div className="cart-models">{chosen.map(row=>row.model?<div key={row.id} id={'order-model-'+row.id} className="order-model-anchor"><PortionEditor model={row.model} colors={data.colors} stock={stock[row.id]||{}} selection={row.selection} busy={locked} collapsed={expanded!==row.id&&row.valid} onToggle={()=>setExpanded(v=>v===row.id?null:row.id)} onChange={v=>editPortion(row.id,v)} onRemove={()=>removeModel(row.id)}/>{!row.valid&&<p role="alert" className="form-error">{row.error}</p>}</div>:<Notice key={row.id} type="error">{row.selection.previousName||'Modelo no disponible'}: inhabilitado o inexistente. <button type="button" className="button button-outline" disabled={locked} onClick={()=>removeModel(row.id)}>Retirar</button></Notice>)}</div>:<p className="muted">Selecciona un modelo.</p>}
+     {chosen.length?<div className="cart-models">{chosen.map(row=>row.model?<div key={row.id} id={'order-model-'+row.id} className="order-model-anchor"><PortionEditor model={row.model} colors={data.colors} stock={stock[row.id]||{}} selection={row.selection} busy={locked} collapsed={expanded!==row.id&&row.valid} onToggle={row.valid?()=>setExpanded(v=>v===row.id?null:row.id):undefined} onChange={v=>editPortion(row.id,v)} onRemove={()=>removeModel(row.id)}/>{!row.valid&&<p role="alert" className="form-error">{row.error}</p>}</div>:<Notice key={row.id} type="error">{row.selection.previousName||'Modelo no disponible'}: inhabilitado o inexistente. <button type="button" className="button button-outline" disabled={locked} onClick={()=>removeModel(row.id)}>Retirar</button></Notice>)}</div>:<p className="muted">Selecciona un modelo.</p>}
     </section>
     <section className="form-section order-step-card"><OrderStepHeader number={3} title="Entrega" state={deliveryReady?'done':'current'}/>
      <DeliveryMethodChoices label="Modalidad" method={method} busy={locked} onChange={value=>change({method:value,destination:value==='shipping'?destination:''})}/>
