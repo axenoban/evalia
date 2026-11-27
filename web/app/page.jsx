@@ -7,7 +7,7 @@ import {
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
-import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,productPriceOptions,QUICK_DOZENS} from '../lib/product-data.js';
+import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,productPriceOptions,QUICK_DOZENS,paymentAmountOptions} from '../lib/product-data.js';
 import { getSupabase } from '../lib/supabase.js';
 import { useRecordList, useServerOrderList, RecordListControls, ListPager } from './record-list-controls.jsx';
 import {inspectAdminMfa,withOwnerReauthentication} from '../lib/mfa-client.js';
@@ -114,19 +114,24 @@ function SummaryCard({label,value,sub,kind='',symbol}){return <div className={'m
    <span className="metric-label">{label}</span></div>
   <strong>{value}</strong>{sub&&<small>{sub}</small>}
  </div>;}
-function DeliveryPreferenceFields({method,setMethod,destination,setDestination,namePrefix='delivery'}) {
+function DeliveryMethodChoices({label,method,onChange,busy=false}){
+ return <fieldset className="ev-quick-options ev-delivery-options">
+  <legend className="field-label">{label}</legend>
+  <div className="ev-fixed-grid" role="group" aria-label={label}>
+   {[['pickup','Retiro local'],['shipping','Envío nacional / interdepartamental']].map(([value,text])=><button type="button" key={value} className={'pill ev-quick-choice '+(method===value?'active':'')} aria-pressed={method===value} disabled={busy} onClick={()=>onChange(value)}>{text}</button>)}
+  </div>
+ </fieldset>;
+}
+function DestinationShortcut({destination,known,onSelect,busy}){
+ if(!known?.trim()||known===destination)return null;
+ return <button type="button" className="button button-outline ev-destination-shortcut" disabled={busy} onClick={()=>onSelect(known)}>Usar destino habitual: {known}</button>;
+}
+function DeliveryPreferenceFields({method,setMethod,destination,setDestination,busy=false}) {
  return <div className="delivery-preference-fields">
-  <Field title="Modalidad habitual de entrega">
-   <select aria-label="Categoría de entrega del cliente" value={method} required
-    onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');}}>
-    <option value="">Selecciona una categoría…</option>
-    <option value="pickup">Retiro local</option>
-    <option value="shipping">Cliente con envíos nacionales / interdepartamentales</option>
-   </select>
-  </Field>
+  <DeliveryMethodChoices label="Modalidad habitual de entrega" method={method} busy={busy} onChange={value=>{setMethod(value);if(value!=='shipping')setDestination('');}}/>
   {method==='shipping'&&<Field title="Destino habitual del envío (obligatorio)">
    <input aria-label="Destino habitual" value={destination} required minLength={2} maxLength={200}
-    placeholder="Ciudad, departamento y agencia de envío"
+    placeholder="Ciudad, departamento y agencia de envío" disabled={busy}
     onChange={e=>setDestination(e.target.value)}/>
   </Field>}
  </div>;
@@ -160,7 +165,7 @@ function ClientForm({onCreate,busy,compact=false,customers=[]}){
    <Field title="WhatsApp"><input name="clientPhone" type="tel" value={phone} required maxLength={30}
     autoComplete="tel" inputMode="tel" placeholder="Número de WhatsApp…" onChange={e=>{changed();setPhone(e.target.value);}}/></Field>
   </div>
-  <DeliveryPreferenceFields method={method} setMethod={v=>{changed();setMethod(v);}}
+  <DeliveryPreferenceFields method={method} busy={busy} setMethod={v=>{changed();setMethod(v);}}
    destination={destination} setDestination={v=>{changed();setDestination(v);}}/>
   {duplicate&&<div className="surface pad" role="status"><p className="small-note">Posible cliente duplicado{matches.length?': '+matches.map(c=>c.name).join(', '):' detectado en la base de datos'}. Puedes crear otra ficha si corresponde a otra persona.</p><label className="qr-confirm"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/>Confirmo registrar otra ficha con este WhatsApp.</label></div>}
   {error&&<p className="form-error" role="alert">{error}</p>}
@@ -441,7 +446,7 @@ function QuickOptions({label,options,value,onSelect,busy,custom,onCustom,customL
  return <fieldset className={'ev-quick-options '+(quantity?'ev-quick-quantity':'')}>
   <legend className="field-label">{label}</legend>
   <div className="ev-quick-grid" role="group" aria-label={label}>
-   {options.map(option=><button type="button" className={'pill ev-quick-choice '+(!custom&&String(value)===String(option.value)?'active':'')} key={option.value} aria-pressed={!custom&&String(value)===String(option.value)} disabled={busy} onClick={()=>onSelect(option.value)}>{option.label}</button>)}
+   {options.map(option=><button type="button" className={'pill ev-quick-choice '+(!custom&&String(value)===String(option.value)?'active':'')} key={option.value} aria-pressed={!custom&&String(value)===String(option.value)} disabled={busy||option.disabled} onClick={()=>onSelect(option.value)}>{option.label}</button>)}
    <button type="button" className={'pill ev-quick-choice ev-quick-custom '+(custom?'active':'')} aria-pressed={custom} disabled={busy} onClick={onCustom}>＋ {customLabel}</button>
   </div>
   {custom&&<div className="ev-quick-input">{children}</div>}
@@ -550,7 +555,7 @@ function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
    <Field title="WhatsApp"><input value={phone} maxLength={30} type="tel" inputMode="tel" required
     onChange={e=>{setPhone(e.target.value);requestId.current=null;setDuplicateConfirmed(false);}}/></Field>
   </div>
-  <DeliveryPreferenceFields method={method} setMethod={v=>{setMethod(v);requestId.current=null;}}
+  <DeliveryPreferenceFields method={method} busy={busy} setMethod={v=>{setMethod(v);requestId.current=null;}}
    destination={destination} setDestination={v=>{setDestination(v);requestId.current=null;}}/>
   {matches.length>0&&<div className="surface pad" role="status"><p className="small-note">Este WhatsApp coincide con: {matches.map(c=>c.name).join(', ')}.</p><label className="qr-confirm"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/>Confirmo usar el mismo número en fichas diferentes.</label></div>}
   {error&&<p role="alert" className="form-error">{error}</p>}
@@ -615,6 +620,9 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
  const validLine=validDozens&&Number.isSafeInteger(quantity)&&quantity>=6&&!insufficient&&!stock.blocked;
  const maximumDozens=Math.max(0,Math.floor((available-extras.length)/12));
  const [extrasOpen,setExtrasOpen]=useState(()=>extras.length>0||Number(selection.dozens)===0);
+ const [customDozens,setCustomDozens]=useState(()=>Number(selection.dozens)>8);
+ const quickDozens=[0,...QUICK_DOZENS].map(n=>({value:String(n),label:n===0?'Sin doc.':String(n),disabled:n>0&&(stock.blocked||n>maximumDozens)}));
+ const showCustomDozens=customDozens||!validDozens||dozens>8;
  const showExtras=extrasOpen||noDozen;
  function setDozens(value){
   if(String(value)==='0')setExtrasOpen(true);
@@ -639,6 +647,9 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
   <div className="ev-portion-primary">
    <div className="ev-portion-dozens">
     <div className="portion-label"><b>Docenas surtidas</b><span>12 prendas por docena</span></div>
+    <div className="ev-portion-quick">
+     <QuickOptions label="Seleccionar docenas" options={quickDozens} value={String(selection.dozens)} custom={showCustomDozens}
+      onSelect={value=>{setCustomDozens(false);setDozens(value);}} customLabel="Otra cantidad" onCustom={()=>setCustomDozens(true)}>
     <div className="dozen-entry">
      <button type="button" aria-label={'Quitar docena de '+model.name}
       onClick={()=>setDozens(Math.max(0,dozens-1))} disabled={!validDozens||dozens<=0}>−</button>
@@ -648,6 +659,7 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
      <button type="button" aria-label={'Añadir docena a '+model.name}
       onClick={()=>setDozens(dozens+1)} disabled={!validDozens||dozens>=maximumDozens||stock.blocked}>＋</button>
     </div>
+    </QuickOptions></div>
    </div>
    <button type="button" className={'ev-units-toggle '+(showExtras?'expanded':'')}
     aria-expanded={showExtras} aria-controls={'extra-colors-'+model.id}
@@ -874,17 +886,11 @@ function BookingPanel({data,onOrder,onCreateClient,busy}){
      <OrderStepHeader number={3} title="Revisar y confirmar" description="Comprueba los importes antes de comprometer inventario." state={3<stage?'done':3===stage?'current':'next'}/>
      <div className="order-confirmation-note"><strong>Compra confirmada</strong><p>Registra únicamente pedidos aceptados por el cliente. Al confirmar, las prendas quedan comprometidas para su entrega y el precio queda fijado.</p></div>
      <div className="order-delivery-choice">
-      <Field title="¿Cómo recibirá este pedido?">
-       <select aria-label="Modalidad de entrega del pedido" value={method} required
-        onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');requestId.current=null;}}>
-        <option value="">Selecciona retiro o envío…</option>
-        <option value="pickup">Retiro en local</option>
-        <option value="shipping">Envío nacional / interdepartamental</option>
-       </select>
-      </Field>
+      <DeliveryMethodChoices label="¿Cómo recibirá este pedido?" method={method} busy={busy} onChange={value=>{setMethod(value);if(value!=='shipping')setDestination('');requestId.current=null;}}/>
+      {method==='shipping'&&<DestinationShortcut destination={destination} known={chosenCustomer?.shipping_destination} busy={busy} onSelect={value=>{setDestination(value);requestId.current=null;}}/>}
       {method==='shipping'&&<Field title="Destino exacto para este pedido">
        <input aria-label="Destino del pedido" value={destination} required maxLength={200} minLength={2}
-        placeholder="Ciudad / departamento / agencia"
+        placeholder="Ciudad / departamento / agencia" disabled={busy}
         onChange={e=>{setDestination(e.target.value);requestId.current=null;}}/>
       </Field>}
       <p className="small-note">El pedido guarda su destino propio, aunque después se modifique la ficha del cliente.</p>
@@ -928,8 +934,10 @@ function LineComposition({line,colors,compact=false}){
  </div>;
 }
 
-function PaymentForm({targetId,onSubmit,busy}){
- const [amount,setAmount]=useState(''),[note,setNote]=useState('');
+function PaymentForm({targetId,onSubmit,busy,balance}){
+ const [amount,setAmount]=useState(''),[note,setNote]=useState(''),[customAmount,setCustomAmount]=useState(false);
+ const suggested=paymentAmountOptions(balance);
+ const showCustom=customAmount||suggested.length===0||Boolean(amount&&!suggested.some(x=>x.value===amount));
  const requestId=useRef(null);
  async function submit(e){
   e.preventDefault();
@@ -940,14 +948,15 @@ function PaymentForm({targetId,onSubmit,busy}){
    orderId:targetId,
    amount:parsed,requestId:requestId.current,note:note.trim()||null
   });
-  if(ok){requestId.current=null;setAmount('');setNote('');}
+  if(ok){requestId.current=null;setAmount('');setNote('');setCustomAmount(false);}
  }
  return <form className="money-form" onSubmit={submit}>
   <p className="small-note">Registrar aviso de pago externo. <strong>No reduce el saldo</strong> hasta que el administrador compruebe la recepción y lo apruebe.</p>
   <div className="form-inline">
-   <Field title="Monto informado (Bs)">
-    <input type="text" name={'payment-'+targetId} inputMode="decimal" placeholder="Ej. 150,50"
+   <QuickOptions label="Monto informado (Bs)" options={suggested} value={amount} custom={showCustom} busy={busy} onSelect={value=>{setCustomAmount(false);setAmount(value);requestId.current=null;}} customLabel="Otro importe" onCustom={()=>{setCustomAmount(true);setAmount('');requestId.current=null;}}>
+    <Field title="Importe recibido"><input type="text" name={'payment-'+targetId} inputMode="decimal" placeholder="Ej. 150,50" disabled={busy}
      value={amount} onChange={e=>{setAmount(e.target.value);requestId.current=null;}} required/></Field>
+   </QuickOptions>
    <Field title="Referencia u observación (opcional)">
     <input type="text" maxLength={1000} name="paymentNote" placeholder="Transferencia, efectivo…"
      value={note} onChange={e=>{setNote(e.target.value);requestId.current=null;}}/></Field>
@@ -1250,13 +1259,8 @@ function OrderDeliveryEditor({order,customer,onSave,busy}){
   }catch(e){setError(e.message);}
  }
  return <form className="order-delivery-editor" onSubmit={save}>
-  <Field title="Modalidad de este pedido">
-   <select value={method} required aria-label="Clasificar entrega del pedido"
-    onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');requestId.current=null;}}>
-    <option value="">Selecciona…</option><option value="pickup">Retiro local</option>
-    <option value="shipping">Envío nacional / interdepartamental</option>
-   </select>
-  </Field>
+  <DeliveryMethodChoices label="Modalidad de este pedido" method={method} busy={busy} onChange={value=>{setMethod(value);if(value!=='shipping')setDestination('');requestId.current=null;}}/>
+  {method==='shipping'&&<DestinationShortcut destination={destination} known={customer?.shipping_destination} busy={busy} onSelect={value=>{setDestination(value);requestId.current=null;}}/>}
   {method==='shipping'&&<Field title="Destino de este pedido">
    <input value={destination} aria-label="Cambiar destino del pedido" required minLength={2} maxLength={200}
     onChange={e=>{setDestination(e.target.value);requestId.current=null;}}/>
@@ -1463,7 +1467,7 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
           <h3>Historial de pagos</h3>
           <PaymentHistory items={relatedPayments}/>
           {o.status==='active'&&Number(finance.pending)>0&&
-           <PaymentForm targetId={o.id} onSubmit={onReport} busy={pageBusy}/>}
+           <PaymentForm targetId={o.id} onSubmit={onReport} busy={pageBusy} balance={finance.pending}/>}
          </div>
         </details>
         {o.status==='active'&&<button className="button button-primary" type="button"
