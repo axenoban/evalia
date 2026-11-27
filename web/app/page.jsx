@@ -349,7 +349,7 @@ function ProductHistory({model}){
  if(error)return <p role="alert" className="form-error">{error}</p>;
  if(!result)return <p role="status">Cargando historial…</p>;
  if(!result.length)return <p className="small-note">Sin modificaciones auditadas.</p>;
- return <div className="ev-product-history">{result.map(e=><div key={e.request_id}><strong>{e.operation==='reactivate'?'Reactivación':e.source==='legacy'?'Precio / fotografía':'Edición de ficha'}</strong><small>{displayDate(e.created_at)}</small>
+ return <div className="ev-product-history">{result.map(e=><div key={e.request_id}><strong>{e.operation==='reactivate'?'Reactivación':e.operation==='archive'?'Inhabilitación':e.source==='legacy'?'Precio / fotografía':'Edición de ficha'}</strong><small>{displayDate(e.created_at)}</small>
   {e.source==='legacy'?<p>{e.old_price} → {e.new_price} Bs{e.old_image_path!==e.new_image_path?' · Foto modificada':''}</p>:<><p>{['name','size_label','price_dozen_bs'].filter(k=>e.previous_data?.[k]!==e.new_data?.[k]).map(k=>String(e.previous_data?.[k]??'—')+' → '+String(e.new_data?.[k]??'—')).join(' · ')||'Ficha actualizada'}</p>{e.operation==='reactivate'&&<p>Stock republicado: {e.new_data?.on_hand} prendas</p>}{JSON.stringify(e.previous_data?.colors)!==JSON.stringify(e.new_data?.colors)&&e.operation==='edit'&&<p>Colores actualizados</p>}{e.previous_data?.image_path!==e.new_data?.image_path&&<p>Fotografía actualizada</p>}</>}
   </div>)}</div>;
 }
