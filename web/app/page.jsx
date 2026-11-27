@@ -15,7 +15,7 @@ import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmat
 import AdminAccounts from './admin-accounts.jsx';
 import {BrandMark,UiIcon} from './brand.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
-import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel } from '../lib/dashboard-presentation.js';
+import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel, countModelsWithStock } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
 import {matchingCustomers,normalizedWhatsApp} from '../lib/customer-duplicates.js';
 import {printOrder} from '../lib/order-print.js';
@@ -111,7 +111,7 @@ function ToastNotifications({error,message,onCloseError,onCloseMessage}){
 function SummaryCard({label,value,sub,kind='',symbol}){return <div className={'metric '+kind}>
   <div className="ev-metric-heading">{symbol&&<span className="ev-metric-icon" aria-hidden="true"><UiIcon name={symbol}/></span>}
    <span className="metric-label">{label}</span></div>
-  <strong>{value}</strong><small>{sub}</small>
+  <strong>{value}</strong>{sub&&<small>{sub}</small>}
  </div>;}
 function DeliveryPreferenceFields({method,setMethod,destination,setDestination,namePrefix='delivery'}) {
  return <div className="delivery-preference-fields">
@@ -191,7 +191,7 @@ function Dashboard({data,setTab}){
  const activeModels=prioritizeModels(data.models);
  const now=Date.now();
  const recentModels=activeModels.filter(m=>isRecentModel(m,now));
- const [showOlder,setShowOlder]=useState(false);
+ const [showOlder,setShowOlder]=useState(true);
  const visibleModels=recentModels.length&&!showOlder?recentModels:activeModels;
  const trackRef=useRef(null);
  const [trackEdges,setTrackEdges]=useState({prev:false,next:false});
@@ -210,8 +210,8 @@ function Dashboard({data,setTab}){
   if(el)el.scrollBy({left:direction*Math.max(220,el.clientWidth*.72),behavior:'smooth'});
  };
  const totals=inventoryTotals(data.stock);
- const availableActive=inventoryTotals(Object.fromEntries(activeModels.map(m=>[m.id,data.stock[m.id]||{}]))).available;
- const activeOrders=data.orders.filter(o=>o.status==='active')
+ const modelsWithStock=countModelsWithStock(activeModels,data.stock);
+ const activeOrders=data.orders.filter(o=>o.status==='active'&&!o.archived_at)
   .sort((a,b)=>Date.parse(b.confirmed_at||0)-Date.parse(a.confirmed_at||0));
  const activeLegacy=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
  const pendingPayments=data.payments.filter(p=>(p.status==='pending'||p.status==='observed')&&!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id))));
@@ -220,27 +220,17 @@ function Dashboard({data,setTab}){
  const ordersById=new Map(data.orders.map(o=>[o.id,o]));
  const legacyById=new Map(data.reservations.map(r=>[r.id,r]));
  return <div className="ev-dashboard">
-  <SectionHead eyebrow="GESTIÓN COMERCIAL" title="Tu negocio, bajo control."
-   description="Registra compras confirmadas, gestiona cobros y controla la disponibilidad real de tus modelos."
-   actions={<button className="button button-primary" onClick={()=>setTab('booking')}>＋ Nuevo pedido</button>}/>
-  <div className="metrics-grid ev-overview">
-   <SummaryCard symbol="▧" label="Unidades disponibles" value={rup(availableActive)} sub="Libres para pedidos o venta física" kind="primary"/>
-   <SummaryCard symbol="▤" label="Prendas en pedidos" value={rup(totals.pending)} sub="Confirmadas y aún no retiradas"/>
-   <SummaryCard symbol="⌑" label="Pedidos activos" value={activeOrders.length} sub="Por cobrar o entregar"/>
-   <SummaryCard symbol="▣" label="Pagos por verificar" value={pendingPayments.length} sub="Pendientes y en observación"/>
+  <SectionHead eyebrow="GESTIÓN COMERCIAL" title="Resumen"/>
+  <div className="metrics-grid ev-overview" aria-label="Indicadores prioritarios">
+   <SummaryCard symbol="⌑" label="Pedidos pendientes" value={activeOrders.length} kind="primary"/>
+   <SummaryCard symbol="▧" label="Modelos con stock" value={modelsWithStock}/>
   </div>
-  {activeLegacy.length>0&&<div className="legacy-alert" role="status">
-    <strong>Compromisos anteriores pendientes: {activeLegacy.length}</strong>
-    <span>{rup(totals.reserved)} prendas siguen apartadas por registros antiguos. No se crean más apartados. Consulta esos casos en Pedidos.</span>
-    <button className="button button-outline" onClick={()=>setTab('orders')}>Ver compromisos anteriores</button>
-   </div>}
   {blocked.length>0&&<Notice type="error">{blocked.length} modelo(s) están en revisión y no admiten nuevos pedidos.</Notice>}
 
   <section className="ev-zone ev-zone-catalog" aria-labelledby="ev-models-heading">
    <header className="ev-zone-header">
     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="catalog"/></span>
-     <div><h2 id="ev-models-heading">Modelos y stock disponible</h2>
-      <p>Modelos recientes de las últimas 48 horas. Los anteriores siguen disponibles en el catálogo.</p></div>
+     <div><h2 id="ev-models-heading">Modelos y stock disponible</h2></div>
     </div>
     <div className="ev-zone-actions">
      <button type="button" className="ev-section-link" onClick={()=>setTab('catalog')}>Administrar productos <span aria-hidden="true">→</span></button>
@@ -259,12 +249,17 @@ function Dashboard({data,setTab}){
     <Empty title="Aún no hay modelos" detail="Registra un modelo y su inventario desde Productos."/>}
   </section>
 
+  <div className="ev-dashboard-actions"><button className="button button-primary" onClick={()=>setTab('booking')}>＋ Nuevo pedido</button></div>
+  {activeLegacy.length>0&&<div className="legacy-alert" role="status">
+    <strong>Compromisos anteriores pendientes: {activeLegacy.length}</strong>
+    <span>{rup(totals.reserved)} prendas siguen apartadas por registros antiguos. No se crean más apartados. Consulta esos casos en Pedidos.</span>
+    <button className="button button-outline" onClick={()=>setTab('orders')}>Ver compromisos anteriores</button>
+   </div>}
   <div className="ev-support-grid">
    <section className="ev-zone ev-zone-orders" aria-labelledby="ev-orders-heading">
     <header className="ev-zone-header">
      <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="orders"/></span>
-      <div><h2 id="ev-orders-heading">Pedidos pendientes</h2>
-       <p>Compras confirmadas que aún requieren seguimiento.</p></div>
+      <div><h2 id="ev-orders-heading">Pedidos pendientes</h2></div>
      </div>
      <button type="button" className="ev-section-link" onClick={()=>setTab('orders')}>Ver pedidos <span aria-hidden="true">→</span></button>
     </header>
@@ -285,8 +280,7 @@ function Dashboard({data,setTab}){
    <section className="ev-zone ev-zone-payments" aria-labelledby="ev-payments-heading">
     <header className="ev-zone-header">
      <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="payments"/></span>
-      <div><h2 id="ev-payments-heading">Pagos por verificar</h2>
-       <p>Declaraciones pendientes de validación administrativa.</p></div>
+      <div><h2 id="ev-payments-heading">Pagos por verificar</h2></div>
      </div>
      <button type="button" className="ev-section-link" onClick={()=>setTab('payments')}>Ver pagos <span aria-hidden="true">→</span></button>
     </header>
@@ -1329,7 +1323,7 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
  const data=list.details?{...workspace,...list.details}:workspace;
  const pageBusy=busy||list.loading||Boolean(list.error);
  const changeArchive=archived=>{setShowArchived(archived);list.setPage(1);setEditingId(null);};
- return <><header className="ev-orders-heading"><h1>{showArchived?'Pedidos archivados':'Pedidos'}</h1></header>
+ return <><header className="ev-orders-heading"><p className="eyebrow">{showArchived?'HISTORIAL COMERCIAL':'PEDIDOS CONFIRMADOS'}</p><h1>{showArchived?'Pedidos archivados':'Pedidos'}</h1></header>
   {!showArchived&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
   <RecordListControls list={list} dateLabel={showArchived?"Fecha de archivo":"Fecha de confirmación del pedido"} busy={busy} onChange={()=>setEditingId(null)}/>
   {list.loading&&<p className="small-note" role="status">{list.refreshing?'Actualizando pedidos; las acciones quedan temporalmente desactivadas.':'Cargando página de pedidos…'}</p>}
