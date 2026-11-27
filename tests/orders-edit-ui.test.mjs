@@ -52,7 +52,9 @@ test('composición de edición reutiliza validación de stock y mantiene precios
  assert.match(editor,/initialModelPortion\(/);
  assert.match(editor,/<PortionEditor/);
  assert.match(editor,/expectedRevision:order.revision/);
- assert.match(editor,/window.confirm\(/);
+ assert.match(editor,/if\(!await ask\(\{severity:'warning',title:'Guardar cambios del pedido'/);
+ assert.match(editor,/confirmLabel:'Guardar cambios'\}\)\)return;/);
+ assert.ok(editor.indexOf('await ask(')<editor.indexOf('await onSave('));
  assert.match(style,/\.ev-order-edit-panel/);
 });
 test('la impresión no se altera y el pedido histórico sigue visible',()=>{
