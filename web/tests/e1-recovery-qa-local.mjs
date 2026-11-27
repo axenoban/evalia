@@ -68,6 +68,28 @@ function psql(input,transaction=false,label='SQL local'){
  return run(label,'docker',['exec','-i','supabase_db_'+project,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-U','postgres','-d','postgres',...(transaction?['--single-transaction']:[]),'-f','-'],{input});
 }
 // Compare the backup's COPY headers with the freshly restored schema before writing any rows.
+function reconcileEmptyOAuthCopy(data,missing){
+ const allowed=['client_auth_method','client_assertion_audience'];
+ if(!missing.length)return data;
+ if(missing.some(c=>!allowed.includes(c)))throw Error('Incompatibilidad OAuth no reconocida');
+ const lines=data.split(/\r?\n/);let inCopy=false,found=0;const result=[];
+ for(let i=0;i<lines.length;i++){
+  const line=lines[i];
+  if(inCopy){result.push(line);if(line==='\\.')inCopy=false;continue;}
+  const m=line.match(/^COPY\s+"?([a-z_][a-z_0-9]*)"?\."?([a-z_][a-z_0-9]*)"?\s*\((.*)\)\s+FROM stdin;$/i);
+  if(!m){result.push(line);continue;}
+  if(m[1]==='auth'&&m[2]==='custom_oauth_providers'){
+   if(++found!==1||lines[i+1]!=='\\.')throw Error('OAuth contiene datos o COPY ambiguo; requiere versión Auth compatible');
+   const columns=m[3].split(',').map(x=>x.trim().replace(/^"|"$/g,''));
+   if(!missing.every(c=>columns.includes(c)))throw Error('COPY OAuth no coincide con incompatibilidad observada');
+   result.push('-- COPY OAuth vacío verificado; no hay registros que importar.');
+   i++;continue;
+  }
+  inCopy=true;result.push(line);
+ }
+ if(found!==1||inCopy)throw Error('COPY OAuth ausente o incompleto');
+ return result.join('\n');
+}
 function checkCopyColumns(data){
  const declared=[];let inCopy=false;
  for(const line of data.split(/\r?\n/)){
@@ -133,20 +155,21 @@ try{
  // All writes are confined to a new disposable database; separate transactions isolate the failing phase.
  psql(parts[0]+'\n'+parts[1],true,'Restaurar roles y esquema');
  console.log('Roles y esquema recuperados');
- // Managed Auth in QA has two newer custom OAuth fields than the pinned local stack.
- // Use the actual source types/defaults, only for the unused provider table.
- // Never remove COPY columns or rows, nor modify the original archive or remote schemas.
+ // Managed Auth in QA is newer than the pinned local stack.
+ // No managed-schema DDL: omit only the verified empty COPY operation, never a row.
  const oauthTable='auth.custom_oauth_providers';
  const oauthColumns=JSON.parse(psql("select coalesce(jsonb_agg(column_name),'[]'::jsonb) from information_schema.columns where table_schema='auth' and table_name='custom_oauth_providers';",false,'Verificar esquema OAuth local').trim());
  const oauthMissing=['client_auth_method','client_assertion_audience'].filter(c=>!oauthColumns.includes(c));
+ let restoreData=parts[2];
  if(oauthMissing.length){
-  assert.equal(countTables(parts[2],[oauthTable])[oauthTable],0,'OAuth personalizado contiene datos; requiere versión Auth compatible, no adaptar automáticamente');
+  assert.equal(countTables(parts[2],[oauthTable])[oauthTable],0,'OAuth personalizado contiene datos; requiere versión Auth compatible');
   assert.equal(psql("select count(*) from auth.custom_oauth_providers;",false,'Verificar tabla OAuth local vacía').trim(),'0');
-  psql("alter table auth.custom_oauth_providers add column if not exists client_auth_method text not null default 'client_secret', add column if not exists client_assertion_audience text;",true,'Compatibilidad OAuth solo local');
-  console.log('Compatibilidad OAuth local aplicada (tabla sin proveedores personalizados)');
+  restoreData=reconcileEmptyOAuthCopy(parts[2],oauthMissing);
+  console.log('Compatibilidad OAuth: COPY vacío omitido; cero registros descartados');
  }
- checkCopyColumns(parts[2]);
- psql('SET session_replication_role=replica;\n'+parts[2]+'\nRESET session_replication_role;\n',true,'Restaurar datos');
+ checkCopyColumns(restoreData);
+ psql('SET session_replication_role=replica;\n'+restoreData+'\nRESET session_replication_role;\n',true,'Restaurar datos');
+ if(oauthMissing.length)assert.equal(psql("select count(*) from auth.custom_oauth_providers;",false,'Verificar OAuth tras restaurar').trim(),'0');
  console.log('Datos SQL recuperados');
  psql(parts[3]+'\n'+parts[4]+'\n'+policies,true,'Restaurar historial y políticas');
  psql("select cron.alter_job(jobid,active:=false) from cron.job where active;");
