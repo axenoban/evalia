@@ -20,8 +20,20 @@ function run(label,program,args,opts={}){
   throw Error(label+' falló'+(diagnostic?' ('+diagnostic+')':'')+'.');
  }
 }
-const protection=run('Comprobar BitLocker','powershell.exe',['-NoProfile','-NonInteractive','-Command',"(Get-BitLockerVolume -MountPoint 'C:') | ForEach-Object { [string]$_.EncryptionPercentage + ':' + [string]$_.ProtectionStatus }"]).trim();
-assert.equal(protection,'100:On','BitLocker debe estar al 100% con protección activa');
+// Query the native BitLocker provider using numeric status codes, independent of display language.
+const bitlockerQuery=String.raw`$ErrorActionPreference = 'Stop'
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Administrator required' }
+$v = @(Get-CimInstance -Namespace 'root/CIMV2/Security/MicrosoftVolumeEncryption' -ClassName Win32_EncryptableVolume -Filter "DriveLetter='C:'" -ErrorAction Stop)
+if ($v.Count -ne 1) { throw 'Volume not found' }
+$c = Invoke-CimMethod -InputObject $v[0] -MethodName GetConversionStatus -ErrorAction Stop
+$p = Invoke-CimMethod -InputObject $v[0] -MethodName GetProtectionStatus -ErrorAction Stop
+if ($c.ReturnValue -ne 0 -or $p.ReturnValue -ne 0) { throw 'BitLocker provider failure' }
+[Console]::WriteLine(('{0}:{1}:{2}' -f $c.EncryptionPercentage,$c.ConversionStatus,$p.ProtectionStatus))
+`;
+const protection=run('Consultar BitLocker (requiere PowerShell como administrador)','powershell.exe',['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(bitlockerQuery,'utf16le').toString('base64')]).trim();
+assert.equal(protection,'100:1:1','BitLocker debe estar completamente cifrado y con protección activa (100:1:1)');
+console.log('0/5 BitLocker verificado');
 assert.match(base,/^C:\\/i,'staging debe estar en la unidad C: cifrada');
 const dockerHost=run('Docker local','docker',['context','inspect','--format','{{.Endpoints.docker.Host}}']).trim();
 assert.ok(dockerHost.startsWith('npipe://'),'Docker remoto no permitido');
