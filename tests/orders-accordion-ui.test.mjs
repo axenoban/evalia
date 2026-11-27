@@ -66,7 +66,8 @@ test('entregas parciales desaparecen del listado, sin borrar lógica de base ni 
 });
 
 test('no repite el total ni los importes por docena en líneas de una docena',()=>{
- assert.equal((orders.match(/formatBs\(total\)/g)||[]).length,1);
+ assert.equal((orders.match(/>\{formatBs\(total\)\}<\/strong>/g)||[]).length,1);
+ assert.match(orders,/facts:\[\{label:'Cliente',value:customer\?\.name\|\|'Cliente'\},\{label:'Total',value:formatBs\(total\)\}\],reasonRequired:true/);
  assert.doesNotMatch(orders,/<footer className="order-total"/);
  assert.match(orders,/Number\(l.quantity\)!==12&&<small>/);
  assert.doesNotMatch(orders,/Talla \{m\?\.size_label\|\|'—'\} · \{rup\(l.quantity\)\} prendas/);
