@@ -363,3 +363,33 @@ begin
  values(p_request_id,auth.uid(),v_id,v_fingerprint);
  return v_id;
 end;$function$;
+
+CREATE OR REPLACE FUNCTION public.archive_evalia_model(p_model_id uuid, p_expected_updated_at timestamp with time zone)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_model public.models%rowtype; v_path text;
+begin
+ if not public.is_evalia_admin() then raise exception 'Acceso administrativo requerido' using errcode='42501'; end if;
+ if p_model_id is null or p_expected_updated_at is null then raise exception 'Modelo o versión inválidos' using errcode='22023'; end if;
+ -- Mismo bloqueo de inventario que pedidos, entregas y reservas.
+ perform 1 from public.model_inventory where model_id=p_model_id for update;
+ if not found then raise exception 'Modelo sin inventario' using errcode='P0002'; end if;
+ select * into v_model from public.models where id=p_model_id for update;
+ if not found then raise exception 'Modelo no existe' using errcode='P0002'; end if;
+ if v_model.is_active then
+  if v_model.updated_at is distinct from p_expected_updated_at then
+   raise exception 'El modelo cambió. Actualiza antes de inhabilitar' using errcode='40001';
+  end if;
+  -- Los pedidos vinculados conservan sus líneas, compromisos y operaciones.
+  update public.models set is_active=false,archived_at=clock_timestamp(),archived_by=auth.uid(),updated_at=clock_timestamp()
+   where id=p_model_id;
+  insert into public.catalog_change_events(request_id,entity_type,entity_id,actor_id,operation,fingerprint,previous_data,new_data)
+   values(gen_random_uuid(),'model',p_model_id,auth.uid(),'archive',jsonb_build_array(p_model_id,p_expected_updated_at),to_jsonb(v_model),(select to_jsonb(m) from public.models m where id=p_model_id));
+ end if;
+ v_path:=v_model.image_path;
+ if v_path is not null and exists(select 1 from public.models where is_active and image_path=v_path) then v_path:=null; end if;
+ return pg_catalog.jsonb_build_object('model_id',p_model_id,'photo_path',v_path);
+end;$function$;
