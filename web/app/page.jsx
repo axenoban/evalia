@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace,
   createCustomer, createModel, editProduct, saveColor, reactivateProduct, productHistory, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, cleanupReplacedPhoto, archiveOrder, setOrderPrepared,
-  createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
+  createOrder, loadOrderById, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,productPriceOptions,QUICK_DOZENS,paymentAmountOptions} from '../lib/product-data.js';
@@ -22,6 +22,7 @@ import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
 import {matchingCustomers,normalizedWhatsApp} from '../lib/customer-duplicates.js';
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
+import {emptyBooking,findBookingCustomers,recentBookingCustomers,reviewBooking,repeatBooking,hasBookingDraft} from '../lib/booking-review.js';
 import {
   centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
 } from '../lib/domain.js';
@@ -611,7 +612,7 @@ function ExtraColorSummary({ids=[],colors}){
   </div>
  </div>;
 }
-function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
+function PortionEditor({model,stock,colors,selection,onChange,onRemove,busy=false,collapsed=false,onToggle}){
  const dozens=Number(selection.dozens);
  const extras=selection.extraColorIds;
  const validDozens=/^(0|[1-9]\d*)$/.test(String(selection.dozens));
@@ -620,19 +621,21 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
  const allowedColors=colors.filter(c=>model.colorIds?.includes(c.id)&&c.is_active);
  const insufficient=quantity>available;
  const noDozen=validDozens&&dozens===0;
- const validLine=validDozens&&Number.isSafeInteger(quantity)&&quantity>=6&&!insufficient&&!stock.blocked;
- const maximumDozens=Math.max(0,Math.floor((available-extras.length)/12));
+ const validLine=validDozens&&Number.isSafeInteger(quantity)&&quantity>=6&&!insufficient&&!stock.blocked&&extras.length<=11&&new Set(extras).size===extras.length&&extras.every(id=>allowedColors.some(c=>c.id===id));
+ const maximumDozens=Math.min(178956969,Math.max(0,Math.floor((available-extras.length)/12)));
  const [extrasOpen,setExtrasOpen]=useState(()=>extras.length>0||Number(selection.dozens)===0);
  const [customDozens,setCustomDozens]=useState(()=>Number(selection.dozens)>8);
- const quickDozens=[0,...QUICK_DOZENS].map(n=>({value:String(n),label:n===0?'Sin doc.':String(n),disabled:n>0&&(stock.blocked||n>maximumDozens)}));
+ const quickDozens=[0,...QUICK_DOZENS].filter(n=>n===0||n<=maximumDozens||n===dozens).map(n=>({value:String(n),label:n===0?'Solo unidades':String(n),disabled:n>0&&(stock.blocked||n>maximumDozens)}));
  const showCustomDozens=customDozens||!validDozens||dozens>8;
  const showExtras=extrasOpen||noDozen;
  function setDozens(value){
+  if(busy)return;
   if(String(value)==='0')setExtrasOpen(true);
   else if(dozens===0&&extras.length===0)setExtrasOpen(false);
   onChange({...selection,dozens:String(value)});
  }
  function toggleColor(id){
+  if(busy)return;
   if(extras.includes(id))onChange({...selection,extraColorIds:extras.filter(x=>x!==id)});
   else if(extras.length<11&&quantity<available&&!stock.blocked)
    onChange({...selection,extraColorIds:[...extras,id]});
@@ -645,22 +648,23 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
     <small>{stock.blocked?'BLOQUEADO':formatAvailableDozens(available)+' libres'}</small>
    </div>
    <button type="button" className="remove-model" title="Quitar modelo" aria-label={'Quitar '+model.name}
-    onClick={onRemove}>×</button>
+    disabled={busy} onClick={onRemove}>×</button>
+   {onToggle&&<button type="button" className="button button-outline ev-portion-expand" aria-expanded={!collapsed} onClick={onToggle}>{collapsed?'Editar':'Plegar'}</button>}
   </div>
-  <div className="ev-portion-primary">
+  <div hidden={collapsed} className="ev-portion-fields"><div className="ev-portion-primary">
    <div className="ev-portion-dozens">
     <div className="portion-label"><b>Docenas surtidas</b><span>12 prendas por docena</span></div>
     <div className="ev-portion-quick">
-     <QuickOptions label="Seleccionar docenas" options={quickDozens} value={String(selection.dozens)} custom={showCustomDozens}
+     <QuickOptions label="Seleccionar docenas" options={quickDozens} value={String(selection.dozens)} custom={showCustomDozens} busy={busy}
       onSelect={value=>{setCustomDozens(false);setDozens(value);}} customLabel="Otra cantidad" onCustom={()=>setCustomDozens(true)}>
     <div className="dozen-entry">
      <button type="button" aria-label={'Quitar docena de '+model.name}
-      onClick={()=>setDozens(Math.max(0,dozens-1))} disabled={!validDozens||dozens<=0}>−</button>
+      onClick={()=>setDozens(Math.max(0,dozens-1))} disabled={busy||!validDozens||dozens<=0}>−</button>
      <input type="number" min="0" max={Math.min(maximumDozens,178956969)} step="1" inputMode="numeric"
-      name={'dozens-'+model.id} aria-label={'Docenas de '+model.name} value={selection.dozens}
+      name={'dozens-'+model.id} aria-label={'Docenas de '+model.name} disabled={busy} value={selection.dozens}
       onChange={e=>setDozens(e.target.value)}/>
      <button type="button" aria-label={'Añadir docena a '+model.name}
-      onClick={()=>setDozens(dozens+1)} disabled={!validDozens||dozens>=maximumDozens||stock.blocked}>＋</button>
+      onClick={()=>setDozens(dozens+1)} disabled={busy||!validDozens||dozens>=maximumDozens||stock.blocked}>＋</button>
     </div>
     </QuickOptions></div>
    </div>
@@ -681,15 +685,16 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
    <div className="color-select-grid extra-select-grid">
     {allowedColors.map(color=><ColorChip key={color.id} color={color}
      selected={extras.includes(color.id)} onClick={()=>toggleColor(color.id)}
-     disabled={!extras.includes(color.id)&&(extras.length>=11||quantity>=available||stock.blocked)}/>)}
+     disabled={busy||(!extras.includes(color.id)&&(extras.length>=11||quantity>=available||stock.blocked))}/>)}
    </div>
+   {extras.filter(id=>!allowedColors.some(c=>c.id===id)).map(id=><button type="button" key={id} disabled={busy} className="button button-outline" onClick={()=>toggleColor(id)}>Retirar color no disponible: {colors.find(c=>c.id===id)?.name||id.slice(0,8)}</button>)}
    {!allowedColors.length&&<p className="form-hint">No hay colores activos asignados a este modelo.</p>}
    {noDozen&&extras.length<6&&<p className="portion-warning" role="status">
     Selecciona {6-extras.length} {6-extras.length===1?'color más':'colores más'} para alcanzar el mínimo mayorista.
    </p>}
    {insufficient&&<p className="form-error" role="alert">Stock insuficiente: {quantity} seleccionadas, {available} disponibles.</p>}
    {stock.blocked&&<p className="form-error">Modelo con incidencia de inventario.</p>}
-  </div>
+  </div></div>
   <div className="portion-result">
    <div><span className="portion-total-label">Subtotal del modelo</span>
     <strong>{validDozens?portionBreakdown(dozens,extras.length):'Docenas inválidas'} · {validDozens?quantity:'—'} prendas</strong>
@@ -697,234 +702,130 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
   </div>
  </article>;
 }
-function OrderStepHeader({number,title,description,state}){
- return <div className="form-section-title ev-booking-section-title">
-  <span className="step" aria-hidden="true">{number===1?'♙':number===2?'▧':'✓'}</span>
-  <div className="order-step-heading"><h2>{title}</h2><p>{description}</p></div>
-  {state==='done'&&<span className="ev-section-complete" aria-label="Sección lista">✓</span>}
- </div>;
+function OrderStepHeader({number,title,state}){
+ return <div className="form-section-title ev-booking-section-title"><span className="step" aria-hidden="true">{number}</span><div className="order-step-heading"><h2>{title}</h2></div>{state==='done'&&<span className="ev-section-complete" aria-label="Sección lista">✓</span>}</div>;
 }
-function BookingPanel({data,onOrder,onCreateClient,busy}){
- const [customerId,setCustomerId]=useState('');
- const [customerSearch,setCustomerSearch]=useState('');
- const [customerListOpen,setCustomerListOpen]=useState(false);
- const [highlightedCustomer,setHighlightedCustomer]=useState(0);
- const customerPickerRef=useRef(null);
- const [productSearch,setProductSearch]=useState('');
- const [portions,setPortions]=useState({});
- const [localError,setLocalError]=useState('');
- const [recentlyAdded,setRecentlyAdded]=useState(null);
- const [addClient,setAddClient]=useState(false);
- const [method,setMethod]=useState(''),[destination,setDestination]=useState('');
- const requestId=useRef(null);
- const models=data.models.filter(m=>m.is_active);
- const stock=data.stock;
- const chosen=models.filter(m=>Object.hasOwn(portions,m.id));
- const availableModels=models.filter(m=>!Object.hasOwn(portions,m.id)&&
-   (m.name+' '+m.size_label).toLocaleLowerCase().includes(productSearch.toLocaleLowerCase()));
- const matchedCustomers=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(customerSearch.toLocaleLowerCase()));
+function BookingReceipt({id,data,onNew,onView,onPrint,onIssue,onRevoke,busy}){
+ const [result,setResult]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0),[share,setShare]=useState(false);
+ useEffect(()=>{const controller=new AbortController();setResult(null);setError('');
+  loadOrderById(id,controller.signal).then(value=>{if(!controller.signal.aborted)setResult(value);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
+  return ()=>controller.abort();
+ },[id,data,retry]);
+ const order=result?.view.items[0],details=result?{...data,...result.details}:null;
+ const customer=details?.customers.find(c=>c.id===order?.customer_id);
+ return <><SectionHead eyebrow="VENTAS MAYORISTAS" title="Pedido registrado"/>
+  <section className="surface pad ev-booking-receipt"><div className="ev-receipt-success"><span aria-hidden="true">✓</span><h2>Compra confirmada</h2><small>Referencia {id.slice(0,8)}</small></div>
+   {error?<Notice type="error">El pedido está registrado. No se pudo cargar su detalle: {error} <button type="button" className="button button-outline" onClick={()=>setRetry(n=>n+1)}>Actualizar detalle</button></Notice>:!order?<p role="status">Consultando pedido confirmado…</p>:<>
+    <h3>{customer?.name||'Cliente'}</h3><p>{order.lines.length} modelos · {order.lines.reduce((n,l)=>n+Number(l.quantity),0)} prendas · {deliveryLabel(order.fulfillment_method)}</p>
+    <strong className="ev-receipt-total">{formatBs(order.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n))}</strong>
+    <div className="ev-receipt-actions"><button className="button button-primary" type="button" disabled={busy||order.status!=='active'} onClick={()=>setShare(v=>!v)}>{share?'Cerrar mensaje':'Preparar mensaje de WhatsApp'}</button>
+     <button className="button button-outline" type="button" disabled={busy||order.status==='voided'||order.fulfillment_method==='legacy'} onClick={()=>onPrint(order,customer)}>{order.fulfillment_method==='shipping'?'Imprimir etiqueta':'Imprimir comprobante'}</button></div>
+    {share&&<OrderLinkPanel order={order} data={details} onIssue={onIssue} onRevoke={onRevoke} busy={busy}/>}
+   </>}
+   <div className="ev-receipt-actions"><button className="button button-outline" type="button" disabled={busy} onClick={()=>onView(id)}>Ver pedido</button><button className="button button-primary" type="button" disabled={busy} onClick={onNew}>＋ Registrar otro pedido</button></div>
+  </section></>;
+}
+function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint,onIssue,onRevoke,busy}){
+ const {ask}=useConfirmation();
+ const {customerId,method,destination,portions,attempt,receipt}=draft;
+ const [customerSearch,setCustomerSearch]=useState(''),[customerListOpen,setCustomerListOpen]=useState(false),[highlightedCustomer,setHighlightedCustomer]=useState(0);
+ const customerPickerRef=useRef(null),submitting=useRef(false),photoDialog=useRef(null);
+ const [productSearch,setProductSearch]=useState(''),[sizeFilter,setSizeFilter]=useState('all'),[showUnavailable,setShowUnavailable]=useState(false);
+ const [expanded,setExpanded]=useState(null),[localError,setLocalError]=useState(''),[addClient,setAddClient]=useState(false),[photo,setPhoto]=useState(null),[visibleLimit,setVisibleLimit]=useState(12);
+ const locked=busy||Boolean(attempt),models=data.models.filter(m=>m.is_active),stock=data.stock;
  const chosenCustomer=data.customers.find(c=>c.id===customerId);
- const visibleCustomers=matchedCustomers.slice(0,8);
- useEffect(()=>{
-  const dismiss=e=>{if(!customerPickerRef.current?.contains(e.target))setCustomerListOpen(false);};
-  document.addEventListener('pointerdown',dismiss);
-  return ()=>document.removeEventListener('pointerdown',dismiss);
- },[]);
- function selectCustomer(customer){
-  setCustomerId(customer.id);
-  setMethod(customer.delivery_preference==='unclassified'?'':(customer.delivery_preference??''));
-  setDestination(customer.shipping_destination??'');
-  setCustomerListOpen(false);
-  setCustomerSearch('');
-  setHighlightedCustomer(0);
-  requestId.current=null;
- }
- const amount=chosen.reduce((total,m)=>{
-  const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds);
-  const valid=/^(0|[1-9]\d*)$/.test(String(s.dozens));
-  return total+(valid&&Number.isSafeInteger(q)&&q>=6?subtotalCents(m.price_dozen_bs,q):0n);
- },0n);
- const totalItems=chosen.reduce((n,m)=>{
-  const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds);
-  return n+(Number.isSafeInteger(q)&&q>=0?q:0);
- },0);
+ const review=reviewBooking(models,portions,stock,data.colors);
+ const {total:amount,units:totalItems,rows:chosen,ready:productsReady}=review;
  const clientReady=Boolean(chosenCustomer);
- const deliveryReady=(()=>{
-  try{validateDelivery(method,destination);return true;}catch{return false;}
- })();
- const productsReady=chosen.length>0&&(()=>{
-  try{return checkedPortions(models,portions,stock,data.colors).length===chosen.length;}
-  catch{return false;}
- })();
+ const deliveryReady=(()=>{try{validateDelivery(method,destination);return true;}catch{return false;}})();
  const stage=!clientReady?1:!productsReady?2:3;
+ const ready=clientReady&&productsReady&&deliveryReady;
+ const matchedCustomers=findBookingCustomers(data.customers,customerSearch);
+ const visibleCustomers=matchedCustomers.slice(0,8);
+ const recent=recentBookingCustomers(data.customers,data.orders);
+ const availableModels=models.filter(m=>!Object.hasOwn(portions,m.id)&&(sizeFilter==='all'||normalizeSize(m.size_label)===sizeFilter)&&normalizeName(m.name+' '+m.size_label).toLowerCase().includes(productSearch.toLowerCase().trim())).map(m=>{
+  const activeColors=data.colors.filter(c=>m.colorIds?.includes(c.id)&&c.is_active).length;
+  return {model:m,canAdd:canAddModelToOrder(stock[m.id],activeColors),activeColors};
+ }).filter(x=>showUnavailable||x.canAdd);
+ function change(values){setDraft(current=>current.attempt?current:{...current,...values});setLocalError('');}
+ function selectCustomer(customer){
+  if(locked)return;
+  change({customerId:customer.id,method:customer.delivery_preference==='unclassified'?'':customer.delivery_preference??'',destination:customer.shipping_destination??''});
+  setCustomerListOpen(false);setCustomerSearch('');setHighlightedCustomer(0);
+ }
+ useEffect(()=>{const dismiss=e=>{if(!customerPickerRef.current?.contains(e.target))setCustomerListOpen(false);};document.addEventListener('pointerdown',dismiss);return()=>document.removeEventListener('pointerdown',dismiss);},[]);
  useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
- function editPortion(id,value){requestId.current=null;setPortions(v=>({...v,[id]:value}));setLocalError('');}
- function addModel(model){
-  requestId.current=null;
-  const modelStock=stock[model.id]||{};
-  const colorCount=data.colors.filter(c=>model.colorIds?.includes(c.id)&&c.is_active).length;
-  try{
-   const selection=initialModelPortion(modelStock,colorCount);
-   setPortions(v=>({...v,[model.id]:selection}));
-   setRecentlyAdded(model.id);
-   setLocalError('');
-  }catch(e){setLocalError(e.message);}
+ useEffect(()=>{if(photo&&photoDialog.current&&!photoDialog.current.open)photoDialog.current.showModal();},[photo]);
+ function editPortion(id,value){if(!locked)change({portions:{...portions,[id]:value}});}
+ function addModel(model,activeColors){
+  if(locked||Object.keys(portions).length>=100)return;
+  try{editPortion(model.id,initialModelPortion(stock[model.id],activeColors));setExpanded(model.id);}catch(e){setLocalError(e.message);}
  }
- useEffect(()=>{
-  if(recentlyAdded){
-   document.getElementById('order-model-'+recentlyAdded)?.scrollIntoView({block:'nearest'});
-  }
- },[recentlyAdded]);
- function removeModel(id){requestId.current=null;setPortions(current=>{
-  const copy={...current};delete copy[id];return copy;
- });setLocalError('');}
+ function removeModel(id){if(locked)return;const next={...portions};delete next[id];change({portions:next});}
+ async function clearCart(){
+  if(locked||!chosen.length)return;
+  if(await ask({severity:'warning',title:'Vaciar productos',message:'Se quitarán los modelos del borrador. No se ha comprometido inventario.',confirmLabel:'Vaciar carrito'}))change({portions:{}});
+ }
  async function submit(e){
-  e.preventDefault();setLocalError('');
+  e.preventDefault();if(busy||submitting.current)return;submitting.current=true;setLocalError('');
   try{
-   if(!customerId)throw new Error('Selecciona un cliente antes de continuar.');
+   if(attempt){await onOrder(attempt);return;}
+   if(!ready)throw Error('Completa cliente, productos y entrega.');
    const lines=checkedPortions(models,portions,stock,data.colors);
+   if(lines.length!==review.lines.length)throw Error('Revisa las cantidades.');
    const delivery=validateDelivery(method,destination);
-   if(!requestId.current)requestId.current=uuid();
-   const ok=await onOrder(customerId,lines,requestId.current,delivery);
-   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');setCustomerListOpen(false);setMethod('');setDestination('');}
-  }catch(err){setLocalError(err.message);}
+   if(!await ask({severity:'normal',title:'Confirmar pedido',message:'La compra debe estar aceptada por el cliente. Se comprometerá el inventario y se fijarán los precios.',facts:[{label:'Cliente',value:chosenCustomer.name},{label:'Entrega',value:deliveryLabel(method)+(delivery.destination?' · '+delivery.destination:'')},{label:'Prendas',value:totalItems},{label:'Total',value:formatBs(amount)}],confirmLabel:'Registrar pedido'}))return;
+   await onOrder({customerId,lines:review.lines,delivery,requestId:uuid()});
+  }catch(e){setLocalError(e.message);}finally{submitting.current=false;}
  }
- return <div className="ev-booking">
-  <SectionHead eyebrow="VENTAS MAYORISTAS" title="Registrar pedido confirmado"
-   description="Selecciona comprador y modelos; las docenas son surtidas y las unidades por color se detallan cuando las agregas."/>
+ if(receipt)return <BookingReceipt id={receipt} data={data} onNew={()=>{setDraft(emptyBooking());setLocalError('');}} onView={onView} onPrint={onPrint} onIssue={onIssue} onRevoke={onRevoke} busy={busy}/>;
+ return <div className="ev-booking ev-booking-v2">
+  <SectionHead eyebrow="VENTAS MAYORISTAS" title="Nuevo pedido"/>
   <nav className="order-progress ev-order-progress" aria-label="Progreso del registro de pedido">
-   <div className="ev-progress-caption">
-    <strong>Progreso del pedido</strong>
-    <span>Paso {stage} de 3</span>
-   </div>
-   <div className="ev-progress-bar" role="progressbar" aria-label="Progreso del pedido"
-    aria-valuemin={1} aria-valuemax={3} aria-valuenow={stage}>
-    <span style={{width:(stage*100/3)+'%'}}/>
-   </div>
-   <div className="ev-progress-labels">
-    {['Cliente','Modelos','Confirmación'].map((label,index)=>
-     <span key={label} className={index+1<stage?'done':index+1===stage?'current':'next'}>
-      <span aria-hidden="true">{index+1<stage?'✓':index+1}</span>{label}
-     </span>)}
-   </div>
+   <div className="ev-progress-bar" role="progressbar" aria-label="Secciones válidas" aria-valuemin={0} aria-valuemax={3} aria-valuenow={Number(clientReady)+Number(productsReady)+Number(deliveryReady)}><span style={{width:((Number(clientReady)+Number(productsReady)+Number(deliveryReady))*100/3)+'%'}}/></div>
+   <div className="ev-progress-labels">{[['Cliente',clientReady],['Productos',productsReady],['Entrega',deliveryReady]].map(([label,done],i)=><span key={label} className={done?'done':i+1===stage?'current':'next'}><span aria-hidden="true">{done?'✓':i+1}</span>{label}</span>)}</div>
   </nav>
+  {attempt&&<Notice type="error">Existe un intento de registro sin resultado confirmado. Reintenta con exactamente los mismos datos para evitar duplicados. El borrador permanece bloqueado hasta resolverlo.</Notice>}
   <div className="booking-layout">
    <div className="surface booking-form">
-    <section className={'form-section order-step-card '+(1<stage?'done':1===stage?'current':'next')}>
-     <OrderStepHeader number={1} title="Elegir comprador" description="Busca por nombre o WhatsApp, o registra un cliente nuevo." state={1<stage?'done':1===stage?'current':'next'}/>
-     <div className="customer-chooser ev-customer-chooser">
-      <div className="ev-client-picker-row">
-       <div className="ev-client-field" ref={customerPickerRef}>
-        <label htmlFor="ev-client-search" className="field-label">Cliente del pedido</label>
-        <div className="search ev-client-search">
-         <span aria-hidden="true">⌕</span>
-         <input id="ev-client-search" type="search" role="combobox"
-          aria-label="Buscar y seleccionar cliente por nombre o WhatsApp" aria-autocomplete="list"
-          aria-expanded={customerListOpen} aria-controls="ev-client-results"
-          aria-activedescendant={customerListOpen&&visibleCustomers[highlightedCustomer]?'ev-client-option-'+visibleCustomers[highlightedCustomer].id:undefined}
-          autoComplete="off" placeholder="Nombre o número de WhatsApp…"
-          value={customerSearch} onFocus={()=>setCustomerListOpen(true)}
-          onChange={e=>{setCustomerSearch(e.target.value);setCustomerListOpen(true);setHighlightedCustomer(0);}}
-          onKeyDown={e=>{
-           if(e.key==='ArrowDown'){e.preventDefault();setCustomerListOpen(true);setHighlightedCustomer(i=>Math.min(visibleCustomers.length-1,Math.max(0,i+1)));}
-           else if(e.key==='ArrowUp'){e.preventDefault();setCustomerListOpen(true);setHighlightedCustomer(i=>Math.max(0,i-1));}
-           else if(e.key==='Enter'&&customerListOpen&&visibleCustomers.length){e.preventDefault();selectCustomer(visibleCustomers[Math.min(highlightedCustomer,visibleCustomers.length-1)]);}
-           else if(e.key==='Escape'){setCustomerListOpen(false);}
-          }}/>
-        </div>
-        <div id="ev-client-results" role="listbox" aria-label="Resultados de clientes"
-         className="ev-client-results" hidden={!customerListOpen}>
-         {visibleCustomers.length?visibleCustomers.map((c,index)=>
-          <button type="button" key={c.id} id={'ev-client-option-'+c.id}
-           role="option" aria-selected={customerId===c.id}
-           className={'ev-client-option '+(index===highlightedCustomer?'highlighted':'')}
-           onMouseDown={e=>e.preventDefault()} onClick={()=>selectCustomer(c)}>
-           <span className="avatar">{initials(c.name)}</span>
-           <span className="ev-client-meta"><strong>{c.name}</strong><small>{c.whatsapp}</small></span>
-           <span className="ev-client-type">{c.delivery_preference==='shipping'?'Envío':c.delivery_preference==='pickup'?'Retiro':'Sin clasificar'}</span>
-           {customerId===c.id&&<span className="ev-client-selected-icon" aria-label="Seleccionado">✓</span>}
-          </button>):
-          <p className="ev-client-empty">No se encontraron clientes. Puedes registrar uno nuevo.</p>}
-         {matchedCustomers.length>visibleCustomers.length&&
-          <p className="ev-client-more">Mostrando 8 de {matchedCustomers.length}. Escribe para filtrar.</p>}
-        </div>
-       </div>
-       <button type="button" className="button button-outline ev-new-client" aria-expanded={addClient}
-        onClick={()=>setAddClient(x=>!x)}>{addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>
-      </div>
-     </div>
-     {chosenCustomer&&<div className="selected-client ev-selected-client">
-       <span className="avatar small">{initials(chosenCustomer.name)}</span>
-       <div><b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp}</small></div>
-       <span className="ev-chosen-tag">✓ Seleccionado</span>
-      </div>}
-     {addClient&&<div className="inline-client"><ClientForm compact busy={busy} customers={data.customers}
-       onCreate={async(payload)=>{const ok=await onCreateClient(payload);if(ok===true){setAddClient(false);setCustomerSearch(payload.whatsapp);setCustomerListOpen(true);setHighlightedCustomer(0);}return ok;}}/></div>}
+    <section className="form-section order-step-card">
+     <OrderStepHeader number={1} title="Cliente" state={clientReady?'done':'current'}/>
+     {chosenCustomer?<div className="selected-client ev-selected-client"><span className="avatar small">{initials(chosenCustomer.name)}</span><div><b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp} · {deliveryLabel(chosenCustomer.delivery_preference)}</small></div><button type="button" className="button button-outline" disabled={locked} onClick={()=>{change({customerId:'',method:'',destination:''});setCustomerListOpen(true);}}>Cambiar</button></div>:<>
+     <div className="ev-client-picker-row"><div className="ev-client-field" ref={customerPickerRef}><label htmlFor="ev-client-search" className="field-label">Buscar cliente</label>
+      <div className="search ev-client-search"><span aria-hidden="true">⌕</span><input id="ev-client-search" type="search" role="combobox" aria-label="Buscar y seleccionar cliente por nombre o WhatsApp" aria-autocomplete="list" aria-expanded={customerListOpen} aria-controls="ev-client-results" aria-activedescendant={customerListOpen&&visibleCustomers[highlightedCustomer]?'ev-client-option-'+visibleCustomers[highlightedCustomer].id:undefined} autoComplete="off" placeholder="Nombre o WhatsApp…" disabled={locked} value={customerSearch}
+       onFocus={()=>setCustomerListOpen(true)} onChange={e=>{setCustomerSearch(e.target.value);setCustomerListOpen(true);setHighlightedCustomer(0);}}
+       onKeyDown={e=>{if(e.key==='ArrowDown'){e.preventDefault();setCustomerListOpen(true);setHighlightedCustomer(i=>Math.max(0,Math.min(visibleCustomers.length-1,i+1)));}else if(e.key==='ArrowUp'){e.preventDefault();setHighlightedCustomer(i=>Math.max(0,i-1));}else if(e.key==='Enter'&&customerListOpen&&visibleCustomers.length){e.preventDefault();selectCustomer(visibleCustomers[Math.min(highlightedCustomer,visibleCustomers.length-1)]);}else if(e.key==='Escape')setCustomerListOpen(false);}}/></div>
+      <div id="ev-client-results" role="listbox" aria-label="Resultados de clientes" className="ev-client-results" hidden={!customerListOpen}>{visibleCustomers.length?visibleCustomers.map((c,index)=><button type="button" key={c.id} id={'ev-client-option-'+c.id} role="option" aria-selected={customerId===c.id} className={'ev-client-option '+(index===highlightedCustomer?'highlighted':'')} disabled={locked} onMouseDown={e=>e.preventDefault()} onClick={()=>selectCustomer(c)}><span className="avatar">{initials(c.name)}</span><span className="ev-client-meta"><strong>{c.name}</strong><small>{c.whatsapp}</small></span><span className="ev-client-type">{c.delivery_preference==='shipping'?'Envío':c.delivery_preference==='pickup'?'Retiro':'Sin clasificar'}</span></button>):<p className="ev-client-empty">Sin coincidencias.</p>}{matchedCustomers.length>visibleCustomers.length&&<p className="ev-client-more">Mostrando 8 de {matchedCustomers.length}. Escribe para filtrar.</p>}</div></div>
+      <button type="button" className="button button-outline ev-new-client" aria-expanded={addClient} disabled={locked} onClick={()=>setAddClient(x=>!x)}>{addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button></div>
+     {!customerSearch&&recent.length>0&&<div className="ev-recent-buyers"><h3>Clientes recientes</h3>{recent.map(c=><button key={c.id} type="button" disabled={locked} className="ev-client-option" onClick={()=>selectCustomer(c)}><span className="avatar">{initials(c.name)}</span><span className="ev-client-meta"><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}</small></span></button>)}</div>}
+     {addClient&&<div className="inline-client"><ClientForm compact busy={locked} customers={data.customers} onCreate={async payload=>{const result=await onCreateClient(payload,true);if(result?.state==='created'){selectCustomer({id:result.id,delivery_preference:payload.method,shipping_destination:payload.destination});setAddClient(false);return true;}return result;}}/></div>}
+     </>}
     </section>
-    <section className={'form-section order-step-card '+(2<stage?'done':2===stage?'current':'next')}>
-     <OrderStepHeader number={2} title="Seleccionar productos" description="Agrega modelos y elige docenas; despliega unidades y colores solo cuando lo necesites." state={2<stage?'done':2===stage?'current':'next'}/>
-     <label className="search model-search"><span aria-hidden="true">⌕</span>
-      <input type="search" aria-label="Buscar modelos para añadir" placeholder="Buscar modelo o talla…"
-       value={productSearch} onChange={e=>setProductSearch(e.target.value)}/></label>
-     {availableModels.length?<div className="product-picker" aria-label="Productos disponibles para el pedido">{availableModels.map(m=>{
-      const st=stock[m.id]||{},available=Number(st.available)||0;
-      const activeColors=data.colors.filter(c=>m.colorIds?.includes(c.id)&&c.is_active).length;
-      const canAdd=canAddModelToOrder(st,activeColors);
-      return <button key={m.id} type="button" className="picker-item picker-add"
-       disabled={!canAdd} aria-label={'Agregar '+m.name+' al pedido'}
-       onClick={()=>addModel(m)}>
-       <ProductImage model={m}/>
-       <div className="picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small>
-        <span className={!canAdd?'error-text':'positive-text'}>{st.blocked?'Incidencia · bloqueado':
-          !canAdd?'Sin cupo suficiente para el mínimo mayorista':formatAvailableDozens(available)+' disponibles'}</span>
-       </div><span className="picker-add-action" aria-hidden="true">＋ Agregar</span>
-      </button>})}</div>:<p className="muted">{models.length?'Todos los modelos coincidentes están agregados.':'Todavía no hay productos activos.'}</p>}
-     <div className="cart-subhead"><h3>Modelos agregados al pedido</h3><span aria-live="polite">{chosen.length} modelo(s) · {totalItems} prendas</span></div>
-     {chosen.length?<div className="cart-models">{chosen.map(m=>
-      <div key={m.id} id={'order-model-'+m.id} className="order-model-anchor"><PortionEditor model={m} colors={data.colors} stock={stock[m.id]||{}}
-       selection={portions[m.id]} onChange={v=>editPortion(m.id,v)} onRemove={()=>removeModel(m.id)}/></div>
-     )}</div>:<Empty title="Aún no agregaste modelos" detail="Elige uno o varios productos del catálogo superior."/>}
+    <section className="form-section order-step-card">
+     <OrderStepHeader number={2} title="Productos" state={productsReady?'done':'current'}/>
+     <div className="ev-booking-sizes" role="group" aria-label="Filtrar talla">{['all',...productSizes(models)].map(v=><button type="button" key={v} className={'pill '+(sizeFilter===v?'active':'')} aria-pressed={sizeFilter===v} disabled={locked} onClick={()=>{setSizeFilter(v);setVisibleLimit(12);}}>{v==='all'?'Todas':v}</button>)}</div>
+     <label className="search model-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Buscar modelos para añadir" placeholder="Buscar modelo…" disabled={locked} value={productSearch} onChange={e=>{setProductSearch(e.target.value);setVisibleLimit(12);}}/></label>
+     <div className="ev-booking-picker-toolbar"><button type="button" className="button button-outline" aria-pressed={showUnavailable} disabled={locked} onClick={()=>{setShowUnavailable(v=>!v);setVisibleLimit(12);}}>{showUnavailable?'Solo disponibles':'Mostrar no disponibles'}</button><span className="muted">{availableModels.length} modelos</span></div>
+     {availableModels.length?<div className="product-picker ev-booking-picker" aria-label="Productos disponibles para el pedido">{availableModels.slice(0,visibleLimit).map(({model:m,canAdd,activeColors})=><article key={m.id} className="ev-picker-card"><button type="button" className="ev-picker-photo" disabled={!m.imageUrl} onClick={()=>setPhoto(m)} aria-label={'Ampliar foto de '+m.name}><ProductImage model={m}/></button><div className="ev-picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small><small className={canAdd?'positive-text':'error-text'}>{canAdd?formatAvailableDozens(Number(stock[m.id]?.available))+' libres':stock[m.id]?.blocked?'Bloqueado':'Sin mínimo disponible'}</small></div><button type="button" className="button button-primary" disabled={locked||!canAdd||chosen.length>=100} aria-label={'Agregar '+m.name+' al pedido'} onClick={()=>addModel(m,activeColors)}>＋ Agregar</button></article>)}</div>:<p className="muted">No hay modelos disponibles con estos filtros.</p>}
+     {availableModels.length>visibleLimit&&<button type="button" className="button button-outline full" disabled={locked} onClick={()=>setVisibleLimit(n=>n+12)}>Mostrar más modelos</button>}
+     <div className="cart-subhead"><h3>Carrito ({chosen.length})</h3>{chosen.length>0&&<button type="button" className="button button-outline" disabled={locked} onClick={clearCart}>Vaciar</button>}</div>
+     {chosen.length?<div className="cart-models">{chosen.map(row=>row.model?<div key={row.id} id={'order-model-'+row.id} className="order-model-anchor"><PortionEditor model={row.model} colors={data.colors} stock={stock[row.id]||{}} selection={row.selection} busy={locked} collapsed={expanded!==row.id&&row.valid} onToggle={()=>setExpanded(v=>v===row.id?null:row.id)} onChange={v=>editPortion(row.id,v)} onRemove={()=>removeModel(row.id)}/>{!row.valid&&<p role="alert" className="form-error">{row.error}</p>}</div>:<Notice key={row.id} type="error">{row.selection.previousName||'Modelo no disponible'}: inhabilitado o inexistente. <button type="button" className="button button-outline" disabled={locked} onClick={()=>removeModel(row.id)}>Retirar</button></Notice>)}</div>:<p className="muted">Selecciona un modelo.</p>}
     </section>
-    <section className={'form-section order-step-card '+(3<stage?'done':3===stage?'current':'next')}>
-     <OrderStepHeader number={3} title="Revisar y confirmar" description="Comprueba los importes antes de comprometer inventario." state={3<stage?'done':3===stage?'current':'next'}/>
-     <div className="order-confirmation-note"><strong>Compra confirmada</strong><p>Registra únicamente pedidos aceptados por el cliente. Al confirmar, las prendas quedan comprometidas para su entrega y el precio queda fijado.</p></div>
-     <div className="order-delivery-choice">
-      <DeliveryMethodChoices label="¿Cómo recibirá este pedido?" method={method} busy={busy} onChange={value=>{setMethod(value);if(value!=='shipping')setDestination('');requestId.current=null;}}/>
-      {method==='shipping'&&<DestinationShortcut destination={destination} known={chosenCustomer?.shipping_destination} busy={busy} onSelect={value=>{setDestination(value);requestId.current=null;}}/>}
-      {method==='shipping'&&<Field title="Destino exacto para este pedido">
-       <input aria-label="Destino del pedido" value={destination} required maxLength={200} minLength={2}
-        placeholder="Ciudad / departamento / agencia" disabled={busy}
-        onChange={e=>{setDestination(e.target.value);requestId.current=null;}}/>
-      </Field>}
-      <p className="small-note">El pedido guarda su destino propio, aunque después se modifique la ficha del cliente.</p>
-     </div>
+    <section className="form-section order-step-card"><OrderStepHeader number={3} title="Entrega" state={deliveryReady?'done':'current'}/>
+     <DeliveryMethodChoices label="Modalidad" method={method} busy={locked} onChange={value=>change({method:value,destination:value==='shipping'?destination:''})}/>
+     {method==='shipping'&&<><DestinationShortcut destination={destination} known={chosenCustomer?.shipping_destination} busy={locked} onSelect={value=>change({destination:value})}/><Field title="Destino del pedido"><input aria-label="Destino del pedido" value={destination} required maxLength={200} minLength={2} disabled={locked} onChange={e=>change({destination:e.target.value})}/></Field></>}
     </section>
     {localError&&<p className="form-error" role="alert" tabIndex={-1} id="operation-error">{localError}</p>}
    </div>
-   <aside className="surface checkout">
-    <p className="eyebrow">RESUMEN PREVIO</p><h2>Detalle mayorista</h2>
-    <div className="checkout-customer"><span className="label-dim">Cliente</span>
-     <strong>{chosenCustomer?.name||'Selecciona un cliente'}</strong></div>
-    <div className="checkout-lines">{chosen.length?chosen.map(m=>{
-     const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds),
-           valid=Number.isSafeInteger(q)&&q>=6;
-     return <div className="checkout-line" key={m.id}>
-      <div><b>{m.name}</b><small>{portionBreakdown(Number(s.dozens),s.extraColorIds.length)} · {q} prendas</small>
-       <ExtraColorSummary ids={s.extraColorIds} colors={data.colors}/></div>
-      <strong>{valid?formatBs(subtotalCents(m.price_dozen_bs,q)):'—'}</strong>
-     </div>;}):<p className="muted">Los modelos seleccionados aparecerán aquí.</p>}</div>
-    <div className="checkout-total"><span>Total del pedido</span><strong>{formatBs(amount)}</strong></div>
-    <div className="checkout-delivery"><span>Entrega</span>
-     <strong>{deliveryLabel(method)}</strong>{method==='shipping'&&destination.trim()&&<small>{destination.trim()}</small>}
-    </div>
-    <p className="checkout-note">Las docenas son surtidas. Se registran los colores de las prendas adicionales, una por color. La disponibilidad física por color se verifica fuera del sistema.</p>
-    <form id="booking-submit" onSubmit={submit}>
-     <button className="button button-primary full" type="submit" disabled={busy||!clientReady||!productsReady||!deliveryReady}>
-      {busy?'Guardando…':'Confirmar y registrar pedido'}
-     </button>
-    </form>
+   <aside className="surface checkout" id="ev-booking-summary"><p className="eyebrow">RESUMEN</p><h2>Pedido</h2><div className="checkout-customer"><span className="label-dim">Cliente</span><strong>{chosenCustomer?.name||'Sin seleccionar'}</strong></div>
+    <div className="checkout-lines">{chosen.map(row=><div className="checkout-line" key={row.id}><div><b>{row.model?.name||row.selection.previousName||'Modelo no disponible'}</b><small>{row.valid?portionBreakdown(row.line.dozens,row.line.extraColorIds.length)+' · '+row.quantity+' prendas':'Por corregir'}</small><ExtraColorSummary ids={row.selection.extraColorIds} colors={data.colors}/></div><strong>{row.valid?formatBs(row.subtotal):'—'}</strong></div>)}</div>
+    <div className="checkout-total"><span>{productsReady?'Total del pedido':'Subtotal válido'}</span><strong>{formatBs(amount)}</strong></div><div className="checkout-delivery"><span>Entrega</span><strong>{deliveryLabel(method)}</strong>{method==='shipping'&&destination.trim()&&<small>{destination.trim()}</small>}</div>
+    {!ready&&!attempt&&<p className="small-note">Completa las secciones pendientes antes de registrar.</p>}
+    <form id="booking-submit" onSubmit={submit}><button className="button button-primary full" type="submit" disabled={busy||(!attempt&&!ready)}>{busy?'Guardando…':attempt?'Reintentar registro':'Confirmar pedido'}</button></form>
    </aside>
   </div>
+  <div className="ev-booking-mobile-total"><div><small>{chosen.length} modelos · {totalItems} prendas válidas</small><strong>{formatBs(amount)}</strong></div><button type="button" className="button button-primary" disabled={busy} onClick={()=>document.getElementById('ev-booking-summary')?.scrollIntoView({block:'start'})}>Revisar</button></div>
+  {photo&&<dialog ref={photoDialog} className="ev-booking-photo-dialog" onCancel={e=>{e.preventDefault();setPhoto(null);}}><button type="button" className="button button-outline" onClick={()=>setPhoto(null)}>Cerrar fotografía</button><img src={photo.imageUrl} alt={'Fotografía de '+photo.name}/></dialog>}
  </div>;
 }
 function LineComposition({line,colors,compact=false}){
@@ -1333,7 +1234,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   </div>}
   <div className="ev-order-edit-selected">
    {selected.map(m=><PortionEditor key={m.id} model={m} colors={data.colors}
-    stock={effectiveStock[m.id]} selection={portions[m.id]}
+    stock={effectiveStock[m.id]} selection={portions[m.id]} busy={busy}
     onChange={v=>change(m.id,v)} onRemove={()=>remove(m.id)}/>)}
    {!selected.length&&<p className="form-hint">El pedido debe conservar al menos un modelo.</p>}
   </div>
@@ -1347,17 +1248,18 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
  </form>;
 }
-function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
+function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
  const {ask}=useConfirmation();
  const [editingId,setEditingId]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
- const list=useServerOrderList(workspace,showArchived);
+ const list=useServerOrderList(workspace,showArchived,focusOrder);
  const {view}=list;
  const data=list.details?{...workspace,...list.details}:workspace;
  const pageBusy=busy||list.loading||Boolean(list.error);
- const changeArchive=archived=>{setShowArchived(archived);list.setPage(1);setEditingId(null);};
+ const changeArchive=archived=>{onClearFocus?.();setShowArchived(archived);list.setPage(1);setEditingId(null);};
  return <><header className="ev-orders-heading"><p className="eyebrow">{showArchived?'HISTORIAL COMERCIAL':'PEDIDOS CONFIRMADOS'}</p><h1>{showArchived?'Pedidos archivados':'Pedidos'}</h1></header>
-  {!showArchived&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
+  {focusOrder&&<button type="button" className="button button-outline" onClick={()=>{onClearFocus();list.clear();}}>Ver todos los pedidos</button>}
+  {!showArchived&&!focusOrder&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
   <RecordListControls list={list} dateLabel={showArchived?"Fecha de archivo":"Fecha de confirmación del pedido"} busy={busy} onChange={()=>setEditingId(null)}/>
   {list.loading&&<p className="small-note" role="status">{list.refreshing?'Actualizando pedidos; las acciones quedan temporalmente desactivadas.':'Cargando página de pedidos…'}</p>}
   {list.error&&<div role="alert" className="surface pad"><p>No se pudieron actualizar los pedidos. {view?'Los datos visibles no están verificados. ':''}{list.error}</p><button type="button" className="button button-outline" disabled={busy} onClick={list.retry}>Reintentar</button></div>}
@@ -1381,7 +1283,7 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
      !Number.isSafeInteger(o.revision)?'Falta habilitar la edición en Supabase':null;
     const canArchive=!o.archived_at&&((o.status==='completed'&&!relatedPayments.some(p=>p.status==='pending'||p.status==='observed'))||(o.status==='active'&&!relatedPayments.length&&!data.deliveries.some(d=>d.order_id===o.id)&&Number(delivery.delivered)===0));
     const sizes=[...new Set(o.lines.map(l=>l.size_label_snapshot??data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
-    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
+    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" open={focusOrder===o.id?true:undefined} data-order-status={o.status}>
      <summary className="ev-order-summary">
       <span className="ev-order-summary-primary">
        <span className="avatar ev-order-avatar" aria-hidden="true">{initials(customer?.name)}</span>
@@ -1429,6 +1331,7 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
        {amountCents(finance.pending)>0n&&amountCents(finance.approved)>0n&&
         <small>Abonos aprobados: {formatBs(amountCents(finance.approved))}</small>}
       </div>}
+      <button type="button" className="button button-outline" disabled={pageBusy||o.status==='voided'} onClick={()=>onRepeat(o)}>Repetir como nuevo pedido</button>
       <section className="ev-order-model-section" aria-label="Modelos incluidos en el pedido">
        <h3>Modelos</h3>
        <div className="order-lines">
@@ -1528,6 +1431,9 @@ export default function HomePage(){return <ConfirmationProvider><EvaliaWorkspace
 function EvaliaWorkspace(){
  const {cancel:cancelConfirmation}=useConfirmation();
  const [tab,setTab]=useState('home'),[data,setData]=useState(null),[ready,setReady]=useState(false);
+ const [bookingDraft,setBookingDraft]=useState(emptyBooking),[focusOrder,setFocusOrder]=useState(null);
+ const bookingWrite=useRef(false);
+ const {ask}=useConfirmation();
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [logoutPending,setLogoutPending]=useState(false);
@@ -1542,6 +1448,7 @@ function EvaliaWorkspace(){
   cancelConfirmation();
   authGeneration.current++;
   refreshGeneration.current++;
+  setBookingDraft(emptyBooking());setFocusOrder(null);
   authorizedUser.current=null;pendingIdentity.current=null;setMfaGate(null);setCanEnrollMfa(false);
   setOwner(false);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
@@ -1717,17 +1624,41 @@ function EvaliaWorkspace(){
  }),'Ficha y destino corregidos con auditoría.');
  const addColor=(params)=>mutation(()=>saveColor(params),'Color guardado.');
  const reactivate=(params)=>mutation(()=>reactivateProduct({modelId:params.model.id,units:params.units,expectedUpdatedAt:params.model.updated_at,requestId:params.requestId}),'Producto reactivado con stock confirmado.');
- async function addClient(payload){
-  let duplicate=null;
+ async function addClient(payload,returnRecord=false){
+  let duplicate=null,created=null;
   const ok=await mutation(async()=>{
-   const result=await createCustomer(payload);
+   const result=await createCustomer(payload);created=result;
    if(result.state==='duplicate'){duplicate=result;throw Error('Se encontró otra ficha con ese WhatsApp. Confirma antes de continuar.');}
   },'Cliente registrado con categoría de entrega.');
-  return duplicate||ok;
+  return duplicate||(ok&&returnRecord?created:ok);
  }
  const updateStock=(modelId,operation,units,version,requestId)=>
   mutation(()=>adjustStock({modelId,operation,units,version,requestId:requestId||uuid()}),'Stock actualizado.');
- const order=(customerId,lines,requestId,delivery)=>mutation(()=>createOrder(customerId,lines,requestId||uuid(),delivery),'Pedido confirmado con destino y precios congelados.');
+ async function order(attempt){
+  if(busy||bookingWrite.current||!authorizedUser.current)return false;
+  const actor=authorizedUser.current;bookingWrite.current=true;setBusy(true);setError('');setMessage('');
+  setBookingDraft(current=>({...current,attempt}));
+  try{
+   const result=await writeThenRefresh(()=>createOrder(attempt.customerId,attempt.lines,attempt.requestId,attempt.delivery),refresh);
+   if(authorizedUser.current!==actor)return false;
+   if(!result.confirmed){
+    const code=result.error?.code;
+    // Explicit PostgreSQL validation failure rolls the transaction back. Transport failures do not.
+    if(['40001','22023','22003','23514','P0002','42501'].includes(code))setBookingDraft(current=>({...current,attempt:null}));
+    setError(result.error?.message||'Resultado no confirmado. Reintenta el mismo registro.');return false;
+   }
+   setBookingDraft({...emptyBooking(),receipt:result.value});
+   setMessage('Pedido confirmado con destino y precios congelados.');
+   if(!result.refreshed)setError(CONFIRMED_REFRESH_WARNING);
+   return true;
+  }finally{bookingWrite.current=false;setBusy(false);}
+ }
+ function viewOrder(id){setFocusOrder(id);setTab('orders');}
+ async function repeatOrder(previous){
+  if(busy||bookingDraft.attempt)return;
+  if(hasBookingDraft(bookingDraft)&&!await ask({severity:'warning',title:'Reemplazar borrador',message:'El pedido anterior sustituirá tu borrador. Se revisarán precios y stock vigentes.',confirmLabel:'Reemplazar borrador'}))return;
+  setBookingDraft(repeatBooking(previous,data.models));setFocusOrder(null);setTab('booking');
+ }
  const editOrder=(args)=>mutation(()=>reviseOrder(args),'Pedido actualizado con auditoría; verifica el detalle y comunica el cambio al cliente.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Registro anterior convertido en pedido, sin descontar inventario dos veces.');
  const report=(v)=>mutation(()=>reportPayment(v),'Aviso de pago guardado; pendiente de aprobación.');
@@ -1810,8 +1741,8 @@ function EvaliaWorkspace(){
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
       tab==='catalog'?<Catalog data={data} onSaveColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} onReactivate={reactivate} busy={busy}/>: 
-      tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
+      tab==='booking'?<BookingPanel data={data} draft={bookingDraft} setDraft={setBookingDraft} onOrder={order} onCreateClient={addClient} onView={viewOrder} onPrint={printSelected} onIssue={issueLink} onRevoke={revokeLink} busy={busy}/>: 
+      tab==='orders'?<Orders data={data} focusOrder={focusOrder} onClearFocus={()=>setFocusOrder(null)} onRepeat={repeatOrder} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
       tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
