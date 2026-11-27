@@ -29,7 +29,7 @@ test('la edición usa la RPC revisada e impide cobrar o editar un pedido cerrado
  assert.match(api,/export async function reviseOrder\(/);
  assert.match(api,/rpc\('revise_evalia_order'/);
  assert.match(api,/p_expected_revision:expectedRevision/);
- const selects=[...api.matchAll(/db\.from\('orders'\)\.select\('([^']+)'\)\.(is|not)\('archived_at'/g)];
+ const selects=[...api.matchAll(/db\.from\('orders'\)\.select\('([^']+)'(?:,\{count:'exact'\})?\)\.(is|not)\('archived_at'/g)];
  assert.equal(selects.length,2,'both active and archive lists must select the revision');
  assert.deepEqual(selects.map(x=>x[2]).sort(),['is','not']);
  for(const [,columns] of selects)assert.ok(columns.split(',').includes('revision'));
