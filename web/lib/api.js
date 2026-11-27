@@ -61,6 +61,7 @@ export async function loadWorkspace(){
   return assembleWorkspace({models,modelColors,colors,customers,reservations,reservationLines,reservationColors,orders,orderLines,orderColors:[],revisions,payments,paymentReviews,deliveries:[],deliveryLines:[],links:[],qrSettings,stocks,images,financeEntries:[],deliveryEntries:[]});
 }
 export async function loadOrdersPage(params){return loadOrderPage(client(),params);}
+export async function loadOrderById(id,signal){const result=await loadOrderPage(client(),{archived:false,range:{from:'',to:'',valid:true},page:1,size:10,orderId:id,signal});if(result.view?.items.length!==1||result.view.items[0].id!==id)throw Error('No se encontró el pedido vigente');return result;}
 export async function saveColor({id=null,name,hex,active=true,expected=null,requestId}){
  return unwrap(await client().rpc('save_evalia_color',{p_id:id,p_name:name,p_hex:hex,p_active:active,p_expected:expected,p_request_id:requestId}),'Guardar color');
 }
@@ -163,10 +164,13 @@ export async function adjustStock({modelId,operation,units,version,requestId}){
   }),'Ajustar stock');
 }
 export async function createOrder(customerId,lines,requestId,delivery){
- return unwrap(await client().rpc('create_evalia_order_delivery',{
+ const result=await client().rpc('create_evalia_order_delivery',{
   p_customer_id:customerId,p_lines:lines,p_request_id:requestId,
   p_method:delivery.method,p_destination:delivery.destination
- }),'Confirmar pedido');
+ });
+ if(result.error){const error=new Error('Confirmar pedido: '+result.error.message);error.code=result.error.code;throw error;}
+ if(typeof result.data!=='string'||!(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(result.data)))throw Error('No se pudo verificar el identificador del pedido. Reintenta la misma solicitud.');
+ return result.data;
 }
 /** Edición idempotente y auditada: solo pedido activo sin pagos/entregas/enlace. */
 export async function reviseOrder({orderId,lines,expectedRevision,requestId}){
