@@ -60,7 +60,11 @@ test('confirmación y validaciones de envío continúan conectadas',()=>{
  assert.match(register,/validateDelivery\(method,destination\)/);
  assert.match(register,/onOrder\(customerId,lines,requestId\.current,delivery\)/);
  assert.match(register,/disabled=\{busy\|\|!clientReady\|\|!productsReady\|\|!deliveryReady\}/);
- assert.match(register,/setMethod\(e\.target\.value\)/);
+ assert.match(register,/<DeliveryMethodChoices label="¿Cómo recibirá este pedido\?" method=\{method\} busy=\{busy\} onChange=\{value=>\{setMethod\(value\);if\(value!=='shipping'\)setDestination\(''\);requestId.current=null;\}\}\/>/);
+ const choices=page.slice(page.indexOf('function DeliveryMethodChoices('),page.indexOf('function DestinationShortcut('));
+ assert.match(choices,/\['pickup','Retiro local'\],\['shipping','Envío nacional \/ interdepartamental'\]/);
+ assert.match(choices,/aria-pressed=\{method===value\}/);
+ assert.match(choices,/disabled=\{busy\} onClick=\{\(\)=>onChange\(value\)\}/);
  assert.match(register,/method==='shipping'/);
 });
 
