@@ -1,5 +1,8 @@
 # Reglas de desarrollo — EVALIA
 
+## E2 — Rendimiento y canal QA permanente (27-11-2026)
+Para optimización de la aplicación web operativa, leer [skill evalia-react-performance](.agents/skills/evalia-react-performance/SKILL.md) y [contrato E2](docs/66_E2_CONTRATO_IMPLEMENTACION.md). Para base de datos, sumar las skills de Supabase y PostgreSQL; para interfaces, formularios, UX visual y pruebas E2E. La skill propia incorpora criterios específicos de Evalia y referencias oficiales de Vercel; no instala paquetes externos ni cambia el stack. E1 tiene alcance revisado en docs/59 y está integrado en dev. El canal permanente de QA reutiliza feature/evalia-e1-estabilidad y sus credenciales exclusivas: verificar CI verde, SHA, compatibilidad y Vercel READY antes de cada prueba. No volver a solicitar configuración de credenciales por etapa. No promover producción ni integrar a dev sin aprobación.
+
 ## Evolución V1.1 — 25-11-2026
 Leer [docs/59_PLAN_EVOLUCION_V1_1.md](docs/59_PLAN_EVOLUCION_V1_1.md): E1–E4 y D01–D10 aprobados. E1 en feature/evalia-e1-estabilidad; baseline main/dev dffbb41. No aplicar migraciones ni activar cambios remotos de seguridad sin autorización de publicación. Las referencias históricas a estados anteriores no prevalecen sobre este contrato.
 
