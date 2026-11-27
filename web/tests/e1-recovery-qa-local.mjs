@@ -133,6 +133,18 @@ try{
  // All writes are confined to a new disposable database; separate transactions isolate the failing phase.
  psql(parts[0]+'\n'+parts[1],true,'Restaurar roles y esquema');
  console.log('Roles y esquema recuperados');
+ // Managed Auth in QA has two newer custom OAuth fields than the pinned local stack.
+ // Use the actual source types/defaults, only for the unused provider table.
+ // Never remove COPY columns or rows, nor modify the original archive or remote schemas.
+ const oauthTable='auth.custom_oauth_providers';
+ const oauthColumns=JSON.parse(psql("select coalesce(jsonb_agg(column_name),'[]'::jsonb) from information_schema.columns where table_schema='auth' and table_name='custom_oauth_providers';",false,'Verificar esquema OAuth local').trim());
+ const oauthMissing=['client_auth_method','client_assertion_audience'].filter(c=>!oauthColumns.includes(c));
+ if(oauthMissing.length){
+  assert.equal(countTables(parts[2],[oauthTable])[oauthTable],0,'OAuth personalizado contiene datos; requiere versión Auth compatible, no adaptar automáticamente');
+  assert.equal(psql("select count(*) from auth.custom_oauth_providers;",false,'Verificar tabla OAuth local vacía').trim(),'0');
+  psql("alter table auth.custom_oauth_providers add column if not exists client_auth_method text not null default 'client_secret', add column if not exists client_assertion_audience text;",true,'Compatibilidad OAuth solo local');
+  console.log('Compatibilidad OAuth local aplicada (tabla sin proveedores personalizados)');
+ }
  checkCopyColumns(parts[2]);
  psql('SET session_replication_role=replica;\n'+parts[2]+'\nRESET session_replication_role;\n',true,'Restaurar datos');
  console.log('Datos SQL recuperados');
