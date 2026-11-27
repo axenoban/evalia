@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
-  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder, setOrderPrepared,
+  authUser, adminAllowed, signIn, signOut, loadWorkspace,
+  createCustomer, createModel, editProduct, saveColor, reactivateProduct, productHistory, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder, setOrderPrepared,
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
+import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection} from '../lib/product-data.js';
 import { getSupabase } from '../lib/supabase.js';
 import { useRecordList, useServerOrderList, RecordListControls, ListPager } from './record-list-controls.jsx';
 import {inspectAdminMfa,withOwnerReauthentication} from '../lib/mfa-client.js';
@@ -314,189 +315,184 @@ function StockTable({data,limit=null}){
  </table></div>:<Empty title="Aún no hay productos" detail="Registra el primer modelo para comenzar."/>;
 }
 function StockEditor({model,stock,onSave,busy}){
- const [operation,setOperation]=useState('add'),[amount,setAmount]=useState('12');
+ const [operation,setOperation]=useState('add'),[amount,setAmount]=useState('1'),[unit,setUnit]=useState('dozens');
  const requestId=useRef(null);
- const units=Number(amount),valid=Number.isSafeInteger(units)&&units>=(operation==='set_total'?0:1);
- const expected=operation==='set_total'?units:operation==='add'?Number(stock.on_hand)+units:Number(stock.on_hand)-units;
- const committed=Number(stock.reserved)+Number(stock.pending_delivery);
- async function submit(e){e.preventDefault();if(!valid)return;
+ const {units,committed,target,available,valid}=stockProjection(stock,operation,amount,unit);
+ function change(set,value){set(value);requestId.current=null;}
+ async function submit(e){e.preventDefault();if(!valid||busy)return;
   if(!requestId.current)requestId.current=uuid();
   const ok=await onSave(model.id,operation,units,stock.version,requestId.current);
-  if(ok){requestId.current=null;setAmount('12');}
+  if(ok){requestId.current=null;setAmount(unit==='dozens'?'1':'12');}
  }
  return <form className="stock-editor" onSubmit={submit}>
   <p className="editor-title">Ajuste de inventario — {model.name}</p>
   <div className="stock-ops" role="group" aria-label="Tipo de movimiento">
    {[['add','＋ Añadir'],['physical_sale','− Venta física'],['set_total','= Corregir total']].map(([v,label])=>
-    <button key={v} type="button" className={'pill '+(operation===v?'active':'')}
-      aria-pressed={operation===v} onClick={()=>{setOperation(v);requestId.current=null;}}>{label}</button>)}
+    <button key={v} type="button" className={'pill '+(operation===v?'active':'')} disabled={busy}
+      aria-pressed={operation===v} onClick={()=>change(setOperation,v)}>{label}</button>)}
   </div>
-  <div className="stock-bottom"><Field title="Cantidad en prendas"><input type="number" name="units" required
-   min={operation==='set_total'?0:1} max="2147483647" step="1" inputMode="numeric"
-   value={amount} onChange={e=>{setAmount(e.target.value);requestId.current=null;}}/></Field>
-   <div className="stock-projection"><small>Resultado estimado</small><b>{valid?rup(expected):'—'} prendas</b>
-    <span>{committed} comprometidas; nunca se pueden consumir</span></div>
+  <div className="stock-ops" role="group" aria-label="Unidad del ajuste">{[['dozens','Docenas'],['units','Prendas']].map(([v,label])=><button type="button" key={v} className={'pill '+(unit===v?'active':'')} aria-pressed={unit===v} disabled={busy} onClick={()=>{if(v!==unit){change(setUnit,v);setAmount(v==='dozens'?'1':'12');}}}>{label}</button>)}</div>
+  <div className="stock-bottom"><Field title={unit==='dozens'?'Cantidad en docenas':'Cantidad en prendas'}>
+   <div className="ev-stock-stepper"><button type="button" className="button button-outline" aria-label="Disminuir cantidad" disabled={busy} onClick={()=>change(setAmount,String(Math.max(0,(Number(amount)||0)-1)))}>−</button>
+   <input type="number" name="units" required min={operation==='set_total'?0:1} max={unit==='dozens'?178956970:2147483647} step="1" inputMode="numeric" disabled={busy} value={amount} onChange={e=>change(setAmount,e.target.value)}/>
+   <button type="button" className="button button-outline" aria-label="Aumentar cantidad" disabled={busy} onClick={()=>change(setAmount,String((Number(amount)||0)+1))}>＋</button></div>
+   </Field>
+   <div className="stock-projection"><small>Stock resultante / disponible</small><b>{Number.isSafeInteger(target)?rup(target):'—'} / {Number.isSafeInteger(available)?rup(available):'—'} prendas</b><span>{rup(committed)} comprometidas</span></div>
   </div>
-  <button className="button button-primary" type="submit" disabled={busy||!valid||expected<committed||(stock.blocked&&operation==='physical_sale')}>
-   {busy?'Guardando…':'Aplicar ajuste'}
-  </button>
-  {expected<committed&&<p className="form-error" role="alert">No puedes reducir el stock por debajo del compromiso con clientes.</p>}
+  <button className="button button-primary" type="submit" disabled={busy||!valid}>{busy?'Guardando…':'Aplicar ajuste'}</button>
+  {target<committed&&<p className="form-error" role="alert">No puedes reducir el stock por debajo del compromiso con clientes.</p>}
  </form>;
 }
-function ModelEditor({model,onSave,busy}){
- const [price,setPrice]=useState(String(model.price_dozen_bs));
- const [photo,setPhoto]=useState(null),[error,setError]=useState('');
- const requestId=useRef(null);
- const changed=price.trim()!==String(model.price_dozen_bs)||Boolean(photo);
- async function submit(e){
-  e.preventDefault();setError('');
-  try{
-   centsFromBs(price);
-   if(!changed)return;
-   if(!requestId.current)requestId.current=uuid();
-   const ok=await onSave({model,price,photo,requestId:requestId.current});
-   if(ok){requestId.current=null;setPhoto(null);}
-  }catch(e){setError(e.message);}
- }
- return <form className="stock-editor" onSubmit={submit}>
-  <p className="editor-title">Actualizar precio o foto — {model.name}</p>
-  <p className="small-note">El precio nuevo solo afecta los próximos pedidos. Los pedidos existentes conservan su tarifa histórica. No modifica talla, colores ni stock.</p>
-  <div className="form-inline">
-   <Field title="Nuevo precio por docena (Bs)">
-    <input name={'editModelPrice-'+model.id} value={price} inputMode="decimal" required
-     onChange={e=>{setPrice(e.target.value);requestId.current=null;}}/></Field>
-   <Field title="Reemplazar fotografía (opcional)">
-    <input name={'editModelPhoto-'+model.id} type="file" accept="image/jpeg,image/png,image/webp"
-     onChange={e=>{setPhoto(e.target.files?.[0]||null);requestId.current=null;}}/></Field>
-  </div>
-  {error&&<p className="form-error" role="alert">{error}</p>}
-  <button className="button button-primary" disabled={busy||!changed} type="submit">
-   {busy?'Guardando…':'Guardar corrección auditada'}</button>
+function ProductHistory({model}){
+ const [result,setResult]=useState(null),[error,setError]=useState('');
+ useEffect(()=>{let active=true;productHistory(model.id).then(r=>{if(active)setResult(r);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[model.id,model.updated_at]);
+ if(error)return <p role="alert" className="form-error">{error}</p>;
+ if(!result)return <p role="status">Cargando historial…</p>;
+ if(!result.length)return <p className="small-note">Sin modificaciones auditadas.</p>;
+ return <div className="ev-product-history">{result.map(e=><div key={e.request_id}><strong>{e.operation==='reactivate'?'Reactivación':e.source==='legacy'?'Precio / fotografía':'Edición de ficha'}</strong><small>{displayDate(e.created_at)}</small>
+  {e.source==='legacy'?<p>{e.old_price} → {e.new_price} Bs{e.old_image_path!==e.new_image_path?' · Foto modificada':''}</p>:<><p>{['name','size_label','price_dozen_bs'].filter(k=>e.previous_data?.[k]!==e.new_data?.[k]).map(k=>String(e.previous_data?.[k]??'—')+' → '+String(e.new_data?.[k]??'—')).join(' · ')||'Ficha actualizada'}</p>{e.operation==='reactivate'&&<p>Stock republicado: {e.new_data?.on_hand} prendas</p>}{JSON.stringify(e.previous_data?.colors)!==JSON.stringify(e.new_data?.colors)&&e.operation==='edit'&&<p>Colores actualizados</p>}{e.previous_data?.image_path!==e.new_data?.image_path&&<p>Fotografía actualizada</p>}</>}
+  </div>)}</div>;
+}
+function ReactivateForm({model,onSave,busy}){
+ const [docenas,setDocenas]=useState('0'),request=useRef(null);
+ const valid=docenas.trim()!==''&&Number.isSafeInteger(Number(docenas))&&Number(docenas)>=0&&Number(docenas)<=178956970;
+ return <form className="stock-editor" onSubmit={async e=>{e.preventDefault();if(!valid||busy)return;if(!request.current)request.current=uuid();await onSave({model,units:Number(docenas)*12,requestId:request.current});}}>
+  <Field title="Docenas disponibles para republicar"><input required type="number" min="0" max="178956970" step="1" value={docenas} disabled={busy} onChange={e=>{setDocenas(e.target.value);request.current=null;}}/></Field>
+  <p className="small-note">Confirma las existencias físicas actuales. La foto archivada no se recupera; puedes cargar otra después.</p>
+  <button className="button button-primary" disabled={busy||!valid||Boolean(model.image_path)}>Reactivar producto</button>
  </form>;
 }
-function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,onArchive,onCleanup,busy}){
- const [view,setView]=useState('list'),[search,setSearch]=useState(''),[editStock,setEditStock]=useState(null),[editCatalog,setEditCatalog]=useState(null);
- const [newColor,setNewColor]=useState(''),[newHex,setNewHex]=useState('#9b6682');
+function ColorLibrary({colors,onSave,busy}){
+ const [editing,setEditing]=useState(null),[name,setName]=useState(''),[hex,setHex]=useState('#9b6682'),[active,setActive]=useState(true),[search,setSearch]=useState('');
+ const request=useRef(null);
+ function select(c){setEditing(c);setName(c?.name??'');setHex(c?.hex_code??'#9b6682');setActive(c?.is_active??true);request.current=null;}
+ const duplicate=colors.some(c=>c.id!==editing?.id&&normalizeName(c.name).toLowerCase()===normalizeName(name).toLowerCase());
+ return <section className="surface pad ev-register-palette"><header className="ev-register-heading"><span aria-hidden="true">◉</span><div><h2>Paleta de colores</h2><p>Biblioteca reutilizable</p></div></header>
+  <form className="palette-form" onSubmit={async e=>{e.preventDefault();if(duplicate||busy)return;if(!request.current)request.current=uuid();
+   const ok=await onSave({id:editing?.id??null,name:normalizeName(name),hex,active,expected:editing?.updated_at??null,requestId:request.current});if(ok)select(null);}}>
+   <Field title={editing?'Corregir nombre del color':'Nombre del color'}><input value={name} required maxLength={80} disabled={busy} onChange={e=>{setName(e.target.value);request.current=null;}}/></Field>
+   <Field title="Muestra de color"><div className="color-input"><input type="color" aria-label="Elegir color visual" value={hex} disabled={busy} onChange={e=>{setHex(e.target.value);request.current=null;}}/><span>{hex.toUpperCase()}</span></div></Field>
+   {editing&&<label className="small-note"><input type="checkbox" checked={active} disabled={busy} onChange={e=>{setActive(e.target.checked);request.current=null;}}/> Color activo</label>}
+   {duplicate&&<p className="form-error">Ya existe ese nombre de color.</p>}
+   <div className="form-actions"><button type="submit" className="button button-outline" disabled={busy||duplicate||!name.trim()}>{editing?'Guardar corrección':'Guardar color'}</button>{editing&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>select(null)}>Cancelar edición</button>}</div>
+  </form>
+  <Field title="Buscar en la paleta"><input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Nombre de color…"/></Field>
+  <div className="palette-list">{colors.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())).map(c=><button className="button button-outline ev-palette-edit" type="button" key={c.id} disabled={busy} onClick={()=>select(c)}><ColorChip color={c}/>{!c.is_active?' (inactivo)':''}<span aria-hidden="true">✎</span></button>)}</div>
+ </section>;
+}
+function ModelEditor({model,models,colors,onSave,busy}){
+ return <ModelForm model={model} models={models} colors={colors} onCreate={onSave} busy={busy}/>;
+}
+function Catalog({data,onSaveColor,onCreateModel,onAdjust,onUpdateModel,onArchive,onCleanup,onReactivate,busy}){
+ const [view,setView]=useState('list'),[search,setSearch]=useState(''),[size,setSize]=useState('all'),[availability,setAvailability]=useState('all'),[archived,setArchived]=useState(false),[editing,setEditing]=useState(null),[section,setSection]=useState(''),[seed,setSeed]=useState(null);
  const pendingPhotos=[...new Set(data.models.filter(m=>!m.is_active&&m.image_path&&!data.models.some(x=>x.is_active&&x.image_path===m.image_path)).map(m=>m.image_path))];
- const filtered=data.models.filter(m=>m.is_active&&(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
- async function submitColor(e){e.preventDefault();const ok=await onCreateColor(newColor.trim(),newHex);if(ok)setNewColor('');}
+ const sizes=productSizes(data.models);
+ const filtered=data.models.filter(m=>m.is_active!==archived&&(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase())&&(size==='all'||normalizeSize(m.size_label)===size)&&(archived||availability==='all'||(availability==='stock'?!data.stock[m.id]?.blocked&&Number(data.stock[m.id]?.available)>0:availability==='empty'?!data.stock[m.id]?.blocked&&Number(data.stock[m.id]?.available)===0:Boolean(data.stock[m.id]?.blocked))));
+ const list=useRecordList(filtered,'created_at'),{view:page}=list;
+ function close(){setEditing(null);setSection('');}
+ function reset(){list.setPage(1);close();}
+ function toggle(id,name){if(editing===id&&section===name){close();return;}setEditing(id);setSection(name);}
+ function register(model=null){setSeed(model);setView('new');close();}
+ const selectedModel=data.models.find(m=>m.id===editing);
  return <>
-  <SectionHead eyebrow="CATÁLOGO E INVENTARIO" title="Productos que se venden."
-   description="Cada modelo conserva su talla y su propio precio. Los colores son muestras visuales, no existencias individuales."
-   actions={<button className="button button-primary" onClick={()=>setView(view==='new'?'list':'new')}>
-     {view==='new'?'← Volver al catálogo':'＋ Registrar producto'}</button>}/>
-  {view==='new'?<div className="two-columns catalog-forms ev-product-registration">
-   <section className="surface pad ev-register-main"><header className="ev-register-heading"><span aria-hidden="true">▧</span><div><h2>Nuevo modelo</h2><p>Fotografía, datos comerciales y existencias iniciales.</p></div></header>
-    <ModelForm colors={data.colors.filter(c=>c.is_active)} onCreate={async params=>{const ok=await onCreateModel(params);if(ok)setView('list');return ok;}} busy={busy}/>
-   </section>
-   <section className="surface pad ev-register-palette"><header className="ev-register-heading"><span aria-hidden="true">◉</span><div><h2>Paleta de colores</h2><p>Biblioteca reutilizable</p></div></header>
-    <p className="muted">Primero registra colores reutilizables. El círculo refleja el tono que has elegido.</p>
-    <form onSubmit={submitColor} className="palette-form"><Field title="Nombre del color">
-     <input value={newColor} name="colorName" required maxLength={80} onChange={e=>setNewColor(e.target.value)}
-      placeholder="Ej. tono de tela…"/></Field>
-     <Field title="Muestra de color"><div className="color-input"><input type="color" name="colorHex"
-       aria-label="Elegir color visual" value={newHex} onChange={e=>setNewHex(e.target.value)}/>
-       <span>{newHex.toUpperCase()}</span></div></Field>
-     <button className="button button-outline" type="submit" disabled={busy}>Guardar color</button>
-    </form>
-    <div className="palette-list">{data.colors.map(c=><ColorChip key={c.id} color={c}/>)}</div>
-    <p className="form-hint">El tono es una referencia visual ajustada manualmente; no sustituye una fotografía de la tela.</p>
-   </section>
+  <SectionHead eyebrow="CATÁLOGO E INVENTARIO" title={view==='new'?'Registrar producto':view==='edit'?'Editar producto':view==='colors'?'Colores':'Productos'}
+   actions={<div className="form-actions"><button type="button" className="button button-outline" disabled={busy} onClick={()=>{close();setSeed(null);setView(view==='list'?'colors':'list');}}>{view==='list'?'Paleta de colores':'← Volver al catálogo'}</button>{view==='list'&&<button className="button button-primary" disabled={busy} onClick={()=>register()}>＋ Registrar producto</button>}</div>}/>
+  {view==='colors'?<ColorLibrary colors={data.colors} onSave={onSaveColor} busy={busy}/>:view==='new'||view==='edit'?<div className="two-columns catalog-forms ev-product-registration">
+   <section className="surface pad ev-register-main">
+    {view==='edit'&&selectedModel?<ModelEditor key={selectedModel.id+'-'+selectedModel.updated_at} model={selectedModel} models={data.models} colors={data.colors} onSave={async params=>{const ok=await onUpdateModel(params);if(ok){setView('list');close();}return ok;}} busy={busy}/>:<ModelForm key={seed?.id??'new'} seed={seed} models={data.models} colors={data.colors} onCreate={async params=>{const ok=await onCreateModel(params);if(ok){setView('list');setSeed(null);reset();}return ok;}} busy={busy}/>}
+   </section><ColorLibrary colors={data.colors} onSave={onSaveColor} busy={busy}/>
   </div>:<>
-   <div className="toolbar"><label className="search"><span aria-hidden>⌕</span>
-    <input type="search" aria-label="Buscar producto" placeholder="Buscar por modelo o talla…"
-      value={search} onChange={e=>setSearch(e.target.value)}/></label>
-    <span className="muted">{filtered.length} modelos</span></div>
+   <div className="toolbar"><label className="search"><span aria-hidden>⌕</span><input type="search" aria-label="Buscar producto" placeholder="Buscar por modelo o talla…" value={search} onChange={e=>{setSearch(e.target.value);reset();}}/></label><span className="muted">{page.total} modelos</span></div>
+   <div className="ev-product-filters"><Field title="Talla"><select value={size} onChange={e=>{setSize(e.target.value);reset();}}><option value="all">Todas las tallas</option>{sizes.map(v=><option key={v}>{v}</option>)}</select></Field>
+   {!archived&&<Field title="Disponibilidad"><select value={availability} onChange={e=>{setAvailability(e.target.value);reset();}}><option value="all">Todos</option><option value="stock">Con stock</option><option value="empty">Agotados</option><option value="blocked">En revisión</option></select></Field>}</div>
+   <RecordListControls list={list} dateLabel="Fecha de registro" busy={busy} onChange={close}/>
    {pendingPhotos.length>0&&<div className="ev-archive-pending" role="status"><span>{pendingPhotos.length} fotografía(s) de archivo pendientes de limpieza.</span><button type="button" className="button button-outline" disabled={busy} onClick={()=>onCleanup(pendingPhotos)}>Reintentar limpieza</button></div>}
-   {filtered.length?<div className="product-grid">{filtered.map(m=>{const s=data.stock[m.id]||{};return <article className="product-card" key={m.id}>
-    <div className="product-cover"><ProductImage model={m} large/>
-     <span className="size-tag">TALLA {m.size_label}</span></div>
-    <div className="product-card-body"><div className="product-card-header">
-      <div><h2>{m.name}</h2><p className="price">{formatBs(centsFromBs(m.price_dozen_bs))} <small>/ docena</small></p></div>
-      <span className={'availability '+(s.blocked?'bad':Number(s.available)===0?'none':'ok')}>
-       {s.blocked?'Revisión':Number(s.available)===0?'Agotado':'Disponible'}</span></div>
-     <ModelColors model={m} colors={data.colors} compact/>
-     <div className="stock-grid-mini">
-      <div><small>Publicadas</small><b>{rup(s.on_hand)}</b></div>
-      <div><small>Comprometidas</small><b>{rup(Number(s.reserved||0)+Number(s.pending_delivery||0))}</b></div>
-      <div className="emphasized"><small>Disponibles</small><b>{rup(s.available)}</b></div>
-     </div>
-     <button className="button button-outline full" type="button" onClick={()=>setEditStock(editStock===m.id?null:m.id)}>
-       {editStock===m.id?'Cerrar ajuste':'▥ Ajustar stock'}
-     </button>
-     {editStock===m.id&&<StockEditor model={m} stock={s} onSave={onAdjust} busy={busy}/>}
-     <button className="button button-outline full" type="button"
-      onClick={()=>{setEditCatalog(editCatalog===m.id?null:m.id);setEditStock(null);}}>
-      {editCatalog===m.id?'Cerrar edición':'✎ Cambiar precio o fotografía'}</button>
-     {editCatalog===m.id&&<ModelEditor key={m.id+'-'+m.updated_at} model={m} onSave={onUpdateModel} busy={busy}/>}
-     <button type="button" className="button full ev-archive-button" disabled={busy} onClick={()=>{
-      if(window.confirm('¿Inhabilitar '+m.name+'? Dejará de venderse y se eliminará su foto. El historial permanece. Esta operación no se puede revertir desde el catálogo.'))onArchive(m);
-     }}>Inhabilitar producto</button>
-
-    </div>
-   </article>})}</div>:<Empty title="No se encontraron productos" detail="Prueba otra búsqueda o registra un modelo."/>}
+   {page.total?<div className="product-grid ev-compact-product-grid">{page.items.map(m=>{const stock=data.stock[m.id]||{},opened=editing===m.id;return <article className="product-card ev-compact-product" key={m.id}>
+    <div className="ev-product-main"><div className="product-cover"><ProductImage model={m} large/><span className="size-tag">TALLA {m.size_label}</span></div>
+    <div className="product-card-body"><div className="product-card-header"><div><h2>{m.name}</h2><p className="price">{formatBs(centsFromBs(m.price_dozen_bs))} <small>/ docena</small></p></div>
+    <details className="ev-product-menu"><summary aria-label={'Acciones de '+m.name}>⋮</summary><div className="ev-product-menu-options">
+     {m.is_active&&<button type="button" disabled={busy} onClick={()=>{setEditing(m.id);setView('edit');}}>Editar producto</button>}
+     <button type="button" disabled={busy} onClick={()=>register(m)}>Duplicar producto</button>
+     <button type="button" disabled={busy} onClick={()=>toggle(m.id,'history')}>Historial de cambios</button>
+     {m.is_active?<button type="button" className="error-text" disabled={busy} onClick={()=>{if(window.confirm('¿Inhabilitar '+m.name+'? Dejará de venderse y se eliminará su foto. El historial permanece.'))onArchive(m);}}>Inhabilitar producto</button>:<button type="button" disabled={busy} onClick={()=>toggle(m.id,'reactivate')}>Reactivar producto</button>}
+    </div></details></div>
+    <span className={'availability '+(!m.is_active||stock.blocked?'bad':Number(stock.available)===0?'none':'ok')}>{!m.is_active?'Inhabilitado':stock.blocked?'Revisión':Number(stock.available)===0?'Agotado':'Disponible'}</span>
+    <ModelColors model={m} colors={data.colors} compact/>
+    </div></div>
+    <div className="ev-product-bottom"><div className="stock-grid-mini"><div><small>Publicadas</small><b>{rup(stock.on_hand)}</b></div><div><small>Comprometidas</small><b>{rup(Number(stock.reserved||0)+Number(stock.pending_delivery||0))}</b></div><div className="emphasized"><small>Disponibles</small><b>{rup(stock.available)}</b></div></div>
+     {m.is_active&&<button className="button button-outline full" type="button" disabled={busy} onClick={()=>toggle(m.id,'stock')}>{opened&&section==='stock'?'Cerrar ajuste':'▥ Ajustar stock'}</button>}
+     {opened&&section==='stock'&&<StockEditor model={m} stock={stock} onSave={onAdjust} busy={busy}/>}
+     {opened&&section==='history'&&<ProductHistory key={m.id+'-'+m.updated_at} model={m}/>}
+     {opened&&section==='reactivate'&&<ReactivateForm model={m} onSave={onReactivate} busy={busy}/>}
+    </div></article>})}</div>:<Empty title="No se encontraron productos" detail="Cambia los filtros o registra un modelo."/>}
+   <ListPager view={page} onPage={p=>{list.setPage(p);close();}} label="Páginas de productos" busy={busy}/>
+   <nav className="ev-order-archive-toolbar" aria-label="Vista de productos"><button type="button" className="button button-outline" aria-pressed={!archived} disabled={busy} onClick={()=>{setArchived(false);reset();}}>Productos activos</button><button type="button" className="button button-outline" aria-pressed={archived} disabled={busy} onClick={()=>{setArchived(true);reset();}}>Inhabilitados ({data.models.filter(m=>!m.is_active).length})</button></nav>
   </>}
  </>;
 }
-function ModelForm({colors,onCreate,busy}){
- const [name,setName]=useState(''),[size,setSize]=useState(''),[price,setPrice]=useState('');
- const [docenas,setDocenas]=useState('0'),[selected,setSelected]=useState([]);
- const [photo,setPhoto]=useState(null),[preview,setPreview]=useState('');
- const [localError,setLocalError]=useState('');
- const requestId=useRef(null);
+function ModelForm({colors,models=[],model=null,seed=null,onCreate,busy}){
+ const original=model??seed;
+ const [name,setName]=useState(original?.name??''),[size,setSize]=useState(original?.size_label??''),[customSize,setCustomSize]=useState(false),[price,setPrice]=useState(original?String(original.price_dozen_bs):'');
+ const [docenas,setDocenas]=useState('0'),[selected,setSelected]=useState(()=>[...(original?.colorIds??[])]),[colorSearch,setColorSearch]=useState('');
+ const [photo,setPhoto]=useState(null),[preview,setPreview]=useState(''),[localError,setLocalError]=useState('');
+ const requestId=useRef(null),photoInput=useRef(null);
+ const sizes=productSizes(models),{names,prices}=suggestions(models,size);
+ const activeColors=colors.filter(c=>c.is_active),visibleColors=activeColors.filter(c=>c.name.toLowerCase().includes(colorSearch.toLowerCase()));
+ const validSelected=selected.filter(id=>activeColors.some(c=>c.id===id));
+ const duplicates=matchingModels(models,name,size,model?.id);
+ function change(set,value){set(value);requestId.current=null;setLocalError('');}
  function choosePhoto(file){
-  setPhoto(file||null);setPreview('');setLocalError('');requestId.current=null;
-  if(file){if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880){
-   setPhoto(null);setLocalError('Selecciona una foto JPG, PNG o WebP de hasta 5 MB.');return;
-  }
-   const reader=new FileReader();reader.onload=()=>setPreview(String(reader.result));reader.readAsDataURL(file);
+  setPhoto(null);setLocalError('');requestId.current=null;
+  if(file){if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size===0||file.size>5242880){setLocalError('Selecciona una foto JPG, PNG o WebP de hasta 5 MB.');return;}
+   setPhoto(file);
   }
  }
+ useEffect(()=>{if(!photo){setPreview('');return;}const url=URL.createObjectURL(photo);setPreview(url);return()=>URL.revokeObjectURL(url);},[photo]);
  async function submit(e){
   e.preventDefault();setLocalError('');
+  if(busy)return;
   try{
-   centsFromBs(price);
-   if(!selected.length)throw new Error('Selecciona al menos un color ofertado.');
-   if(!Number.isSafeInteger(Number(docenas))||Number(docenas)<0)throw new Error('Registra docenas completas publicables.');
-   if(!requestId.current)requestId.current=uuid();
-   const ok=await onCreate({name:name.trim(),size:size.trim(),price,stockDocenas:Number(docenas),colorIds:selected,photo,requestId:requestId.current});
-   if(ok){requestId.current=null;setName('');setSize('');setPrice('');setDocenas('0');setSelected([]);setPhoto(null);setPreview('');}
+   const normalized=normalizePrice(price),amount=centsFromBs(normalized);
+   if(amount>999999999999n)throw Error('Precio fuera de rango.');
+   const n=normalizeName(name),t=normalizeSize(size);
+   if(!n||n.length>120||!t||t.length>24)throw Error('Nombre o talla inválidos.');
+   if(!validSelected.length||validSelected.length!==selected.length)throw Error('Selecciona al menos un color activo; retira los inactivos.');
+   if(!model&&(!docenas.trim()||!Number.isSafeInteger(Number(docenas))||Number(docenas)<0||Number(docenas)>178956970))throw Error('Registra docenas completas publicables.');
+   if(!requestId.current){
+    if(duplicates.length&&!window.confirm('Ya existe un modelo activo con nombre y talla iguales. ¿Continuar?'))return;
+    requestId.current=uuid();
+   }
+   const ok=await onCreate({model,name:n,size:t,price:normalized,stockDocenas:Number(docenas),colorIds:validSelected,photo,requestId:requestId.current});
+   if(ok)requestId.current=null;
   }catch(err){setLocalError(err.message);}
  }
  return <form onSubmit={submit} className="model-form">
   <div className="ev-register-section-title"><b>01</b> Fotografía del producto</div>
-   <div className="photo-field">
-   <div className="photo-preview">{preview?<img alt="Vista previa de la foto elegida" src={preview}/>:
-    <div className="upload-placeholder"><span>▧</span><b>Fotografía del modelo</b><small>JPG · PNG · WebP</small></div>}</div>
-   <label className="file-label"><span className="button button-outline">Elegir fotografía</span>
-    <input name="modelPhoto" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>choosePhoto(e.target.files?.[0])}/>
-   </label>
+  <div className="photo-field"><div className="photo-preview">{preview||model?.imageUrl?<img alt="Vista previa de fotografía" src={preview||model.imageUrl}/>:<div className="upload-placeholder"><span>▧</span><b>Fotografía del modelo</b><small>JPG · PNG · WebP</small></div>}</div>
+   <label className="file-label"><span className="button button-outline">{model?'Reemplazar fotografía':'Elegir fotografía'}</span><input ref={photoInput} name="modelPhoto" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e=>choosePhoto(e.target.files?.[0])}/></label>
+   {photo&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>{choosePhoto(null);if(photoInput.current)photoInput.current.value='';}}>Quitar selección</button>}
   </div>
   <div className="ev-register-section-title"><b>02</b> Información comercial</div>
-   <div className="form-inline">
-   <Field title="Nombre del modelo"><input name="modelName" required maxLength={120} value={name}
-     onChange={e=>{setName(e.target.value);requestId.current=null;}} placeholder="Nombre comercial…"/></Field>
-   <Field title="Talla única del modelo"><input name="modelSize" required maxLength={24} value={size}
-     onChange={e=>{setSize(e.target.value);requestId.current=null;}} placeholder="Ej. M, XL o 2XL…"/></Field>
-   <Field title="Precio mayorista por docena (Bs)"><input name="modelPrice" required
-     inputMode="decimal" value={price} onChange={e=>{setPrice(e.target.value);requestId.current=null;}}
-     placeholder="Importe por docena…"/></Field>
-   <Field title="Docenas completas publicables"
-     hint={'Publicarás '+rup((Number(docenas)||0)*12)+' prendas; deja fuera tu margen de seguridad.'}>
-     <input name="modelStock" type="number" step="1" min="0" max="178956970" value={docenas}
-      onChange={e=>{setDocenas(e.target.value);requestId.current=null;}} required/></Field>
+  <div className="form-inline">
+   <Field title="Nombre del modelo"><input name="modelName" required maxLength={120} list="ev-model-names" value={name} disabled={busy} onChange={e=>change(setName,e.target.value)} placeholder="Nombre comercial…"/><datalist id="ev-model-names">{names.map(n=><option key={n} value={n}/>)}</datalist></Field>
+   <Field title="Talla única del modelo"><select name="modelSize" required value={customSize?'__new':normalizeSize(size)} disabled={busy} onChange={e=>{const v=e.target.value;setCustomSize(v==='__new');change(setSize,v==='__new'?'':v);}}><option value="">Seleccionar talla</option>{sizes.map(v=><option key={v}>{v}</option>)}<option value="__new">＋ Otra talla</option></select>
+    {customSize&&<input aria-label="Nueva talla" required maxLength={24} value={size} disabled={busy} onChange={e=>change(setSize,e.target.value)} placeholder="Nueva talla"/>}</Field>
+   <Field title="Precio mayorista por docena (Bs)"><input name="modelPrice" required inputMode="decimal" value={price} disabled={busy} onChange={e=>change(setPrice,e.target.value)} placeholder="Importe por docena…"/>
+    {prices.length>0&&<div className="ev-price-suggestions">{prices.map(p=><button type="button" className="pill" key={p} disabled={busy} onClick={()=>change(setPrice,p)}>{p} Bs</button>)}</div>}</Field>
+   {!model&&<Field title="Docenas completas publicables" hint={'Publicarás '+rup((Number(docenas)||0)*12)+' prendas; deja fuera tu margen de seguridad.'}><input name="modelStock" type="number" step="1" min="0" max="178956970" value={docenas} disabled={busy} onChange={e=>change(setDocenas,e.target.value)} required/></Field>}
   </div>
-  <div className="palette-selector">
-    <div className="ev-register-section-title"><b>03</b> Colores disponibles</div>
+  {duplicates.length>0&&<p className="small-note" role="status">Ya existe {duplicates.length} modelo(s) activo(s) con ese nombre y talla.</p>}
+  {model&&<p className="small-note">Los pedidos conservan sus datos históricos. Nombre y talla se protegen si existen compromisos pendientes; el precio nuevo solo afecta futuras ventas.</p>}
+  <div className="palette-selector"><div className="ev-register-section-title"><b>03</b> Colores disponibles</div>
    <div className="palette-title"><strong>Colores que ofrece este modelo</strong><span>{selected.length} seleccionados</span></div>
-   <p>Selecciona muestras de la paleta. No registraremos unidades por color.</p>
-   {colors.length?<div className="color-select-grid">{colors.map(c=><ColorChip key={c.id} color={c}
-     selected={selected.includes(c.id)} onClick={()=>{requestId.current=null;setSelected(current=>current.includes(c.id)?current.filter(x=>x!==c.id):[...current,c.id]);}}/>)}</div>:
-     <Notice>Primero crea un color desde el panel de paleta.</Notice>}
+   <Field title="Buscar color"><input type="search" value={colorSearch} onChange={e=>setColorSearch(e.target.value)} placeholder="Nombre de color…"/></Field>
+   <div className="form-actions"><button type="button" className="button button-outline" disabled={busy} onClick={()=>change(setSelected,[...new Set([...selected,...visibleColors.map(c=>c.id)])])}>Seleccionar visibles</button><button type="button" className="button button-outline" disabled={busy} onClick={()=>change(setSelected,[])}>Limpiar</button>
+   {models.some(m=>m.id!==model?.id&&m.colorIds?.length)&&<select aria-label="Reutilizar colores de otro modelo" value="" disabled={busy} onChange={e=>{const source=models.find(m=>m.id===e.target.value);if(source)change(setSelected,source.colorIds.filter(id=>activeColors.some(c=>c.id===id)));}}><option value="">Copiar paleta de modelo…</option>{models.filter(m=>m.id!==model?.id&&m.colorIds?.length).map(m=><option key={m.id} value={m.id}>{m.name} · {m.size_label}</option>)}</select>}</div>
+   {activeColors.length?<div className="color-select-grid">{visibleColors.map(c=><ColorChip key={c.id} color={c} disabled={busy} selected={selected.includes(c.id)} onClick={()=>change(setSelected,selected.includes(c.id)?selected.filter(x=>x!==c.id):[...selected,c.id])}/>)}</div>:<Notice>Primero crea un color desde la paleta.</Notice>}
+   {validSelected.length!==selected.length&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>change(setSelected,validSelected)}>Retirar colores inactivos</button>}
   </div>
   {localError&&<p className="form-error" role="alert">{localError}</p>}
-  <button className="button button-primary full" type="submit" disabled={busy||!colors.length}>
-   {busy?'Guardando modelo…':'Registrar producto e inventario'}</button>
+  <button className="button button-primary full" type="submit" disabled={busy||!activeColors.length}>{busy?'Guardando…':model?'Guardar corrección auditada':'Registrar producto e inventario'}</button>
  </form>;
 }
 function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
@@ -902,7 +898,7 @@ function LineComposition({line,colors,compact=false}){
   <span>{hasBreakdown?
     portionBreakdown(Number(line.dozen_count),Number(line.extra_units)):
     quantityBreakdown(line.quantity)+' · registro anterior sin desglose de colores'}</span>
-  <ExtraColorSummary ids={line.extraColorIds||[]} colors={colors}/>
+  <ExtraColorSummary ids={line.extraColorIds||[]} colors={line.extraColorsSnapshot??colors}/>
  </div>;
 }
 
@@ -1144,7 +1140,7 @@ function LegacyCommitments({data,onConvert,busy}){
      <div className="record-lines">{r.lines.map(l=>{
       const model=data.models.find(m=>m.id===l.model_id);
       return <div className="record-line-detail" key={l.id}>
-       <span>{model?.name||'Modelo'} · {l.quantity} prendas</span>
+       <span>{l.model_name_snapshot??model?.name??'Modelo'} · {l.quantity} prendas</span>
        <LineComposition line={l} colors={data.colors} compact/>
       </div>;
      })}</div>
@@ -1347,7 +1343,7 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
      o.lines.some(l=>data.stock[l.model_id]?.blocked)?'Modelo con inventario en revisión':
      !Number.isSafeInteger(o.revision)?'Falta habilitar la edición en Supabase':null;
     const canArchive=!o.archived_at&&((o.status==='completed'&&!relatedPayments.some(p=>p.status==='pending'||p.status==='observed'))||(o.status==='active'&&!relatedPayments.length&&!data.deliveries.some(d=>d.order_id===o.id)&&Number(delivery.delivered)===0));
-    const sizes=[...new Set(o.lines.map(l=>data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
+    const sizes=[...new Set(o.lines.map(l=>l.size_label_snapshot??data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
     return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
      <summary className="ev-order-summary">
       <span className="ev-order-summary-primary">
@@ -1404,8 +1400,8 @@ function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLin
          return <div className="order-product" key={l.id||l.model_id}>
           {m?.is_active&&<ProductImage model={m}/>}
           <div className="order-product-data">
-           <strong>{m?.name||'Modelo'}</strong>
-           <small>Talla {m?.size_label||'—'}</small>
+           <strong>{l.model_name_snapshot??m?.name??'Modelo'}</strong>
+           <small>Talla {l.size_label_snapshot??m?.size_label??'—'}</small>
            <LineComposition line={l} colors={data.colors} compact/>
           </div>
           <div className="order-line-price">
@@ -1651,9 +1647,9 @@ export default function HomePage(){
  const saveModelEdit=(params)=>mutation(async()=>{
   const imagePath=params.photo?await uploadPhoto(params.photo,params.requestId):null;
   // No eliminar una carga tras un fallo de respuesta: el RPC pudo confirmar.
-  await updateModel({modelId:params.model.id,price:params.price,imagePath,
+  await editProduct({modelId:params.model.id,name:params.name,size:params.size,price:params.price,colorIds:params.colorIds,imagePath,
    expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
- },'Precio/fotografía actualizados; los pedidos históricos no cambiaron.');
+ },'Ficha actualizada; los pedidos históricos conservan sus datos.');
  async function archiveProduct(model){
   const actor=authorizedUser.current;
   let cleanupPending=false;
@@ -1672,7 +1668,8 @@ export default function HomePage(){
   method:params.method,destination:params.destination,
   expectedUpdatedAt:params.customer.updated_at,requestId:params.requestId
  }),'Ficha y destino corregidos con auditoría.');
- const addColor=(name,hex)=>mutation(()=>createColor(name,hex),'Color registrado.');
+ const addColor=(params)=>mutation(()=>saveColor(params),'Color guardado.');
+ const reactivate=(params)=>mutation(()=>reactivateProduct({modelId:params.model.id,units:params.units,expectedUpdatedAt:params.model.updated_at,requestId:params.requestId}),'Producto reactivado con stock confirmado.');
  async function addClient(payload){
   let duplicate=null;
   const ok=await mutation(async()=>{
@@ -1765,7 +1762,7 @@ export default function HomePage(){
       onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
       tab==='home'?<Dashboard data={data} setTab={setTab}/>:
-      tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} busy={busy}/>: 
+      tab==='catalog'?<Catalog data={data} onSaveColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} onReactivate={reactivate} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
       tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
