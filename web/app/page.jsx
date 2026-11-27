@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace,
-  createCustomer, createModel, editProduct, saveColor, reactivateProduct, productHistory, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder, setOrderPrepared,
+  createCustomer, createModel, editProduct, saveColor, reactivateProduct, productHistory, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, cleanupReplacedPhoto, archiveOrder, setOrderPrepared,
   createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
-import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection} from '../lib/product-data.js';
+import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct} from '../lib/product-data.js';
 import { getSupabase } from '../lib/supabase.js';
 import { useRecordList, useServerOrderList, RecordListControls, ListPager } from './record-list-controls.jsx';
 import {inspectAdminMfa,withOwnerReauthentication} from '../lib/mfa-client.js';
@@ -440,6 +440,7 @@ function ModelForm({colors,models=[],model=null,seed=null,onCreate,busy}){
  const activeColors=colors.filter(c=>c.is_active),visibleColors=activeColors.filter(c=>c.name.toLowerCase().includes(colorSearch.toLowerCase()));
  const validSelected=selected.filter(id=>activeColors.some(c=>c.id===id));
  const duplicates=matchingModels(models,name,size,model?.id);
+ const unchanged=equivalentProduct(model,{name,size,price,colorIds:selected,photo});
  function change(set,value){set(value);requestId.current=null;setLocalError('');}
  function choosePhoto(file){
   setPhoto(null);setLocalError('');requestId.current=null;
@@ -450,7 +451,7 @@ function ModelForm({colors,models=[],model=null,seed=null,onCreate,busy}){
  useEffect(()=>{if(!photo){setPreview('');return;}const url=URL.createObjectURL(photo);setPreview(url);return()=>URL.revokeObjectURL(url);},[photo]);
  async function submit(e){
   e.preventDefault();setLocalError('');
-  if(busy)return;
+  if(busy||unchanged)return;
   try{
    const normalized=normalizePrice(price),amount=centsFromBs(normalized);
    if(amount>999999999999n)throw Error('Precio fuera de rango.');
@@ -492,7 +493,7 @@ function ModelForm({colors,models=[],model=null,seed=null,onCreate,busy}){
    {validSelected.length!==selected.length&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>change(setSelected,validSelected)}>Retirar colores inactivos</button>}
   </div>
   {localError&&<p className="form-error" role="alert">{localError}</p>}
-  <button className="button button-primary full" type="submit" disabled={busy||!activeColors.length}>{busy?'Guardando…':model?'Guardar corrección auditada':'Registrar producto e inventario'}</button>
+  <button className="button button-primary full" type="submit" disabled={busy||!activeColors.length||unchanged}>{busy?'Guardando…':model?'Guardar corrección auditada':'Registrar producto e inventario'}</button>
  </form>;
 }
 function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
@@ -1644,12 +1645,19 @@ export default function HomePage(){
    await createModel({...values,imagePath:path,requestId:req});
   },'El modelo y su stock se registraron en Supabase.');
  }
- const saveModelEdit=(params)=>mutation(async()=>{
-  const imagePath=params.photo?await uploadPhoto(params.photo,params.requestId):null;
-  // No eliminar una carga tras un fallo de respuesta: el RPC pudo confirmar.
-  await editProduct({modelId:params.model.id,name:params.name,size:params.size,price:params.price,colorIds:params.colorIds,imagePath,
-   expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
- },'Ficha actualizada; los pedidos históricos conservan sus datos.');
+ async function saveModelEdit(params){
+  const actor=authorizedUser.current;let cleanupPending=false;
+  const ok=await mutation(async()=>{
+   const imagePath=params.photo?await uploadPhoto(params.photo,params.requestId):null;
+   // Only clean the previous path after a confirmed write, and only when no active product references it.
+   await editProduct({modelId:params.model.id,name:params.name,size:params.size,price:params.price,colorIds:params.colorIds,imagePath,expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
+   if(imagePath&&params.model.image_path&&imagePath!==params.model.image_path){
+    try{await cleanupReplacedPhoto(params.model.image_path);}catch{cleanupPending=true;}
+   }
+  },'Ficha actualizada; los pedidos históricos conservan sus datos.');
+  if(ok&&cleanupPending&&authorizedUser.current===actor)setMessage('Ficha actualizada; la fotografía anterior quedó pendiente de limpieza.');
+  return ok;
+ }
  async function archiveProduct(model){
   const actor=authorizedUser.current;
   let cleanupPending=false;
