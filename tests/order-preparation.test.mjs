@@ -11,7 +11,11 @@ test('preparación rápida sin abrir acordeón y solo para pedidos activos',()=>
 });
 test('lectura y escritura persistentes con RPC versionada y colores separados',()=>{
  const api=read('web/lib/api.js');const css=read('web/app/orders.css');
- assert.equal((api.match(/archive_reason,prepared_at,preparation_version/g)||[]).length,2);
+ const pageApi=read('web/lib/order-page.js');
+ const columns=pageApi.match(/ORDER_COLUMNS='([^']+)'/)?.[1].split(',')??[];
+ for(const column of ['archive_reason','prepared_at','preparation_version','revision'])assert.ok(columns.includes(column));
+ assert.match(pageApi,/db\.from\('orders'\)\.select\(ORDER_COLUMNS,\{count:'exact'\}\)/);
+ assert.match(pageApi,/archived\?q\.not\('archived_at','is',null\):q\.is\('archived_at',null\)/);
  assert.match(api,/rpc\('set_evalia_order_prepared'/);
  assert.match(css,/data-prepared="true"/);
  assert.match(css,/min-height:44px/);
