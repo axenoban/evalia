@@ -40,3 +40,13 @@ export function equivalentProduct(model,{name,size,price,colorIds,photo}){
  const oldPrice=Number(normalizePrice(model.price_dozen_bs)),newPrice=Number(normalizePrice(price));
  return normalizeName(model.name)===normalizeName(name)&&normalizeSize(model.size_label)===normalizeSize(size)&&Number.isFinite(newPrice)&&oldPrice===newPrice&&JSON.stringify([...new Set(model.colorIds??[])].sort())===JSON.stringify([...new Set(colorIds)].sort());
 }
+
+// Quick choices use recorded commercial values; no hard-coded selling prices.
+export const QUICK_DOZENS=Object.freeze([1,2,3,4,5,6,7,8]);
+export function productPriceOptions(models,size,current){
+ const same=models.filter(m=>normalizeSize(m.size_label)===normalizeSize(size));
+ const values=[current,...same.map(m=>m.price_dozen_bs),...models.map(m=>m.price_dozen_bs)];
+ const result=new Set();
+ for(const value of values){const raw=normalizePrice(value);if(!/^\d+(?:\.\d{1,2})?$/.test(raw))continue;const n=Number(raw);if(Number.isFinite(n)&&n>0&&n<=9999999999.99)result.add(String(n));}
+ return [...result];
+}
