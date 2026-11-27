@@ -50,3 +50,14 @@ export function productPriceOptions(models,size,current){
  for(const value of values){const raw=normalizePrice(value);if(!/^\d+(?:\.\d{1,2})?$/.test(raw))continue;const n=Number(raw);if(Number.isFinite(n)&&n>0&&n<=9999999999.99)result.add(String(n));}
  return [...result];
 }
+
+// Only the real pending balance is suggested; never infer or record a payment.
+export function paymentAmountOptions(balance){
+ const raw=normalizePrice(balance);
+ if(!/^\d+(?:\.\d{1,2})?$/.test(raw))return [];
+ const [whole,frac='']=raw.split('.');
+ const cents=BigInt(whole)*100n+BigInt((frac+'00').slice(0,2));
+ if(cents<=0n||cents>999999999999n)return [];
+ const value=String(cents/100n)+'.'+String(cents%100n).padStart(2,'0');
+ return [{value,label:'Saldo: '+value.replace('.',',')+' Bs'}];
+}
