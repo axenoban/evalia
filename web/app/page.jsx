@@ -8,7 +8,7 @@ import {
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
 import { getSupabase } from '../lib/supabase.js';
-import { useRecordList, RecordListControls, ListPager } from './record-list-controls.jsx';
+import { useRecordList, useServerOrderList, RecordListControls, ListPager } from './record-list-controls.jsx';
 import {inspectAdminMfa,withOwnerReauthentication} from '../lib/mfa-client.js';
 import MfaGate from './mfa-gate.jsx';
 import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmation.js';
@@ -1321,19 +1321,19 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
  </form>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
+function Orders({data:workspace,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
  const [editingId,setEditingId]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
- const visibleOrders=data.orders.filter(o=>Boolean(o.archived_at)===showArchived);
- const list=useRecordList(visibleOrders,showArchived?'archived_at':'confirmed_at');
+ const list=useServerOrderList(workspace,showArchived);
  const {view}=list;
+ const data=list.details?{...workspace,...list.details}:workspace;
  const changeArchive=archived=>{setShowArchived(archived);list.setPage(1);setEditingId(null);};
  return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
    description="Abre un pedido para consultar sus modelos y gestionar lo necesario."/>
-  {!showArchived&&<LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>}
-  <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>changeArchive(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>changeArchive(true)}>Archivados ({data.orders.filter(o=>o.archived_at).length})</button></div>
+  {!showArchived&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
+  <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>changeArchive(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>changeArchive(true)}>Archivados ({workspace.orders.filter(o=>o.archived_at).length})</button></div>
   <RecordListControls list={list} dateLabel={showArchived?"Fecha de archivo":"Fecha de confirmación del pedido"} busy={busy} onChange={()=>setEditingId(null)}/>
-  {view.total?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
+  {list.loading?<p className="loading" role="status">Cargando página de pedidos…</p>:list.error?<div role="alert" className="surface pad"><p>No se pudieron cargar los pedidos. {list.error}</p><button type="button" className="button button-outline" disabled={busy} onClick={list.retry}>Reintentar</button></div>:!list.range.valid?null:view?.total?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
    {view.items.map(o=>{
     const customer=data.customers.find(x=>x.id===o.customer_id);
     const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
@@ -1463,7 +1463,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
     </details>;
    })}
   </div>:<Empty title={list.preset!=='all'?"Sin pedidos en este rango":showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={list.preset!=='all'?"Cambia las fechas o quita el filtro.":showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
-  <ListPager view={view} onPage={p=>{list.setPage(p);setEditingId(null);}} label="Páginas de pedidos" busy={busy}/>
+  {view&&<ListPager view={view} onPage={p=>{list.setPage(p);setEditingId(null);}} label="Páginas de pedidos" busy={busy||list.loading}/> }
  </>;
 }
 function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
