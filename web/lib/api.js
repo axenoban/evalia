@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.js';
+import { assembleWorkspace } from './workspace-assembly.js';
 
 function unwrap(result,action) {
   if(result.error) throw new Error(action+': '+result.error.message);
@@ -30,8 +31,8 @@ export async function loadWorkspace(){
     db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at').order('created_at',{ascending:false}),
     db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at').order('created_at',{ascending:false}).limit(200),
     db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units'),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version').is('archived_at',null).order('confirmed_at',{ascending:false}).limit(200),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version').not('archived_at','is',null).order('archived_at',{ascending:false}).limit(200),
+    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version,revision').is('archived_at',null).order('confirmed_at',{ascending:false}).limit(200),
+    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version,revision').not('archived_at','is',null).order('archived_at',{ascending:false}).limit(200),
     db.from('order_lines').select('id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs'),
     db.from('reservation_extra_colors').select('reservation_line_id,color_id,position').order('position'),
     db.from('order_extra_colors').select('order_line_id,color_id,position').order('position'),
@@ -53,10 +54,6 @@ export async function loadWorkspace(){
    payments=unwrap(paymentData,'Avisos de pago'),paymentReviews=unwrap(paymentReviewData,'Historial de pagos'),
    deliveries=unwrap(deliveryData,'Recogidas'),deliveryLines=unwrap(deliveryLineData,'Prendas recogidas'),
    links=unwrap(linkData,'Enlaces de cliente'),qrSettings=unwrap(qrData,'QR administrativo')?.[0]||null;
-  // La nueva RPC de edición se habilita solo cuando existe la migración 015.
-  // En una Preview anterior no romper las lecturas del catálogo ni los pedidos.
-  const revisionResponse=await db.from('orders').select('id,revision').limit(200);
-  const revisionMap=new Map((revisionResponse.error?[]:revisionResponse.data??[]).map(o=>[o.id,o.revision]));
   // Cada consulta usa RLS. Refrescar después de toda escritura, sin calcular cupos desde datos del cliente.
   const [stocks,images,financeEntries,deliveryEntries]=await Promise.all([
     Promise.all(models.map(async model=>{
@@ -71,13 +68,7 @@ export async function loadWorkspace(){
     Promise.all(orders.map(async o=>[o.id,unwrap(await db.rpc('get_evalia_order_finance',{p_order_id:o.id}),'Saldo del pedido')])),
     Promise.all(orders.map(async o=>[o.id,unwrap(await db.rpc('get_evalia_order_delivery',{p_order_id:o.id}),'Retiro del pedido')]))
   ]);
-  return {models:models.map(m=>({...m,colorIds:modelColors.filter(x=>x.model_id===m.id).map(x=>x.color_id),imageUrl:images.find(x=>x[0]===m.id)?.[1]})),
-   colors,customers,stock:Object.fromEntries(stocks),revisions,payments,paymentReviews,
-   deliveries,deliveryLines,links,qrSettings,finances:Object.fromEntries(financeEntries),deliveryStats:Object.fromEntries(deliveryEntries),
-   reservations:reservations.map(r=>({...r,lines:reservationLines.filter(x=>x.reservation_id===r.id).map(l=>({...l,
-      extraColorIds:reservationColors.filter(c=>c.reservation_line_id===l.id).map(c=>c.color_id)}))})),
-   orders:orders.map(o=>({...o,revision:revisionMap.get(o.id)??null,lines:orderLines.filter(x=>x.order_id===o.id).map(l=>({...l,
-      extraColorIds:orderColors.filter(c=>c.order_line_id===l.id).map(c=>c.color_id)}))}))};
+  return assembleWorkspace({models,modelColors,colors,customers,reservations,reservationLines,reservationColors,orders,orderLines,orderColors,revisions,payments,paymentReviews,deliveries,deliveryLines,links,qrSettings,stocks,images,financeEntries,deliveryEntries});
 }
 export async function createColor(name,hex){
   return unwrap(await client().from('colors').insert({name,hex_code:hex}).select('id').single(),'Crear color');
