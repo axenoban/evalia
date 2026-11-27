@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,loadStockBatches,loadModelPhotos} from '../web/lib/product-data.js';
+import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,loadStockBatches,loadModelPhotos,productPriceOptions,QUICK_DOZENS} from '../web/lib/product-data.js';
 const models=[{id:'a',name:'Blusa Princesa',size_label:'M',price_dozen_bs:'380.00',colorIds:['r','b'],is_active:true,image_path:'models/a.jpg'},{id:'b',name:'Blusa XL',size_label:'xl',price_dozen_bs:420,is_active:true,image_path:'models/b.jpg'},{id:'c',name:'Otro',size_label:'3XL',price_dozen_bs:450,is_active:false,image_path:'models/c.jpg'}];
 test('reusable sizes and suggestions respect free price entry and normalized duplicate names',()=>{
  assert.deepEqual(productSizes(models),['M','XL','2XL','3XL']);
@@ -36,7 +36,7 @@ test('stock RPC batches and private image signatures use bounded groups without 
 test('catalog has complete editor, archive view, pagination and reusable palette without color stock',()=>{
  const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
  const section=page.slice(page.indexOf('function StockEditor('),page.indexOf('function ClientEditForm('));
- for(const phrase of ['Editar producto','Duplicar producto','Historial de cambios','Reactivar producto','Copiar paleta de modelo','Seleccionar visibles','Registros','Talla única del modelo','Disponibilidad','Productos activos']){
+ for(const phrase of ['Editar producto','Duplicar producto','Historial de cambios','Reactivar producto','Copiar paleta de modelo','Seleccionar todos','Registros','Talla única del modelo','Disponibilidad','Productos activos']){
   if(phrase==='Registros')continue;
   assert.ok(section.includes(phrase),phrase);
  }
@@ -53,4 +53,33 @@ test('order display, print and WhatsApp prefer captured historical labels',()=>{
   const content=readFileSync(new URL('../'+path,import.meta.url),'utf8');
   assert.match(content,/model_name_snapshot/);assert.match(content,/size_label_snapshot/);assert.match(content,/extraColorsSnapshot/);
  }
+});
+
+test('quick price options reuse historical prices across sizes, normalize equal values and preserve free entry',()=>{
+ assert.deepEqual(productPriceOptions(models,'XL'),['420','380','450']);
+ assert.deepEqual(productPriceOptions([...models,{price_dozen_bs:'380,00',size_label:'M'},{price_dozen_bs:'bad',size_label:'M'}],'M',399.5),['399.5','380','420','450']);
+ assert.deepEqual(productPriceOptions([],'M'),[]);
+ assert.deepEqual(QUICK_DOZENS,[1,2,3,4,5,6,7,8]);
+});
+test('mobile catalog puts quantity input on a full row, keeps quick selection and moves secondary filters below records',()=>{
+ const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../web/app/product-catalog.css',import.meta.url),'utf8');
+ const catalog=page.slice(page.indexOf('function Catalog('),page.indexOf('function QuickOptions('));
+ const form=page.slice(page.indexOf('function ModelForm('),page.indexOf('function ClientEditForm('));
+ const stock=page.slice(page.indexOf('function StockEditor('),page.indexOf('function ProductHistory('));
+ assert.ok(catalog.indexOf('page.items.map')<catalog.indexOf('<RecordListControls'));
+ assert.ok(catalog.indexOf('<RecordListControls')<catalog.indexOf('<ListPager'));
+ assert.match(catalog,/<ExpandableColorLibrary/);
+ assert.match(form,/options=\{sizes.map/);
+ assert.match(form,/options=\{prices.map/);
+ assert.match(form,/QUICK_DOZENS.map/);
+ assert.match(form,/customLabel="Otra talla"/);
+ assert.match(form,/customLabel="Otro precio"/);
+ assert.match(form,/customLabel="Más"/);
+ assert.match(form,/showPaletteCopy&&paletteSources.length/);
+ assert.doesNotMatch(form,/Buscar color|colorSearch/);
+ assert.match(stock,/stock-bottom ev-stock-bottom/);
+ assert.match(css,/\.ev-stock-bottom\{grid-template-columns:minmax\(0,1fr\)/);
+ assert.match(css,/\.ev-stock-stepper\{width:100%;grid-template-columns:minmax\(44px,1fr\) minmax\(64px,2fr\)/);
+ assert.match(page,/aria-pressed=\{!custom&&String\(value\)===String\(option.value\)\}/);
 });
