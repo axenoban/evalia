@@ -733,7 +733,7 @@ function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint
  const [customerSearch,setCustomerSearch]=useState(''),[customerListOpen,setCustomerListOpen]=useState(false),[highlightedCustomer,setHighlightedCustomer]=useState(0);
  const customerPickerRef=useRef(null),submitting=useRef(false),photoDialog=useRef(null);
  const [productSearch,setProductSearch]=useState(''),[sizeFilter,setSizeFilter]=useState('all'),[showUnavailable,setShowUnavailable]=useState(false);
- const [expanded,setExpanded]=useState(null),[localError,setLocalError]=useState(''),[addClient,setAddClient]=useState(false),[photo,setPhoto]=useState(null),[visibleLimit,setVisibleLimit]=useState(12);
+ const [expanded,setExpanded]=useState(null),[scrollTarget,setScrollTarget]=useState(null),[localError,setLocalError]=useState(''),[addClient,setAddClient]=useState(false),[photo,setPhoto]=useState(null),[visibleLimit,setVisibleLimit]=useState(12);
  const locked=busy||Boolean(attempt),models=data.models.filter(m=>m.is_active),stock=data.stock;
  const chosenCustomer=data.customers.find(c=>c.id===customerId);
  const review=reviewBooking(models,portions,stock,data.colors);
@@ -758,10 +758,11 @@ function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint
  useEffect(()=>{const dismiss=e=>{if(!customerPickerRef.current?.contains(e.target))setCustomerListOpen(false);};document.addEventListener('pointerdown',dismiss);return()=>document.removeEventListener('pointerdown',dismiss);},[]);
  useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
  useEffect(()=>{if(photo&&photoDialog.current&&!photoDialog.current.open)photoDialog.current.showModal();},[photo]);
+ useEffect(()=>{if(scrollTarget){document.getElementById('order-model-'+scrollTarget)?.scrollIntoView({block:'nearest'});setScrollTarget(null);}},[scrollTarget]);
  function editPortion(id,value){if(!locked)change({portions:{...portions,[id]:value}});}
  function addModel(model,activeColors){
   if(locked||Object.keys(portions).length>=100)return;
-  try{editPortion(model.id,initialModelPortion(stock[model.id],activeColors));setExpanded(model.id);}catch(e){setLocalError(e.message);}
+  try{editPortion(model.id,initialModelPortion(stock[model.id],activeColors));setExpanded(model.id);setScrollTarget(model.id);}catch(e){setLocalError(e.message);}
  }
  function removeModel(id){if(locked)return;const next={...portions};delete next[id];change({portions:next});}
  async function clearCart(){
@@ -1627,12 +1628,13 @@ function EvaliaWorkspace(){
  const addColor=(params)=>mutation(()=>saveColor(params),'Color guardado.');
  const reactivate=(params)=>mutation(()=>reactivateProduct({modelId:params.model.id,units:params.units,expectedUpdatedAt:params.model.updated_at,requestId:params.requestId}),'Producto reactivado con stock confirmado.');
  async function addClient(payload,returnRecord=false){
+  const actor=authorizedUser.current;
   let duplicate=null,created=null;
   const ok=await mutation(async()=>{
    const result=await createCustomer(payload);created=result;
    if(result.state==='duplicate'){duplicate=result;throw Error('Se encontró otra ficha con ese WhatsApp. Confirma antes de continuar.');}
   },'Cliente registrado con categoría de entrega.');
-  return duplicate||(ok&&returnRecord?created:ok);
+  return authorizedUser.current===actor?(duplicate||(ok&&returnRecord?created:ok)):false;
  }
  const updateStock=(modelId,operation,units,version,requestId)=>
   mutation(()=>adjustStock({modelId,operation,units,version,requestId:requestId||uuid()}),'Stock actualizado.');
@@ -1646,8 +1648,11 @@ function EvaliaWorkspace(){
    if(!result.confirmed){
     const code=result.error?.code;
     // Explicit PostgreSQL validation failure rolls the transaction back. Transport failures do not.
-    if(['40001','22023','22003','23514','P0002','42501'].includes(code))setBookingDraft(current=>({...current,attempt:null}));
-    setError(result.error?.message||'Resultado no confirmado. Reintenta el mismo registro.');return false;
+    if(['40001','22023','22003','23514','P0002','42501'].includes(code)){
+     setBookingDraft(current=>({...current,attempt:null}));
+     try{await refresh();}catch{/* Keep server rejection visible; refresh can be retried manually. */}
+    }
+    if(authorizedUser.current===actor)setError(result.error?.message||'Resultado no confirmado. Reintenta el mismo registro.');return false;
    }
    setBookingDraft({...emptyBooking(),receipt:result.value});
    setMessage('Pedido confirmado con destino y precios congelados.');
@@ -1655,6 +1660,7 @@ function EvaliaWorkspace(){
    return true;
   }finally{bookingWrite.current=false;setBusy(false);}
  }
+ function navigate(id){if(id==='orders')setFocusOrder(null);setTab(id);}
  function viewOrder(id){setFocusOrder(id);setTab('orders');}
  async function repeatOrder(previous){
   if(busy||bookingDraft.attempt)return;
@@ -1724,7 +1730,7 @@ function EvaliaWorkspace(){
    <div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
    <p className="sidebar-label">ESPACIO DE TRABAJO</p>
    <nav className="sidebar-nav" aria-label="Navegación principal">{menu.map(([id,label,symbol])=>
-    <button key={id} onClick={()=>setTab(id)} aria-current={tab===id?'page':undefined}
+    <button key={id} onClick={()=>navigate(id)} aria-current={tab===id?'page':undefined}
       className={tab===id?'active':''}><span className="nav-icon"><UiIcon name={id}/></span>{label}</button>)}</nav>
    <div className="sidebar-bottom"><span className="connected-dot"/><div><strong>Base de datos conectada</strong><small>Sesión administrativa</small></div></div>
   </aside>
@@ -1741,7 +1747,7 @@ function EvaliaWorkspace(){
     <ToastNotifications error={error} message={message}
       onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
-      tab==='home'?<Dashboard data={data} setTab={setTab}/>:
+      tab==='home'?<Dashboard data={data} setTab={navigate}/>:
       tab==='catalog'?<Catalog data={data} onSaveColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} onReactivate={reactivate} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} draft={bookingDraft} setDraft={setBookingDraft} onOrder={order} onCreateClient={addClient} onView={viewOrder} onPrint={printSelected} onIssue={issueLink} onRevoke={revokeLink} busy={busy}/>: 
       tab==='orders'?<Orders data={data} focusOrder={focusOrder} onClearFocus={()=>setFocusOrder(null)} onRepeat={repeatOrder} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
@@ -1752,7 +1758,7 @@ function EvaliaWorkspace(){
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
   </div>
   <nav className={'mobile-nav'+(owner?' mobile-nav-owner':'')} aria-label="Navegación móvil">{menu.map(([id,label,sign])=>
-   <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)} className={tab===id?'active':''}>
+   <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>navigate(id)} className={tab===id?'active':''}>
     <span><UiIcon name={id}/></span><small>{id==='booking'?'Nuevo':label}</small></button>)}</nav>
  </div>;
 }
