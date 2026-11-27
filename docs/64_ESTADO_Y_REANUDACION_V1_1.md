@@ -1,0 +1,32 @@
+# EVALIA V1.1 — Punto de reanudación y estado E1–E4
+Fecha: 26-11-2026 (America/La_Paz). Solicitud del propietario: guardar el avance de E1 y detener la implementación para revisar las etapas pendientes. Documento de estado, no autorización de merge o publicación.
+
+## Baseline comprobado
+- main y dev/evalia-core idénticas, dffbb41e21906933078d5585c56b743d7c29d465.
+- PR #25 draft, rama feature/evalia-e1-estabilidad. Último candidato de código comprobado c6968d21d64bc61d9ae2bcde94096c6be74eba41.
+- CI integral 45735389577 y dashboard 45735389574 en verde. PostgreSQL 616/616, 22 archivos, Auth SDK real MFA/roles/reauth/reintentos concurrentes/expiración PASS, ensayo sintético de recuperación cifrada PASS (BD, inventario, pago, entrega, historial, Auth, RLS y foto física). Build Next y npm audit sin vulnerabilidades reportadas. No afirmar ausencia total de vulnerabilidades.
+- QA independiente evalia-qa, 24 migraciones aplicadas según verificaciones previas; migraciones E1 de permisos, sesiones, altas y escritura de catálogo versionadas. Sin aplicar a producción. Candidato físico anterior c151ffb aprobado por propietario (7 comprobaciones); cambios posteriores de integridad requieren regresión funcional focalizada. No confundir prueba sintética de CI con respaldo remoto real.
+
+## Estado de E1 por contrato docs/59
+| ID | Estado | Pendiente |
+|---|---|---|
+| E1-01 | En curso | Configurar acceso S3 y conexión QA, generar respaldo real cifrado, almacenamiento privado fuera del equipo, retención 30 días, tarea diaria y verificar ejecución. |
+| E1-02 | Ensayo sintético aprobado | Restaurar respaldo real de QA en stack local nuevo, comprobar hashes, datos, Auth, RLS, almacenamiento, portal e impresión; no usar producción como destino. |
+| E1-03 | Validado técnicamente en CI | Mantener auditoría actualizada y verificar en candidato definitivo; transición de producción solo autorizada. |
+| E1-04 | MFA principal validado | Revisar recuperación de factor/invitación y transición segura de propietario antes de publicación. |
+| E1-05 | Sesiones y reautenticación validadas en CI; acceso recordado aprobado por propietario | QA focalizada de acciones sensibles y revocación/recuperación que no se hayan observado físicamente. |
+| E1-06 | Correcciones de alta y concurrencia validadas en CI | QA focalizada tras últimas migraciones; revisar acciones compuestas, reintentos y resultados inciertos restantes. Solicitudes de modelo anteriores al ledger devuelven conflicto para reconciliar catálogo, no se reconstruye payload histórico. |
+| E1-07 | Implementación parcial | Completar revisión de escrituras confirmadas, fallos de refresco y resultados inciertos; ampliar QA de interrupción/reintento. |
+| E1-08 | Auditoría inicial y dependencias verificadas | Cerrar revisión de secretos, cabeceras y transición antes de publicación. |
+| E1-09 | Validado | Lockfile versionado, npm ci reproducible. |
+| E1-10 | En curso | Registrar aceptación final, manual de operación y recuperación comprobada. |
+
+## Punto exacto en el PC privado
+Evidencia aportada por propietario: Node 24.15.0 (CI usa 22; probar runtime local antes de certificar, no instalar otra versión sin necesidad), Git 2.50.1.windows.1, Docker 29.9.3 (motor operativo confirmado), WSL 3.0.5 modo predeterminado 2, AWS CLI 2.42.2, TAR 3.8.9, age y age-keygen 1.3.2, psql 19.0, Supabase CLI 3.4.0 instalado según propietario (recomprobar versión). Repositorio clonado en %USERPROFILE%/evalia-respaldos en c6968d2. Windows Professional con BitLocker en C:; propietario informa cifrado 100 %, falta confirmación expresa de ProtectionStatus On. No registrar rutas que contengan datos personales, claves ni contraseñas.
+En la última respuesta se dieron instrucciones para crear %LOCALAPPDATA%/EvaliaBackup/QA/{Claves,Temporal,Copias,Config}, generar identity.txt y recipient.txt, conservar identidad fuera del equipo, crear credencial S3 exclusiva de QA, configurar perfil AWS evalia-qa-backup y ejecutar list-buckets. **No hay confirmación de que esos pasos se ejecutaran.** No regenerar identidad existente. Reanudar comprobando BitLocker protección activada, estado de carpetas (sin leer identidad), versión CLI y prueba list-buckets de QA (solo nombres de buckets). Luego configurar conexión Session pooler de QA puerto 5432/TLS y archivo backup.env local privado; nunca pedir secretos por chat. Copias QA y producción separadas. No copiar datos reales a QA/CI. Primer respaldo remoto QA y restauración privada aún pendientes. Las copias locales no equivalen a almacenamiento externo: decidir destino privado con cuota suficiente para 30 días y verificar sincronización de ciphertext antes de habilitar rutina comercial. Mantener respaldo comercial sin activar hasta completar ensayo, comprobar protección local y revisar transición. Costo adicional objetivo cero.
+
+## Etapas no iniciadas como bloques V1.1
+E2 optimización técnica (10 puntos): paginación de pedidos/archivo, clientes/búsqueda, agrupación de consultas de inventario/pagos/entregas, carga por sección, actualización selectiva, índices, optimización de fotos, modularización, pruebas de rendimiento/concurrencia. Metas propuestas de docs/59: medir baseline, ≥70 % menos solicitudes de dashboard, <3 s carga inicial reproducible, 10.000 pedidos/5.000 clientes sintéticos aislados.
+E3 inteligencia comercial (10 puntos): estadísticas, pedidos/cobros/saldos, modelos/tallas, ficha e historial y frecuencia de compra de clientes, cierre de feria con monto físico global opcional, exportación Excel/CSV, historial administrativo, alertas. Estadísticas/exportaciones solo propietario; métricas y periodos según docs/59; evitar doble conteo.
+E4 experiencia avanzada (10 puntos): PWA, estado de conexión, borradores offline, recuperación de formularios, reintentos, accesos rápidos, ergonomía táctil, accesibilidad, impresión multidispositivo, QA PC/móvil. Borradores 24h sin nombres/teléfonos, no operaciones comerciales offline.
+Las funciones existentes de V1 no equivalen a haber iniciado estos bloques. Continuar en orden tras cerrar E1 e integrar a dev con CI/QA aprobados, main solo por autorización específica. Al guardar este punto no se inicia E2 ni se cambia infraestructura ni se generan gastos.
