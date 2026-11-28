@@ -30,6 +30,8 @@ import {
   centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
 } from '../lib/domain.js';
 
+// Secciones del vendedor: registra clientes y pedidos, informa pagos y consulta pedidos.
+const SELLER_TABS=['home','booking','orders','customers'];
 const MENU=[
   ['home','Resumen','▦'],
   ['catalog','Productos','▧'],
@@ -195,7 +197,7 @@ function DashboardProductCard({model,stock,recent,onOpen}){
   </div>
  </article>;
 }
-function Dashboard({data,setTab,onStartOrder,onOpenOrder}){
+function Dashboard({data,setTab,onStartOrder,onOpenOrder,canManage=true}){
  const activeModels=prioritizeModels(data.models);
  const now=Date.now();
  const recentModels=activeModels.filter(m=>isRecentModel(m,now));
@@ -241,7 +243,7 @@ function Dashboard({data,setTab,onStartOrder,onOpenOrder}){
      <div><h2 id="ev-models-heading">Modelos y stock disponible</h2></div>
     </div>
     <div className="ev-zone-actions">
-     <button type="button" className="ev-section-link" onClick={()=>setTab('catalog')}>Administrar productos <span aria-hidden="true">→</span></button>
+     {canManage&&<button type="button" className="ev-section-link" onClick={()=>setTab('catalog')}>Administrar productos <span aria-hidden="true">→</span></button>}
      {recentModels.length>0&&activeModels.length>recentModels.length&&<button type="button" className="ev-section-link" aria-pressed={showOlder} onClick={()=>setShowOlder(v=>!v)}>{showOlder?'Solo recientes':'Ver anteriores (' + (activeModels.length-recentModels.length)+')'}</button>}
      {visibleModels.length>0&&<div className="ev-carousel-buttons" aria-label="Desplazar modelos">
       <button type="button" aria-label="Ver modelos anteriores" disabled={!trackEdges.prev} onClick={()=>shiftModels(-1)}>‹</button>
@@ -290,7 +292,7 @@ function Dashboard({data,setTab,onStartOrder,onOpenOrder}){
      <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="payments"/></span>
       <div><h2 id="ev-payments-heading">Pagos por verificar</h2></div>
      </div>
-     <button type="button" className="ev-section-link" onClick={()=>setTab('payments')}>Ver pagos <span aria-hidden="true">→</span></button>
+     {canManage&&<button type="button" className="ev-section-link" onClick={()=>setTab('payments')}>Ver pagos <span aria-hidden="true">→</span></button>}
     </header>
     {pendingPayments.length?<div className="ev-payment-list">
      {pendingPayments.slice(0,4).map(p=>{
@@ -573,7 +575,7 @@ function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
   </div>
  </form>;
 }
-function ClientPanel({data,onCreate,onUpdate,busy}){
+function ClientPanel({data,onCreate,onUpdate,busy,canEdit=true}){
  const [search,setSearch]=useState(''),[editing,setEditing]=useState(null);
  const clients=findBookingCustomers(data.customers,search);
  const list=useRecordList(clients,'created_at');
@@ -593,8 +595,8 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
       const orders=data.orders.filter(o=>o.customer_id===c.id&&!o.archived_at).length;
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
        <div><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}{c.shipping_destination?' · '+c.shipping_destination:''}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span></div>
-       <button className="button button-outline" type="button" disabled={busy}
-        onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button></div>
+       {canEdit&&<button className="button button-outline" type="button" disabled={busy}
+        onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button>}</div>
        {editing===c.id&&<ClientEditForm key={c.id+'-'+c.updated_at} customer={c}
         onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy} customers={data.customers}/>}
       </div>
@@ -708,7 +710,7 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove,busy=fals
 function OrderStepHeader({number,title,state}){
  return <div className="form-section-title ev-booking-section-title"><span className="step" aria-hidden="true">{number}</span><div className="order-step-heading"><h2>{title}</h2></div>{state==='done'&&<span className="ev-section-complete" aria-label="Sección lista">✓</span>}</div>;
 }
-function BookingReceipt({id,data,onNew,onView,onPrint,onIssue,onRevoke,busy}){
+function BookingReceipt({id,data,onNew,onView,onPrint,onIssue,onRevoke,busy,canManage=true}){
  const [loaded,setLoaded]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0),[share,setShare]=useState(false);
  const result=loaded?.id===id?loaded.value:null;
  const verified=loaded?.id===id&&loaded.workspace===data&&loaded.retry===retry&&!error;
@@ -723,14 +725,14 @@ function BookingReceipt({id,data,onNew,onView,onPrint,onIssue,onRevoke,busy}){
    {error?<Notice type="error">El pedido está registrado. No se pudo cargar su detalle: {error} <button type="button" className="button button-outline" onClick={()=>setRetry(n=>n+1)}>Actualizar detalle</button></Notice>:!order?<p role="status">Consultando pedido confirmado…</p>:<>
     <h3>{customer?.name||'Cliente'}</h3><p>{order.lines.length} modelos · {order.lines.reduce((n,l)=>n+Number(l.quantity),0)} prendas · {deliveryLabel(order.fulfillment_method)}</p>
     <strong className="ev-receipt-total">{formatBs(order.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n))}</strong>
-    <div className="ev-receipt-actions"><button className="button button-primary" type="button" disabled={busy||!verified||order.status!=='active'} onClick={()=>setShare(v=>!v)}>{share?'Cerrar mensaje':'Preparar mensaje de WhatsApp'}</button>
-     <button className="button button-outline" type="button" disabled={busy||!verified||order.status==='voided'||order.fulfillment_method==='legacy'} onClick={()=>onPrint(order,customer)}>{order.fulfillment_method==='shipping'?'Imprimir etiqueta':'Imprimir comprobante'}</button></div>
-    {share&&<OrderLinkPanel order={order} data={details} onIssue={onIssue} onRevoke={onRevoke} busy={busy||!verified}/>}
+    {canManage&&<div className="ev-receipt-actions"><button className="button button-primary" type="button" disabled={busy||!verified||order.status!=='active'} onClick={()=>setShare(v=>!v)}>{share?'Cerrar mensaje':'Preparar mensaje de WhatsApp'}</button>
+     <button className="button button-outline" type="button" disabled={busy||!verified||order.status==='voided'||order.fulfillment_method==='legacy'} onClick={()=>onPrint(order,customer)}>{order.fulfillment_method==='shipping'?'Imprimir etiqueta':'Imprimir comprobante'}</button></div>}
+    {canManage&&share&&<OrderLinkPanel order={order} data={details} onIssue={onIssue} onRevoke={onRevoke} busy={busy||!verified}/>}
    </>}
    <div className="ev-receipt-actions"><button className="button button-outline" type="button" disabled={busy} onClick={()=>onView(id)}>Ver pedido</button><button className="button button-primary" type="button" disabled={busy} onClick={onNew}>＋ Registrar otro pedido</button></div>
   </section></>;
 }
-function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint,onIssue,onRevoke,busy}){
+function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint,onIssue,onRevoke,busy,canManage=true}){
  const {ask}=useConfirmation();
  const {customerId,method,destination,portions,attempt,receipt}=draft;
  const [customerSearch,setCustomerSearch]=useState(''),[customerListOpen,setCustomerListOpen]=useState(false),[highlightedCustomer,setHighlightedCustomer]=useState(0);
@@ -784,7 +786,7 @@ function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint
    await onOrder({customerId,lines:review.lines,delivery,requestId:uuid()});
   }catch(e){setLocalError(e.message);}finally{submitting.current=false;}
  }
- if(receipt)return <BookingReceipt id={receipt} data={data} onNew={()=>{setDraft(emptyBooking());setLocalError('');}} onView={onView} onPrint={onPrint} onIssue={onIssue} onRevoke={onRevoke} busy={busy}/>;
+ if(receipt)return <BookingReceipt id={receipt} data={data} onNew={()=>{setDraft(emptyBooking());setLocalError('');}} onView={onView} onPrint={onPrint} onIssue={onIssue} onRevoke={onRevoke} busy={busy} canManage={canManage}/>;
  return <div className="ev-booking ev-booking-v2">
   <SectionHead eyebrow="VENTAS MAYORISTAS" title="Nuevo pedido"/>
   <nav className="order-progress ev-order-progress" aria-label="Progreso del registro de pedido">
@@ -1283,7 +1285,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
  </form>;
 }
-function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
+function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy,canManage=true}){
  const {ask}=useConfirmation();
  const [editingId,setEditingId]=useState(null),[linkOpen,setLinkOpen]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
@@ -1301,7 +1303,7 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
  const changeArchive=archived=>{onClearFocus?.();setShowArchived(archived);list.setPage(1);setEditingId(null);};
  return <><header className="ev-orders-heading"><p className="eyebrow">{showArchived?'HISTORIAL COMERCIAL':'PEDIDOS CONFIRMADOS'}</p><h1>{showArchived?'Pedidos archivados':'Pedidos'}</h1></header>
   {focusOrder&&<button type="button" className="button button-outline" onClick={()=>{onClearFocus();list.clear();}}>Ver todos los pedidos</button>}
-  {!showArchived&&!focusOrder&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
+  {canManage&&!showArchived&&!focusOrder&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
   {!focusOrder&&<label className="search ev-order-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Buscar pedidos por cliente" placeholder="Buscar por cliente o WhatsApp…" value={search} onChange={e=>setSearch(e.target.value)}/></label>}
   {tooMany&&<p className="small-note" role="status">{matched.length} clientes coinciden con «{query}». Escribe más letras o el número de WhatsApp para filtrar los pedidos.</p>}
   <RecordListControls list={list} dateLabel={showArchived?"Fecha de archivo":"Fecha de confirmación del pedido"} busy={busy} onChange={()=>setEditingId(null)}/>
@@ -1343,7 +1345,7 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
       </span>
       <span className="ev-order-summary-end">
        <strong className="ev-order-summary-total">{formatBs(total)}</strong>
-       {o.status==='active'&&!o.archived_at?<button type="button" className="ev-preparation-toggle" data-prepared={Boolean(o.prepared_at)} disabled={pageBusy} aria-label={(o.prepared_at?'Volver a en preparación: ':'Marcar preparado: ')+(customer?.name||'Cliente')} onClick={e=>{e.preventDefault();e.stopPropagation();onPreparation(o);}}><strong>{o.prepared_at?'✓ Preparado':'En preparación'}</strong><small>{o.prepared_at?'Deshacer':'Marcar preparado'}</small></button>:<Status value={o.status}/>}
+       {canManage&&o.status==='active'&&!o.archived_at?<button type="button" className="ev-preparation-toggle" data-prepared={Boolean(o.prepared_at)} disabled={pageBusy} aria-label={(o.prepared_at?'Volver a en preparación: ':'Marcar preparado: ')+(customer?.name||'Cliente')} onClick={e=>{e.preventDefault();e.stopPropagation();onPreparation(o);}}><strong>{o.prepared_at?'✓ Preparado':'En preparación'}</strong><small>{o.prepared_at?'Deshacer':'Marcar preparado'}</small></button>:<Status value={o.status}/>}
        {o.archived_at&&<span className="ev-order-archive-label">Archivado</span>}
       </span>
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
@@ -1357,14 +1359,14 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
        {amountCents(finance.pending)>0n&&amountCents(finance.approved)>0n&&
         <small>Abonos aprobados: {formatBs(amountCents(finance.approved))}</small>}
       </div>}
-      <div className="ev-order-next" aria-label="Acciones principales del pedido">
+      {canManage&&<div className="ev-order-next" aria-label="Acciones principales del pedido">
        {o.status==='active'&&<OrderQuickActions compact order={o} finance={finance} delivery={delivery}
         payments={relatedPayments} onQuick={onQuick} busy={pageBusy}/>}
        <div className="ev-next-step-secondary">
         {o.status!=='voided'&&o.fulfillment_method!=='legacy'&&<button type="button" className="button button-outline" disabled={pageBusy} onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Imprimir etiqueta':'Imprimir comprobante'}</button>}
         {!o.archived_at&&o.status==='active'&&<button type="button" className="button button-outline" aria-expanded={linkOpen===o.id} onClick={()=>{setLinkOpen(o.id);window.requestAnimationFrame(()=>document.getElementById('order-link-'+o.id)?.scrollIntoView({block:'nearest'}));}}>WhatsApp y enlace</button>}
        </div>
-      </div>
+      </div>}
       {Number(finance.excess)>0&&<Notice type="error">Existe exceso de pago para conciliación: {formatBs(amountCents(finance.excess))}. No se puede cerrar automáticamente.</Notice>}
       <section className="ev-order-model-section" aria-label="Modelos incluidos en el pedido">
        <h3>Modelos</h3>
@@ -1385,7 +1387,7 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
         })}
        </div>
       </section>
-      <details className="ev-order-print-details" aria-label="Impresión y destino del pedido">
+      {canManage&&<details className="ev-order-print-details" aria-label="Impresión y destino del pedido">
        <summary>Impresión y destino <span aria-hidden="true">⌄</span></summary>
        <section className="order-shipping-panel ev-order-shipping" aria-label="Entrega e impresión">
         {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
@@ -1397,13 +1399,13 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
          <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={pageBusy}/>
         </details>}
        </section>
-      </details>
-      <div id={'order-link-'+o.id}>
+      </details>}
+      {canManage&&<div id={'order-link-'+o.id}>
       <details className="ev-order-link-details" open={linkOpen===o.id} onToggle={e=>{const opened=e.currentTarget.open;setLinkOpen(current=>opened?o.id:current===o.id?null:current);}}>
        <summary>WhatsApp y enlace privado <span aria-hidden="true">⌄</span></summary>
        {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={pageBusy}/>}
       </details>
-      </div>
+      </div>}
       <details className="ev-order-management" aria-label="Gestión y acciones del pedido">
        <summary><span>{o.status==='active'?'Cobro y cierre':'Historial y seguimiento'}</span></summary>
        <div className="order-operations ev-order-operations">
@@ -1416,7 +1418,7 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
            <PaymentForm targetId={o.id} onSubmit={onReport} busy={pageBusy} balance={finance.pending}/>}
          </div>
         </details>
-        {o.status==='active'&&<button className="button button-primary" type="button"
+        {canManage&&o.status==='active'&&<button className="button button-primary" type="button"
          disabled={pageBusy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
          onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
         {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
@@ -1425,18 +1427,18 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
       <details className="ev-order-more">
        <summary>Más acciones</summary>
        <div className="ev-order-more-body">
-      {o.status==='active'&&<div className="ev-order-edit-access">
+      {canManage&&o.status==='active'&&<div className="ev-order-edit-access">
        <button type="button" className="button button-outline ev-order-edit-button" disabled={pageBusy||Boolean(editReason)}
         onClick={()=>setEditingId(current=>current===o.id?null:o.id)}>
         {editingId===o.id?'Cerrar edición':'✎ Editar pedido'}
        </button>
        {editReason&&<span className="ev-edit-restriction">{editReason}</span>}
       </div>}
-      {editingId===o.id&&!editReason&&<OrderEditPanel key={o.id+'-'+o.revision}
+      {canManage&&editingId===o.id&&!editReason&&<OrderEditPanel key={o.id+'-'+o.revision}
        order={o} data={data} busy={pageBusy} onCancel={()=>setEditingId(null)}
        onSave={async params=>{const ok=await onEdit(params);if(ok)setEditingId(null);return ok;}}/>}
       <button type="button" className="button button-outline" disabled={pageBusy||o.status==='voided'} onClick={()=>onRepeat(o)}>Repetir como nuevo pedido</button>
-      {!o.archived_at&&<div className="ev-order-archive-action">
+      {canManage&&!o.archived_at&&<div className="ev-order-archive-action">
         <button type="button" className="button ev-archive-button" disabled={pageBusy||!canArchive} onClick={async()=>{
          const explanation=o.status==='active'?'Anular este pedido libera las prendas comprometidas y desactiva su enlace.':'Archivar este pedido solo lo oculta. Conserva los cobros y las entregas registrados.';
          const decision=await ask({severity:o.status==='active'?'critical':'warning',title:o.status==='active'?'Anular pedido':'Archivar pedido',message:explanation,facts:[{label:'Cliente',value:customer?.name||'Cliente'},{label:'Total',value:formatBs(total)}],reasonRequired:true,confirmLabel:o.status==='active'?'Anular pedido':'Archivar pedido'});
@@ -1523,10 +1525,12 @@ function EvaliaWorkspace(){
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [logoutPending,setLogoutPending]=useState(false);
- const [owner,setOwner]=useState(false);
+ // R1: rol real de la sesión (owner=administrador global, operator=administrador, seller=vendedor).
+ const [role,setRole]=useState(null);
+ const owner=role==='owner',seller=role==='seller',canManage=role==='owner'||role==='operator';
  const [mfaGate,setMfaGate]=useState(null),pendingIdentity=useRef(null);
  const [canEnrollMfa,setCanEnrollMfa]=useState(false);
- const menu=owner?[...MENU,['stats','Estadísticas','▥'],['security','Usuarios','⚙']]:MENU;
+ const menu=owner?[...MENU,['stats','Estadísticas','▥'],['security','Usuarios','⚙']]:seller?MENU.filter(([id])=>SELLER_TABS.includes(id)):MENU;
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
  const blockingSeq=useRef(0),dataRef=useRef(null);
  useEffect(()=>{dataRef.current=data;},[data]);
@@ -1538,7 +1542,7 @@ function EvaliaWorkspace(){
   refreshGeneration.current++;
   setBookingDraft(emptyBooking());setFocusOrder(null);
   authorizedUser.current=null;pendingIdentity.current=null;setMfaGate(null);setCanEnrollMfa(false);
-  setOwner(false);
+  setRole(null);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
  },[cancelConfirmation]);
  // Modos: completo y bloqueante (escrituras, manual, acceso) o automático en segundo plano (liviano cada minuto,
@@ -1555,9 +1559,9 @@ function EvaliaWorkspace(){
    if(!permitted){
     clearAccess();setError('Tu acceso ya no está autorizado. Inicia sesión nuevamente.');return;
    }
-   const role=await db.rpc('is_evalia_owner');
+   const roleResult=await db.rpc('get_evalia_my_role');
    if(generation!==refreshGeneration.current)return;
-   setOwner(!role.error&&role.data===true);
+   setRole(!roleResult.error&&['owner','operator','seller'].includes(roleResult.data)?roleResult.data:null);
    const previous=dataRef.current;
    const snapshot=light&&previous?.base?await loadWorkspaceLight(previous):await loadWorkspace();
    if(generation===refreshGeneration.current){
@@ -1775,7 +1779,7 @@ function EvaliaWorkspace(){
  function startOrderWithModel(model){
   const stock=data?.stock[model.id];
   const activeColors=(data?.colors??[]).filter(c=>model.colorIds?.includes(c.id)&&c.is_active).length;
-  if(!canAddModelToOrder(stock,activeColors)){navigate('catalog');return;}
+  if(!canAddModelToOrder(stock,activeColors)){navigate(canManage?'catalog':'booking');return;}
   if(bookingDraft.attempt){setTab('booking');return;}
   try{
    const portion=initialModelPortion(stock,activeColors);
@@ -1871,14 +1875,15 @@ function EvaliaWorkspace(){
     <ToastNotifications error={error} message={message}
       onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
-      tab==='home'?<Dashboard data={data} setTab={navigate} onStartOrder={startOrderWithModel} onOpenOrder={viewOrder}/>:
+      tab==='home'?<Dashboard data={data} setTab={navigate} onStartOrder={startOrderWithModel} onOpenOrder={viewOrder} canManage={canManage}/>:
+      seller&&!SELLER_TABS.includes(tab)?<Notice type="error">Esta sección no está disponible para el rol vendedor.</Notice>:
       tab==='catalog'?<Catalog data={data} onSaveColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} onReactivate={reactivate} busy={busy}/>: 
-      tab==='booking'?<BookingPanel data={data} draft={bookingDraft} setDraft={setBookingDraft} onOrder={order} onCreateClient={addClient} onView={viewOrder} onPrint={printSelected} onIssue={issueLink} onRevoke={revokeLink} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} focusOrder={focusOrder} onClearFocus={()=>setFocusOrder(null)} onRepeat={repeatOrder} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
+      tab==='booking'?<BookingPanel data={data} draft={bookingDraft} setDraft={setBookingDraft} onOrder={order} onCreateClient={addClient} onView={viewOrder} onPrint={printSelected} onIssue={issueLink} onRevoke={revokeLink} busy={busy} canManage={canManage}/>: 
+      tab==='orders'?<Orders data={data} focusOrder={focusOrder} onClearFocus={()=>setFocusOrder(null)} onRepeat={repeatOrder} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy} canManage={canManage}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
       tab==='stats'?(owner?<OwnerStats/>:<Notice type="error">Estadísticas exclusivas del propietario.</Notice>):
       tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
-      <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
+      <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy} canEdit={canManage}/>}
    </main>
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
   </div>

@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(184);
+select plan(199);
 -- Inventario cerrado: toda ampliación exige revisión explícita.
 create temporary table e1_expected(sig text primary key, authenticated boolean, service boolean);
 insert into e1_expected values
@@ -52,8 +52,13 @@ insert into e1_expected values
  ('public.reactivate_evalia_product(uuid,integer,timestamp with time zone,uuid)',true,false),
  -- E3: lectura de estadísticas y exportación; el cuerpo exige is_evalia_owner() (propietario con MFA).
  ('public.get_evalia_owner_stats(timestamp with time zone,timestamp with time zone)',true,false),
- ('public.export_evalia_orders(timestamp with time zone,timestamp with time zone)',true,false);
-select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef),47,'Inventario de SECURITY DEFINER');
+ ('public.export_evalia_orders(timestamp with time zone,timestamp with time zone)',true,false),
+ -- R1: roles. is_evalia_staff/get_evalia_my_role leen la propia sesión; register solo backend; cambio de rol solo propietario.
+ ('public.is_evalia_staff()',true,false),
+ ('public.get_evalia_my_role()',true,false),
+ ('public.register_evalia_member(uuid,uuid,text)',false,true),
+ ('public.set_evalia_member_role(uuid,text)',true,false);
+select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef),51,'Inventario de SECURITY DEFINER');
 select is((select count(*)::integer from e1_expected e where to_regprocedure(e.sig) is null),0,'Todas las firmas existen');
 select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef and not coalesce(p.proconfig @> array['search_path=""'],false)),0,'Todas tienen search_path vacío');
 select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a where n.nspname='public' and p.prosecdef and a.grantee=0 and a.privilege_type='EXECUTE'),0,'Ninguna concede EXECUTE a PUBLIC');
@@ -67,6 +72,8 @@ set local request.jwt.claims='{"sub":"b1000000-0000-4000-8000-000000000001","rol
 select is(public.is_evalia_admin(),false,'Sin perfil no es admin');
 select is(public.is_evalia_owner(),false,'Sin perfil no es owner');
 select is(public.can_manage_evalia_accounts(),false,'Sin perfil no gestiona cuentas');
+select is(public.is_evalia_staff(),false,'Sin perfil no es personal');
+select is(public.get_evalia_my_role(),null,'Sin perfil no tiene rol');
 select throws_ok('select public.adjust_model_inventory(null::uuid,null::text,null::integer,null::bigint,null::uuid)','42501',null,'Sin perfil: adjust_model_inventory denegada');
 select throws_ok('select public.archive_evalia_model(null::uuid,null::timestamp with time zone)','42501',null,'Sin perfil: archive_evalia_model denegada');
 select throws_ok('select public.archive_evalia_order(null::uuid,null::text)','42501',null,'Sin perfil: archive_evalia_order denegada');
@@ -102,6 +109,7 @@ select throws_ok('select public.get_evalia_stock_batch(null::uuid[])','42501',nu
 select throws_ok('select public.reactivate_evalia_product(null::uuid,null::integer,null::timestamptz,null::uuid)','42501',null,'Sin perfil: reactivate_evalia_product denegada');
 select throws_ok('select public.get_evalia_owner_stats(null::timestamptz,null::timestamptz)','42501',null,'Sin perfil: get_evalia_owner_stats denegada');
 select throws_ok('select * from public.export_evalia_orders(null::timestamptz,null::timestamptz)','42501',null,'Sin perfil: export_evalia_orders denegada');
+select throws_ok('select public.set_evalia_member_role(null::uuid,null::text)','42501',null,'Sin perfil: set_evalia_member_role denegada');
 -- list_evalia_admins: pruebas de rol operador existentes y refuerzo MFA pendiente.
 -- set_evalia_operator_active: pruebas de rol operador existentes y refuerzo MFA pendiente.
 -- update_evalia_qr: pruebas de rol operador existentes y refuerzo MFA pendiente.

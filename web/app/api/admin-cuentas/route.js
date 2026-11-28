@@ -27,9 +27,9 @@ export async function POST(request){
   if(action.action==='invite'){
    const invited=await service.auth.admin.inviteUserByEmail(action.email,{redirectTo});
    if(invited.error||!invited.data.user)return response(409,'No se pudo enviar la invitación. Verifica el correo, si ya está registrado y la configuración de envío.');
-   const registration=await service.rpc('register_evalia_operator',{p_actor:actor,p_target:invited.data.user.id});
+   const registration=await service.rpc('register_evalia_member',{p_actor:actor,p_target:invited.data.user.id,p_role:action.role??'operator'});
    if(registration.error||registration.data!==true)return response(503,'La invitación no quedó autorizada. No concede acceso; requiere revisión técnica.');
-   return response(200,'Invitación enviada al correo del nuevo administrador.');
+   return response(200,'Invitación enviada al correo del nuevo '+((action.role??'operator')==='seller'?'vendedor':'administrador')+'.');
   }
   const list=await scoped.rpc('list_evalia_admins');
   const target=list.error?null:list.data?.find(u=>u.user_id===action.userId&&u.active);

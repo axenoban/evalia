@@ -1,7 +1,7 @@
 // E1-04: estado de presentación, NO autorización. La BD y la API deben
 // autorizar de nuevo cada acceso. No recibe ni persiste contraseñas, OTP o secretos.
 export function mfaNextStep(profile,assurance,factors){
- if(!profile?.active||!['owner','operator'].includes(profile.role))return 'denied';
+ if(!profile?.active||!['owner','operator','seller'].includes(profile.role))return 'denied';
  if(!assurance||!['aal1','aal2'].includes(assurance.currentLevel)||!['aal1','aal2'].includes(assurance.nextLevel)||!Array.isArray(factors))return 'unavailable';
  const verified=factors.filter(f=>f?.status==='verified');
  const totp=verified.some(f=>f.factor_type==='totp'&&typeof f.id==='string'&&f.id.length>0);

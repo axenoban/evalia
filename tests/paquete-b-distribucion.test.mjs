@@ -34,7 +34,7 @@ test('B1: orden del detalle — acciones principales arriba y anulación al fina
 });
 test('B2: el resumen abre pedido o agrega el modelo al borrador sin borrar lo elegido',()=>{
  const start=page.slice(page.indexOf('function startOrderWithModel('),page.indexOf('\n }\n',page.indexOf('function startOrderWithModel('))+4);
- assert.match(start,/if\(!canAddModelToOrder\(stock,activeColors\)\)\{navigate\('catalog'\);return;\}/);
+ assert.match(start,/if\(!canAddModelToOrder\(stock,activeColors\)\)\{navigate\(canManage\?'catalog':'booking'\);return;\}/);
  assert.match(start,/if\(bookingDraft\.attempt\)\{setTab\('booking'\);return;\}/);
  assert.match(start,/Object\.hasOwn\(base\.portions,model\.id\)\?base:\{\.\.\.base,portions:\{\.\.\.base\.portions,\[model\.id\]:portion\}\}/);
  assert.doesNotMatch(start,/createOrder|onOrder\(/);

@@ -694,3 +694,10 @@ button.express-secondary:hover:not(:disabled){background:#e5f3ea}
  .mobile-nav .ev-mobile-more-menu button.active{background:#f4ebf0;color:var(--plum);font-weight:700}
  .ev-mobile-more-menu .ev-ui-icon{width:20px;height:20px;flex:none}
 }
+/* R1: selección de rol al invitar usuarios. */
+.ev-role-choice{border:0;padding:0;margin:0 0 12px;display:grid;gap:8px}
+.ev-role-option{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid #e6dbe3;border-radius:12px;cursor:pointer;min-height:44px}
+.ev-role-option input{margin-top:3px}
+.ev-role-option span{display:flex;flex-direction:column;gap:2px}
+.ev-role-option small{color:var(--ink-soft);font-size:12px}
+.ev-role-option:has(input:checked){border-color:var(--plum);background:#f8f1f5}

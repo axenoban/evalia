@@ -14,7 +14,8 @@ export async function authUser(){
   return unwrap(result,'Sesión')?.user??null;
 }
 export async function adminAllowed(){
-  return Boolean(unwrap(await client().rpc('is_evalia_admin'),'Autorización'));
+  // R1: el acceso al panel incluye al vendedor; cada operación vuelve a validar su permiso en el servidor.
+  return Boolean(unwrap(await client().rpc('is_evalia_staff'),'Autorización'));
 }
 export async function signIn(email,password){
   return unwrap(await client().auth.signInWithPassword({email,password}),'Acceso');

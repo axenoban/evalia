@@ -32,7 +32,8 @@ test('dashboard consume disponibilidad libre y no altera la gestión de pedidos'
  assert.match(dashboard,/formatModelDozenPrice\(model\.price_dozen_bs\)/);
  assert.match(dashboard,/data\.orders\.filter\(o=>o\.status==='active'&&!o\.archived_at\)/);
  // Estadísticas y Usuarios solo se agregan al menú del propietario (D07).
- assert.match(page,/const menu=owner\?\[\.\.\.MENU,\['stats','Estadísticas','▥'\],\['security','Usuarios','⚙'\]\]:MENU;/);
+ assert.match(page,/const menu=owner\?\[\.\.\.MENU,\['stats','Estadísticas','▥'\],\['security','Usuarios','⚙'\]\]:seller\?MENU\.filter\(\(\[id\]\)=>SELLER_TABS\.includes\(id\)\):MENU;/);
+ assert.match(page,/const SELLER_TABS=\['home','booking','orders','customers'\];/);
  // El menú móvil recibe el menú completo: 4 accesos directos y «Más» con el resto; ninguna sección queda inaccesible.
  assert.match(page,/<MobileNav menu=\{menu\} tab=\{tab\} onNavigate=\{navigate\}\/>/);
  assert.match(page,/const MOBILE_PRIMARY=\['home','catalog','booking','orders'\];/);
