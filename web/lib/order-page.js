@@ -78,17 +78,20 @@ export async function loadOrderPage(db,params){
  const view=serverPageView(checked(response,'Pedidos'),response.count,page,size);
  if(view.redirect)return {redirect:view.redirect};
  const ids=view.items.map(o=>o.id),origins=view.items.map(o=>o.origin_reservation_id).filter(Boolean);
- const [lines,payments,legacyPayments,deliveries,links,customers]=await Promise.all([
+ const [lines,payments,legacyPayments,deliveries,links,customers,clientRequests]=await Promise.all([
   rowsByIds(db,'order_lines',LINE_COLUMNS,'order_id',ids,['id'],signal),
   rowsByIds(db,'payment_reports',PAYMENT_COLUMNS,'order_id',ids,['id'],signal,[['created_at',false]]),
   rowsByIds(db,'payment_reports',PAYMENT_COLUMNS,'reservation_id',origins,['id'],signal,[['created_at',false]]),
   rowsByIds(db,'deliveries','id,order_id,delivered_at,actor_id','order_id',ids,['id'],signal),
   rowsByIds(db,'order_access_links','order_id,issued_at,revoked_at,version','order_id',ids,['order_id'],signal),
-  rowsByIds(db,'customers',CUSTOMER_COLUMNS,'id',view.items.map(o=>o.customer_id),['id'],signal)
+  rowsByIds(db,'customers',CUSTOMER_COLUMNS,'id',view.items.map(o=>o.customer_id),['id'],signal),
+  // R2: pedidos hechos por el cliente con su enlace personal (solo la página visible).
+  rowsByIds(db,'client_order_requests','order_id','order_id',ids,['order_id'],signal)
  ]);
+ const fromClient=new Set(clientRequests.map(r=>r.order_id));
  const extraColors=await rowsByIds(db,'order_extra_colors','order_line_id,color_id,position,color_name_snapshot,color_hex_snapshot','order_line_id',lines.map(l=>l.id),['order_line_id','color_id'],signal,[['position',true]]);
  const linesByOrder=indexBy(lines,'order_id'),colorsByLine=indexBy(extraColors,'order_line_id');
- const orders=view.items.map(o=>({...o,revision:o.revision??null,lines:(linesByOrder.get(o.id)??[]).map(l=>({...l,extraColorIds:(colorsByLine.get(l.id)??[]).map(c=>c.color_id),...((colorsByLine.get(l.id)??[]).some(c=>c.color_name_snapshot!=null)?{extraColorsSnapshot:(colorsByLine.get(l.id)??[]).map(c=>({id:c.color_id,name:c.color_name_snapshot,hex_code:c.color_hex_snapshot}))}:{})}))}));
+ const orders=view.items.map(o=>({...o,revision:o.revision??null,clientOrder:fromClient.has(o.id),lines:(linesByOrder.get(o.id)??[]).map(l=>({...l,extraColorIds:(colorsByLine.get(l.id)??[]).map(c=>c.color_id),...((colorsByLine.get(l.id)??[]).some(c=>c.color_name_snapshot!=null)?{extraColorsSnapshot:(colorsByLine.get(l.id)??[]).map(c=>({id:c.color_id,name:c.color_name_snapshot,hex_code:c.color_hex_snapshot}))}:{})}))}));
  if(orders.some(o=>!o.lines.length)||customers.length!==new Set(orders.map(o=>o.customer_id)).size)throw Error('Detalle del pedido incompleto; actualiza para reintentar.');
  const financeEntries=[],deliveryEntries=[];
  // Bounded concurrency: never launch two RPCs for every order in the database at once.

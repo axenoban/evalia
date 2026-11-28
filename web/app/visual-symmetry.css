@@ -1,0 +1,83 @@
+/* Auditoría visual de simetría (28-11-2026), revisada con capturas reales a 360, 768 y 1280 px.
+   Solo presentación: alinea columnas, iguala botones y unifica secciones. No cambia lógica ni textos. */
+
+/* 1. Barra superior en móvil: el nombre de la sección no se parte en dos líneas. */
+.breadcrumb{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.top-actions .button{white-space:nowrap}
+@media(max-width:480px){
+ .topbar{gap:6px}
+ .breadcrumb{font-size:0;letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+ /* En móvil el logotipo identifica la marca: se oculta «EVALIA /» y queda completo el nombre de la sección. */
+ .breadcrumb>span{display:none}
+ .breadcrumb>strong{font-size:11px;white-space:nowrap}
+}
+
+/* 1b. Resumen del pedido: sin hueco vacío cuando aún no hay modelos. */
+.checkout-lines:empty{min-height:0;padding:0}
+
+/* 2. Resumen: tarjetas de modelo con el bloque de stock anclado abajo, haya o no etiqueta «Nuevo». */
+.ev-model-details .ev-stock-caption{margin-top:auto}
+.ev-model-details .ev-model-price{margin-top:0}
+.ev-model-details .ev-recent-model{align-self:flex-start}
+
+/* 3. Productos: tarjetas de igual alto; cifras y «Ajustar stock» alineados entre tarjetas. */
+.ev-compact-product-grid{align-items:stretch}
+.ev-compact-product{display:flex;flex-direction:column}
+.ev-compact-product>.ev-product-bottom{margin-top:auto}
+.toolbar>.muted{white-space:nowrap}
+
+/* 4. Nuevo pedido: nombres de modelo a 2 líneas para alinear talla, stock y «Agregar». */
+.ev-picker-info>b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.7em;line-height:1.35}
+@media(max-width:780px){.ev-booking .ev-new-client{justify-self:stretch;width:100%}}
+
+/* 5. Pedidos: columnas fijas en el resumen para que datos, total y estado queden alineados fila a fila. */
+@media(min-width:781px){
+ .ev-order-summary{grid-template-columns:minmax(220px,1.1fr) minmax(0,1.5fr) 156px 28px}
+ .ev-order-summary-facts{justify-content:flex-start}
+}
+.ev-order-summary-end{align-items:stretch}
+.ev-order-summary-end>.ev-order-summary-total{text-align:right}
+.ev-order-summary-end>.ev-preparation-toggle,.ev-order-summary-end>.status{width:100%;max-width:none;justify-content:center;text-align:center}
+@media(max-width:780px){.ev-order-summary{grid-template-columns:minmax(0,1fr) 112px 25px}}
+@media(max-width:410px){.ev-order-summary{grid-template-columns:minmax(0,1fr) 104px 22px}}
+.ev-client-origin{display:inline-flex;width:fit-content;margin-top:5px;padding:2px 8px;border-radius:999px;
+ background:#ebe4f6;color:#56407a;font-size:11px;font-weight:800;line-height:1.5}
+
+/* 5b. Acciones principales del pedido: botones del mismo ancho en una cuadrícula. */
+.ev-order-next{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.ev-order-next>.ev-next-step-actions,.ev-order-next>.ev-next-step-secondary{display:contents}
+.ev-order-next .button{flex:1 1 0;min-width:170px;min-height:48px;margin:0}
+.ev-order-next .express-warning{flex:1 1 100%;order:-1}
+.ev-order-next .ev-next-step-note{flex:1 1 100%;order:99}
+@media(max-width:1100px){.ev-order-next .button{flex:1 1 calc(50% - 4px);min-width:0}}
+@media(max-width:620px){.ev-order-next .button{flex:1 1 100%;min-width:0}}
+.ev-client-origin{white-space:nowrap}
+@media(max-width:410px){.ev-client-origin{font-size:10px;padding:2px 6px}}
+
+/* 5c. Secciones plegables del pedido con un mismo estilo (impresión, WhatsApp, cobro y más acciones). */
+.ev-order-print-details,.ev-order-link-details,.ev-order-management,.ev-order-more{
+ margin:10px 0 0;border:1px solid #e4d8e1;border-radius:12px;overflow:hidden;background:#fff;padding:0}
+.ev-order-print-details>summary,.ev-order-link-details>summary,.ev-order-management>summary,.ev-order-more>summary{
+ list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;
+ padding:11px 15px;cursor:pointer;background:#faf5f8;color:#633d56;font-size:13px;font-weight:800}
+.ev-order-more>summary::-webkit-details-marker{display:none}
+.ev-order-more>summary::after{content:'⌄';color:#845269;font-size:20px;margin-left:5px}
+.ev-order-more[open]>summary::after{content:'⌃'}
+.ev-order-more[open]>summary{border-bottom:1px solid #e8dae5}
+.ev-order-more-body{padding:12px 15px}
+.ev-order-print-details>summary>span,.ev-order-link-details>summary>span{font-size:20px;color:#845269}
+
+/* 6. Clientes: acciones de cada ficha con el mismo ancho; en móvil pasan a una fila completa. */
+.ev-client-actions{display:grid;grid-template-columns:1fr;gap:6px;min-width:150px}
+.ev-client-actions .button{width:100%}
+@media(max-width:640px){
+ .client-record .client-row>div{flex:1 1 calc(100% - 60px)}
+ .ev-client-actions{grid-template-columns:repeat(2,minmax(0,1fr));width:100%;min-width:0}
+}
+
+/* 7. «Catálogo para clientes»: con un solo botón (Productos/Vendedor) no se estira de más en PC. */
+@media(min-width:641px){.ev-share-actions{min-width:0;grid-auto-columns:minmax(180px,1fr)}}
+
+/* 8. Pagos: el contador queda alineado con el filtro de estado. */
+.toolbar:has(>label.field){align-items:flex-end}
+.toolbar:has(>label.field)>.muted{padding-bottom:12px}

@@ -74,3 +74,20 @@ test('panel: compartir catálogo público y estado del enlace visible por client
  assert.match(page,/'🔗 Enlace activo'/);
  assert.match(read('web/lib/api.js'),/from\('customer_access_links'\)\.select\('customer_id,version,issued_at,revoked_at'\)/);
 });
+test('etiqueta «Pedido del cliente»: origen leído por página y visible en el resumen del pedido',()=>{
+ const loader=read('web/lib/order-page.js');
+ assert.match(loader,/rowsByIds\(db,'client_order_requests','order_id','order_id',ids,\['order_id'\],signal\)/);
+ assert.match(loader,/clientOrder:fromClient\.has\(o\.id\)/);
+ assert.match(read('web/app/page.jsx'),/\{o\.clientOrder&&<span className="ev-client-origin"[^>]*>📱 Pedido del cliente<\/span>\}/);
+ // RLS: solo el personal puede leer el origen (migración R2).
+ assert.match(read('supabase/migrations/20261128160000_r2_clientes_catalogo.sql'),/create policy staff_read on public\.client_order_requests for select to authenticated using \(\(select public\.is_evalia_staff\(\)\)\)/);
+});
+test('auditoría visual: hoja de simetría cargada al final y solo con reglas de presentación',()=>{
+ const layout=read('web/app/layout.jsx');
+ assert.ok(layout.indexOf("import './visual-symmetry.css'")>layout.indexOf("import './owner-stats.css'"));
+ const css=read('web/app/visual-symmetry.css');
+ assert.match(css,/\.ev-order-summary\{grid-template-columns:minmax\(220px,1\.1fr\) minmax\(0,1\.5fr\) 156px 28px\}/);
+ assert.match(css,/\.ev-model-details \.ev-stock-caption\{margin-top:auto\}/);
+ assert.match(css,/\.ev-compact-product>\.ev-product-bottom\{margin-top:auto\}/);
+ assert.doesNotMatch(css,/display:none[^}]*\.(button|ev-order-next)/);
+});

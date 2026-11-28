@@ -1418,6 +1418,7 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
        <span className="ev-order-identification">
         <strong>{customer?.name||'Cliente'}</strong>
         <small>{displayDate(o.confirmed_at)}</small>
+        {o.clientOrder&&<span className="ev-client-origin" title="Registrado por el cliente con su enlace personal">📱 Pedido del cliente</span>}
        </span>
       </span>
       <span className="ev-order-summary-facts">
