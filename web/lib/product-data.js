@@ -30,8 +30,11 @@ export function matchingModels(models,name,size,exclude){
 }
 export function stockProjection(stock,operation,value,unit){
  const units=Number(value)*(unit==='dozens'?12:1),committed=Number(stock.reserved)+Number(stock.pending_delivery);
- const target=operation==='set_total'?units:operation==='add'?Number(stock.on_hand)+units:Number(stock.on_hand)-units;
- const valid=String(value).trim()!==''&&Number.isSafeInteger(Number(value))&&Number.isSafeInteger(units)&&units>=(operation==='set_total'?0:1)&&Number.isSafeInteger(target)&&target<=2147483647&&target>=committed&&!(stock.blocked&&operation==='physical_sale');
+ // set_available: la cantidad indica las prendas LIBRES; las comprometidas se suman solas al total (el servidor
+ // recalcula el compromiso con el inventario bloqueado, esto es solo la vista previa).
+ const corrects=operation==='set_total'||operation==='set_available';
+ const target=operation==='set_available'?units+committed:operation==='set_total'?units:operation==='add'?Number(stock.on_hand)+units:Number(stock.on_hand)-units;
+ const valid=String(value).trim()!==''&&Number.isSafeInteger(Number(value))&&Number.isSafeInteger(units)&&units>=(corrects?0:1)&&Number.isSafeInteger(target)&&target<=2147483647&&target>=committed&&!(stock.blocked&&operation==='physical_sale');
  return {units,committed,target,available:target-committed,valid};
 }
 

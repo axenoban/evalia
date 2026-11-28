@@ -338,19 +338,20 @@ function StockEditor({model,stock,onSave,busy}){
  return <form className="stock-editor" onSubmit={submit}>
   <p className="editor-title">Ajuste de inventario — {model.name}</p>
   <div className="stock-ops" role="group" aria-label="Tipo de movimiento">
-   {[['add','＋ Añadir'],['physical_sale','− Venta física'],['set_total','= Corregir total']].map(([v,label])=>
+   {[['add','＋ Añadir'],['physical_sale','− Venta física'],['set_available','= Corregir disponibles']].map(([v,label])=>
     <button key={v} type="button" className={'pill '+(operation===v?'active':'')} disabled={busy}
       aria-pressed={operation===v} onClick={()=>change(setOperation,v)}>{label}</button>)}
   </div>
   <div className="stock-ops" role="group" aria-label="Unidad del ajuste">{[['dozens','Docenas'],['units','Prendas']].map(([v,label])=><button type="button" key={v} className={'pill '+(unit===v?'active':'')} aria-pressed={unit===v} disabled={busy} onClick={()=>{if(v!==unit){change(setUnit,v);setAmount(v==='dozens'?'1':'12');}}}>{label}</button>)}</div>
-  <div className="stock-bottom ev-stock-bottom"><div className="field"><label className="field-label" htmlFor={'stock-units-'+model.id}>{unit==='dozens'?'Cantidad en docenas':'Cantidad en prendas'}</label>
-   <div className="ev-stock-stepper"><button type="button" className="button button-outline" aria-label="Disminuir cantidad" disabled={busy||Number(amount)<=(operation==='set_total'?0:1)} onClick={()=>change(setAmount,String(Math.max(operation==='set_total'?0:1,(Number(amount)||0)-1)))}>−</button>
-   <input id={'stock-units-'+model.id} type="number" name="units" required min={operation==='set_total'?0:1} max={unit==='dozens'?178956970:2147483647} step="1" inputMode="numeric" disabled={busy} value={amount} onChange={e=>change(setAmount,e.target.value)}/>
+  <div className="stock-bottom ev-stock-bottom"><div className="field"><label className="field-label" htmlFor={'stock-units-'+model.id}>{operation==='set_available'?(unit==='dozens'?'Docenas disponibles para ofrecer':'Prendas disponibles para ofrecer'):unit==='dozens'?'Cantidad en docenas':'Cantidad en prendas'}</label>
+   <div className="ev-stock-stepper"><button type="button" className="button button-outline" aria-label="Disminuir cantidad" disabled={busy||Number(amount)<=(operation==='set_available'?0:1)} onClick={()=>change(setAmount,String(Math.max(operation==='set_available'?0:1,(Number(amount)||0)-1)))}>−</button>
+   <input id={'stock-units-'+model.id} type="number" name="units" required min={operation==='set_available'?0:1} max={unit==='dozens'?178956970:2147483647} step="1" inputMode="numeric" disabled={busy} value={amount} onChange={e=>change(setAmount,e.target.value)}/>
    <button type="button" className="button button-outline" aria-label="Aumentar cantidad" disabled={busy||Number(amount)>=(unit==='dozens'?178956970:2147483647)} onClick={()=>change(setAmount,String(Math.min(unit==='dozens'?178956970:2147483647,(Number(amount)||0)+1)))}>＋</button></div>
    </div>
-   <div className="stock-projection"><small>Stock resultante / disponible</small><b>{Number.isSafeInteger(target)?rup(target):'—'} / {Number.isSafeInteger(available)?rup(available):'—'} prendas</b><span>{rup(committed)} comprometidas</span></div>
+   <div className="stock-projection"><small>Disponibles para ofrecer</small><b>{Number.isSafeInteger(available)?rup(available):'—'} prendas</b><span>{rup(committed)} comprometidas (apartadas para pedidos) · Stock total {Number.isSafeInteger(target)?rup(target):'—'}</span></div>
   </div>
   <button className="button button-primary" type="submit" disabled={busy||!valid}>{busy?'Guardando…':'Aplicar ajuste'}</button>
+  {operation==='set_available'&&<p className="small-note">Indica solo las prendas libres. Las comprometidas siguen apartadas y vuelven a disponibles si el pedido se anula; al entregarse se descuentan del total.</p>}
   {target<committed&&<p className="form-error" role="alert">No puedes reducir el stock por debajo del compromiso con clientes.</p>}
  </form>;
 }
