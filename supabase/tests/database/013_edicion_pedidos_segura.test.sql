@@ -8,6 +8,8 @@ insert into auth.users(id,email)
 values('11110000-0000-4000-8000-000000000001','evalia-d9@example.invalid');
 insert into public.admin_profiles(user_id)
 values('11110000-0000-4000-8000-000000000001');
+-- Sesiones sintéticas válidas, no hay cambios en aserciones comerciales.
+insert into auth.sessions(id,user_id,created_at,updated_at,aal) values ('11110000-0000-4000-8000-000000000001','11110000-0000-4000-8000-000000000001',now(),now(),'aal1');
 insert into public.customers(id,name,whatsapp)
 values('31110000-0000-4000-8000-000000000001','Cliente D9','70012345');
 insert into public.models(id,name,size_label,price_dozen_bs)
@@ -27,6 +29,7 @@ select '21110000-0000-4000-8000-000000000002'::uuid,id from public.colors
  where id::text like '41110000-%';
 set local role authenticated;
 set local request.jwt.claim.sub='11110000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"11110000-0000-4000-8000-000000000001","session_id":"11110000-0000-4000-8000-000000000001","aal":"aal1"}';
 
 select lives_ok($q$
  select public.create_evalia_order_delivery(

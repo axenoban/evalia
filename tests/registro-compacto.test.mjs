@@ -15,7 +15,7 @@ const register=page.slice(page.indexOf('function BookingPanel('),page.indexOf('f
 test('el progreso compacto informa etapa actual sin ocultar las secciones del registro',()=>{
  assert.match(register,/order-progress ev-order-progress/);
  assert.match(register,/role="progressbar"/);
- assert.match(register,/aria-valuenow=\{stage\}/);
+ assert.match(register,/aria-valuenow=\{Number\(clientReady\)\+Number\(productsReady\)\+Number\(deliveryReady\)\}/);
  assert.match(register,/OrderStepHeader number=\{1\}/);
  assert.match(register,/OrderStepHeader number=\{2\}/);
  assert.match(register,/OrderStepHeader number=\{3\}/);
@@ -25,16 +25,16 @@ test('selector de cliente conserva búsqueda, selección y entrega predeterminad
  assert.match(register,/aria-autocomplete="list"/);
  assert.match(register,/role="listbox"/);
  assert.match(register,/role="option"/);
- assert.match(register,/c\.name\+' '\+c\.whatsapp/);
- assert.match(register,/setMethod\(customer\.delivery_preference==='unclassified'\?'':/);
- assert.match(register,/setDestination\(customer\.shipping_destination\?\?''\)/);
+ assert.match(register,/findBookingCustomers\(data.customers,customerSearch\)/);
+ assert.match(register,/method:customer\.delivery_preference==='unclassified'\?'':/);
+ assert.match(register,/destination:customer\.shipping_destination\?\?''/);
  assert.match(register,/setCustomerListOpen\(true\)/);
- assert.match(register,/onCreateClient\(payload\)/);
+ assert.match(register,/onCreateClient\(payload,true\)/);
 });
 
 test('modelo agregado mantiene docenas visibles y unidades opcionales desplegables',()=>{
- assert.match(register,/initialModelPortion\(modelStock,colorCount\)/);
- assert.match(register,/className="picker-item picker-add"/);
+ assert.match(register,/initialModelPortion\(stock\[model.id\],activeColors\)/);
+ assert.match(register,/className="ev-picker-card"/);
  assert.match(portion,/aria-label=\{'Docenas de '\+model\.name\}/);
  assert.match(portion,/showExtras=extrasOpen\|\|noDozen/);
  assert.match(portion,/aria-expanded=\{showExtras\}/);
@@ -58,9 +58,14 @@ test('media docena conserva exigencia canónica de seis colores distintos',()=>{
 test('confirmación y validaciones de envío continúan conectadas',()=>{
  assert.match(register,/checkedPortions\(models,portions,stock,data\.colors\)/);
  assert.match(register,/validateDelivery\(method,destination\)/);
- assert.match(register,/onOrder\(customerId,lines,requestId\.current,delivery\)/);
- assert.match(register,/disabled=\{busy\|\|!clientReady\|\|!productsReady\|\|!deliveryReady\}/);
- assert.match(register,/setMethod\(e\.target\.value\)/);
+ assert.match(register,/onOrder\(\{customerId,lines:review.lines,delivery,requestId:uuid\(\)\}\)/);
+ assert.match(register,/disabled=\{busy\|\|\(!attempt&&!ready\)\}/);
+ assert.match(register,/<DeliveryMethodChoices label="Modalidad" method=\{method\} busy=\{locked\} onChange=\{value=>change\(\{method:value,destination:value==='shipping'\?destination:''\}\)\}\/>/);
+ assert.match(register,/const ready=clientReady&&productsReady&&deliveryReady/);
+ const choices=page.slice(page.indexOf('function DeliveryMethodChoices('),page.indexOf('function DestinationShortcut('));
+ assert.match(choices,/\['pickup','Retiro local'\],\['shipping','Envío nacional \/ interdepartamental'\]/);
+ assert.match(choices,/aria-pressed=\{method===value\}/);
+ assert.match(choices,/disabled=\{busy\} onClick=\{\(\)=>onChange\(value\)\}/);
  assert.match(register,/method==='shipping'/);
 });
 

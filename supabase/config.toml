@@ -10,3 +10,8 @@ additional_redirect_urls = ["http://localhost:3000/cuenta"]
 # Frecuencia reducida exclusivamente en stack local aislado para regresión Auth.
 [auth.email]
 max_frequency = "1s"
+
+# E1: explicitly enable TOTP for real SDK regression.
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true

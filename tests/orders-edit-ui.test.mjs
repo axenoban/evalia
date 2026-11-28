@@ -29,7 +29,17 @@ test('la edición usa la RPC revisada e impide cobrar o editar un pedido cerrado
  assert.match(api,/export async function reviseOrder\(/);
  assert.match(api,/rpc\('revise_evalia_order'/);
  assert.match(api,/p_expected_revision:expectedRevision/);
- assert.match(api,/revisionMap.get\(o.id\)\?\?null/);
+ const orderApi=readFileSync(new URL('../web/lib/order-page.js',import.meta.url),'utf8');
+ const columns=orderApi.match(/ORDER_COLUMNS='([^']+)'/)?.[1].split(',')??[];
+ assert.ok(columns.includes('revision'),'the server page must select the revision');
+ assert.match(orderApi,/db\.from\('orders'\)\.select\(ORDER_COLUMNS,\{count:'exact'\}\)/);
+ assert.match(orderApi,/archived\?q\.not\('archived_at','is',null\):q\.is\('archived_at',null\)/);
+ assert.match(orderApi,/revision:o\.revision\?\?null/);
+ assert.match(orders,/useServerOrderList\(workspace,showArchived,focusOrder\)/);
+ assert.doesNotMatch(api,/revisionMap|revisionResponse/);
+ assert.match(orders,/!Number\.isSafeInteger\(o.revision\)/);
+ const assembly=readFileSync(new URL('../web/lib/workspace-assembly.js',import.meta.url),'utf8');
+ assert.match(assembly,/revision:o\.revision\?\?null/);
  assert.match(orders,/o.status!=='active'\?'El pedido está completado'/);
  assert.match(orders,/relatedPayments.length\?'Tiene movimientos o avisos de pago'/);
  assert.match(orders,/data.links.some/);
@@ -42,7 +52,9 @@ test('composición de edición reutiliza validación de stock y mantiene precios
  assert.match(editor,/initialModelPortion\(/);
  assert.match(editor,/<PortionEditor/);
  assert.match(editor,/expectedRevision:order.revision/);
- assert.match(editor,/window.confirm\(/);
+ assert.match(editor,/if\(!await ask\(\{severity:'warning',title:'Guardar cambios del pedido'/);
+ assert.match(editor,/confirmLabel:'Guardar cambios'\}\)\)return;/);
+ assert.ok(editor.indexOf('await ask(')<editor.indexOf('await onSave('));
  assert.match(style,/\.ev-order-edit-panel/);
 });
 test('la impresión no se altera y el pedido histórico sigue visible',()=>{

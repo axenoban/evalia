@@ -9,6 +9,8 @@ insert into auth.users(id,email)
  values('10000000-0000-4000-8000-000000000001','evalia-admin-test@example.invalid');
 insert into public.admin_profiles(user_id)
  values('10000000-0000-4000-8000-000000000001');
+-- Sesiones sintéticas válidas, no hay cambios en aserciones comerciales.
+insert into auth.sessions(id,user_id,created_at,updated_at,aal) values ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',now(),now(),'aal1');
 insert into public.colors(id,name,hex_code)
  select ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'C'||n,'#555555'
  from generate_series(1,13) n;
@@ -32,6 +34,7 @@ grant execute on function public.create_evalia_reservation(uuid,jsonb,uuid) to a
 grant execute on function public.revise_evalia_reservation(uuid,jsonb,uuid) to authenticated;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"10000000-0000-4000-8000-000000000001","session_id":"10000000-0000-4000-8000-000000000001","aal":"aal1"}';
 
 select ok(public.is_evalia_admin(),'admin de prueba reconocido');
 select lives_ok($sql$select public.create_evalia_reservation('30000000-0000-4000-8000-000000000001'::uuid,'[{"modelId":"20000000-0000-4000-8000-000000000001","dozens":0,"extraColorIds":["00000000-0000-4000-8000-000000000001","00000000-0000-4000-8000-000000000002","00000000-0000-4000-8000-000000000003","00000000-0000-4000-8000-000000000004","00000000-0000-4000-8000-000000000005","00000000-0000-4000-8000-000000000006"]}]'::jsonb,'40000000-0000-4000-8000-000000000001'::uuid)$sql$,'reserva seis prendas con seis colores distintos');
@@ -59,6 +62,7 @@ select throws_ok($sql$select public.create_evalia_order('30000000-0000-4000-8000
 select throws_ok($sql$select public.create_evalia_order('30000000-0000-4000-8000-000000000001'::uuid,'[{"modelId":"20000000-0000-4000-8000-000000000002","dozens":1,"extraColorIds":["00000000-0000-4000-8000-000000000007"]}]'::jsonb,'40000000-0000-4000-8000-000000000013'::uuid)$sql$,'23514','El color 00000000-0000-4000-8000-000000000007 no está ofrecido en este modelo','color ajeno a modelo rechazado');
 select throws_ok($sql$select public.create_evalia_order('30000000-0000-4000-8000-000000000001'::uuid,'[{"modelId":"20000000-0000-4000-8000-000000000002","dozens":3,"extraColorIds":[]}]'::jsonb,'40000000-0000-4000-8000-000000000014'::uuid)$sql$,'23514','No hay prendas globales disponibles del modelo 20000000-0000-4000-8000-000000000002','sobreventa de tres docenas rechazada');
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000099';
+set local request.jwt.claims='{"sub":"10000000-0000-4000-8000-000000000099","session_id":"10000000-0000-4000-8000-000000000099","aal":"aal1"}';
 select throws_ok($sql$select public.create_evalia_reservation('30000000-0000-4000-8000-000000000001'::uuid,'[{"modelId":"20000000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]'::jsonb,'40000000-0000-4000-8000-000000000015'::uuid)$sql$,'42501','Acceso administrativo requerido','usuario no admin rechazado');
 select * from finish();
 rollback;

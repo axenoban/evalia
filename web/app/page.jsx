@@ -2,19 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  authUser, adminAllowed, signIn, signOut, loadWorkspace, createColor,
-  createCustomer, createModel, updateModel, updateCustomer, uploadPhoto, removePhoto, adjustStock, archiveModel, cleanupArchivedPhotos, archiveOrder, setOrderPrepared,
-  createOrder, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
+  authUser, adminAllowed, signIn, signOut, loadWorkspace,
+  createCustomer, createModel, editProduct, saveColor, reactivateProduct, productHistory, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, cleanupReplacedPhoto, archiveOrder, setOrderPrepared,
+  createOrder, loadOrderById, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
 } from '../lib/api.js';
+import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,productPriceOptions,QUICK_DOZENS,paymentAmountOptions} from '../lib/product-data.js';
 import { getSupabase } from '../lib/supabase.js';
+import { useRecordList, useServerOrderList, RecordListControls, ListPager } from './record-list-controls.jsx';
+import {inspectAdminMfa,withOwnerReauthentication} from '../lib/mfa-client.js';
+import MfaGate from './mfa-gate.jsx';
+import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmation.js';
 import AdminAccounts from './admin-accounts.jsx';
 import {BrandMark,UiIcon} from './brand.jsx';
+import {ConfirmationProvider,useConfirmation} from './confirmation-dialog.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
-import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel } from '../lib/dashboard-presentation.js';
+import { formatAvailableDozens, formatModelDozenPrice, prioritizeModels, isRecentModel, countModelsWithStock } from '../lib/dashboard-presentation.js';
 import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
+import {matchingCustomers,normalizedWhatsApp} from '../lib/customer-duplicates.js';
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
+import {emptyBooking,findBookingCustomers,recentBookingCustomers,reviewBooking,repeatBooking,hasBookingDraft} from '../lib/booking-review.js';
 import {
   centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
 } from '../lib/domain.js';
@@ -106,48 +114,64 @@ function ToastNotifications({error,message,onCloseError,onCloseMessage}){
 function SummaryCard({label,value,sub,kind='',symbol}){return <div className={'metric '+kind}>
   <div className="ev-metric-heading">{symbol&&<span className="ev-metric-icon" aria-hidden="true"><UiIcon name={symbol}/></span>}
    <span className="metric-label">{label}</span></div>
-  <strong>{value}</strong><small>{sub}</small>
+  <strong>{value}</strong>{sub&&<small>{sub}</small>}
  </div>;}
-function DeliveryPreferenceFields({method,setMethod,destination,setDestination,namePrefix='delivery'}) {
+function DeliveryMethodChoices({label,method,onChange,busy=false}){
+ return <fieldset className="ev-quick-options ev-delivery-options">
+  <legend className="field-label">{label}</legend>
+  <div className="ev-fixed-grid" role="group" aria-label={label}>
+   {[['pickup','Retiro local'],['shipping','Envío nacional / interdepartamental']].map(([value,text])=><button type="button" key={value} className={'pill ev-quick-choice '+(method===value?'active':'')} aria-pressed={method===value} disabled={busy} onClick={()=>onChange(value)}>{text}</button>)}
+  </div>
+ </fieldset>;
+}
+function DestinationShortcut({destination,known,onSelect,busy}){
+ if(!known?.trim()||known===destination)return null;
+ return <button type="button" className="button button-outline ev-destination-shortcut" disabled={busy} onClick={()=>onSelect(known)}>Usar destino habitual: {known}</button>;
+}
+function DeliveryPreferenceFields({method,setMethod,destination,setDestination,busy=false}) {
  return <div className="delivery-preference-fields">
-  <Field title="Modalidad habitual de entrega">
-   <select aria-label="Categoría de entrega del cliente" value={method} required
-    onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');}}>
-    <option value="">Selecciona una categoría…</option>
-    <option value="pickup">Retiro local</option>
-    <option value="shipping">Cliente con envíos nacionales / interdepartamentales</option>
-   </select>
-  </Field>
+  <DeliveryMethodChoices label="Modalidad habitual de entrega" method={method} busy={busy} onChange={value=>{setMethod(value);if(value!=='shipping')setDestination('');}}/>
   {method==='shipping'&&<Field title="Destino habitual del envío (obligatorio)">
    <input aria-label="Destino habitual" value={destination} required minLength={2} maxLength={200}
-    placeholder="Ciudad, departamento y agencia de envío"
+    placeholder="Ciudad, departamento y agencia de envío" disabled={busy}
     onChange={e=>setDestination(e.target.value)}/>
   </Field>}
  </div>;
 }
-function ClientForm({onCreate,busy,compact=false}){
+function ClientForm({onCreate,busy,compact=false,customers=[]}){
  const [name,setName]=useState(''),[phone,setPhone]=useState('');
  const [method,setMethod]=useState(''),[destination,setDestination]=useState(''),[error,setError]=useState('');
+ const [duplicateConfirmed,setDuplicateConfirmed]=useState(false);
+ const [serverDuplicate,setServerDuplicate]=useState(false);
+ const requestId=useRef(null),submitting=useRef(false);
+ const matches=matchingCustomers(customers,phone);
+ const duplicate=matches.length>0||serverDuplicate;
+ function changed(){requestId.current=null;setDuplicateConfirmed(false);setServerDuplicate(false);}
+
  async function submit(e){
-  e.preventDefault();setError('');
+  e.preventDefault();if(busy||submitting.current)return;submitting.current=true;setError('');
   try{
    if(!name.trim()||!phone.trim())throw new Error('Nombre y WhatsApp obligatorios.');
+   if(duplicate&&!duplicateConfirmed)throw Error('Confirma que deseas registrar otra ficha con este número.');
    const delivery=validateDelivery(method,destination);
-   const ok=await onCreate({name:name.trim(),whatsapp:phone.trim(),...delivery});
-   if(ok){setName('');setPhone('');setMethod('');setDestination('');}
-  }catch(e){setError(e.message);}
+   if(!requestId.current)requestId.current=uuid();
+   const ok=await onCreate({name:name.trim(),whatsapp:phone.trim(),...delivery,requestId:requestId.current,confirmDuplicate:duplicateConfirmed});
+   if(ok?.state==='duplicate'){setServerDuplicate(true);setDuplicateConfirmed(false);return;}
+   if(ok===true){requestId.current=null;setServerDuplicate(false);setName('');setPhone('');setMethod('');setDestination('');setDuplicateConfirmed(false);}
+  }catch(e){setError(e.message);}finally{submitting.current=false;}
  }
  return <form className={'customer-form '+(compact?'mini-form':'')} onSubmit={submit}>
   <div className="form-inline">
    <Field title="Nombre del cliente"><input name="clientName" value={name} required maxLength={130}
-    autoComplete="name" placeholder="Nombre completo…" onChange={e=>setName(e.target.value)}/></Field>
+    autoComplete="name" placeholder="Nombre completo…" onChange={e=>{changed();setName(e.target.value);}}/></Field>
    <Field title="WhatsApp"><input name="clientPhone" type="tel" value={phone} required maxLength={30}
-    autoComplete="tel" inputMode="tel" placeholder="Número de WhatsApp…" onChange={e=>setPhone(e.target.value)}/></Field>
+    autoComplete="tel" inputMode="tel" placeholder="Número de WhatsApp…" onChange={e=>{changed();setPhone(e.target.value);}}/></Field>
   </div>
-  <DeliveryPreferenceFields method={method} setMethod={setMethod}
-   destination={destination} setDestination={setDestination}/>
+  <DeliveryPreferenceFields method={method} busy={busy} setMethod={v=>{changed();setMethod(v);}}
+   destination={destination} setDestination={v=>{changed();setDestination(v);}}/>
+  {duplicate&&<div className="surface pad" role="status"><p className="small-note">Posible cliente duplicado{matches.length?': '+matches.map(c=>c.name).join(', '):' detectado en la base de datos'}. Puedes crear otra ficha si corresponde a otra persona.</p><label className="qr-confirm"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/>Confirmo registrar otra ficha con este WhatsApp.</label></div>}
   {error&&<p className="form-error" role="alert">{error}</p>}
-  <div className="form-actions"><button className="button button-primary" disabled={busy} type="submit">
+  <div className="form-actions"><button className="button button-primary" disabled={busy||(duplicate&&!duplicateConfirmed)} type="submit">
    {busy?'Guardando…':'Guardar cliente'}
   </button></div>
  </form>;
@@ -175,7 +199,7 @@ function Dashboard({data,setTab}){
  const activeModels=prioritizeModels(data.models);
  const now=Date.now();
  const recentModels=activeModels.filter(m=>isRecentModel(m,now));
- const [showOlder,setShowOlder]=useState(false);
+ const [showOlder,setShowOlder]=useState(true);
  const visibleModels=recentModels.length&&!showOlder?recentModels:activeModels;
  const trackRef=useRef(null);
  const [trackEdges,setTrackEdges]=useState({prev:false,next:false});
@@ -194,8 +218,8 @@ function Dashboard({data,setTab}){
   if(el)el.scrollBy({left:direction*Math.max(220,el.clientWidth*.72),behavior:'smooth'});
  };
  const totals=inventoryTotals(data.stock);
- const availableActive=inventoryTotals(Object.fromEntries(activeModels.map(m=>[m.id,data.stock[m.id]||{}]))).available;
- const activeOrders=data.orders.filter(o=>o.status==='active')
+ const modelsWithStock=countModelsWithStock(activeModels,data.stock);
+ const activeOrders=data.orders.filter(o=>o.status==='active'&&!o.archived_at)
   .sort((a,b)=>Date.parse(b.confirmed_at||0)-Date.parse(a.confirmed_at||0));
  const activeLegacy=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
  const pendingPayments=data.payments.filter(p=>(p.status==='pending'||p.status==='observed')&&!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id))));
@@ -204,27 +228,17 @@ function Dashboard({data,setTab}){
  const ordersById=new Map(data.orders.map(o=>[o.id,o]));
  const legacyById=new Map(data.reservations.map(r=>[r.id,r]));
  return <div className="ev-dashboard">
-  <SectionHead eyebrow="GESTIÓN COMERCIAL" title="Tu negocio, bajo control."
-   description="Registra compras confirmadas, gestiona cobros y controla la disponibilidad real de tus modelos."
-   actions={<button className="button button-primary" onClick={()=>setTab('booking')}>＋ Nuevo pedido</button>}/>
-  <div className="metrics-grid ev-overview">
-   <SummaryCard symbol="▧" label="Unidades disponibles" value={rup(availableActive)} sub="Libres para pedidos o venta física" kind="primary"/>
-   <SummaryCard symbol="▤" label="Prendas en pedidos" value={rup(totals.pending)} sub="Confirmadas y aún no retiradas"/>
-   <SummaryCard symbol="⌑" label="Pedidos activos" value={activeOrders.length} sub="Por cobrar o entregar"/>
-   <SummaryCard symbol="▣" label="Pagos por verificar" value={pendingPayments.length} sub="Pendientes y en observación"/>
+  <SectionHead eyebrow="GESTIÓN COMERCIAL" title="Resumen"/>
+  <div className="metrics-grid ev-overview" aria-label="Indicadores prioritarios">
+   <SummaryCard symbol="⌑" label="Pedidos pendientes" value={activeOrders.length} kind="primary"/>
+   <SummaryCard symbol="▧" label="Modelos con stock" value={modelsWithStock}/>
   </div>
-  {activeLegacy.length>0&&<div className="legacy-alert" role="status">
-    <strong>Compromisos anteriores pendientes: {activeLegacy.length}</strong>
-    <span>{rup(totals.reserved)} prendas siguen apartadas por registros antiguos. No se crean más apartados. Consulta esos casos en Pedidos.</span>
-    <button className="button button-outline" onClick={()=>setTab('orders')}>Ver compromisos anteriores</button>
-   </div>}
   {blocked.length>0&&<Notice type="error">{blocked.length} modelo(s) están en revisión y no admiten nuevos pedidos.</Notice>}
 
   <section className="ev-zone ev-zone-catalog" aria-labelledby="ev-models-heading">
    <header className="ev-zone-header">
     <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="catalog"/></span>
-     <div><h2 id="ev-models-heading">Modelos y stock disponible</h2>
-      <p>Modelos recientes de las últimas 48 horas. Los anteriores siguen disponibles en el catálogo.</p></div>
+     <div><h2 id="ev-models-heading">Modelos y stock disponible</h2></div>
     </div>
     <div className="ev-zone-actions">
      <button type="button" className="ev-section-link" onClick={()=>setTab('catalog')}>Administrar productos <span aria-hidden="true">→</span></button>
@@ -243,12 +257,17 @@ function Dashboard({data,setTab}){
     <Empty title="Aún no hay modelos" detail="Registra un modelo y su inventario desde Productos."/>}
   </section>
 
+  <div className="ev-dashboard-actions"><button className="button button-primary" onClick={()=>setTab('booking')}>＋ Nuevo pedido</button></div>
+  {activeLegacy.length>0&&<div className="legacy-alert" role="status">
+    <strong>Compromisos anteriores pendientes: {activeLegacy.length}</strong>
+    <span>{rup(totals.reserved)} prendas siguen apartadas por registros antiguos. No se crean más apartados. Consulta esos casos en Pedidos.</span>
+    <button className="button button-outline" onClick={()=>setTab('orders')}>Ver compromisos anteriores</button>
+   </div>}
   <div className="ev-support-grid">
    <section className="ev-zone ev-zone-orders" aria-labelledby="ev-orders-heading">
     <header className="ev-zone-header">
      <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="orders"/></span>
-      <div><h2 id="ev-orders-heading">Pedidos pendientes</h2>
-       <p>Compras confirmadas que aún requieren seguimiento.</p></div>
+      <div><h2 id="ev-orders-heading">Pedidos pendientes</h2></div>
      </div>
      <button type="button" className="ev-section-link" onClick={()=>setTab('orders')}>Ver pedidos <span aria-hidden="true">→</span></button>
     </header>
@@ -269,8 +288,7 @@ function Dashboard({data,setTab}){
    <section className="ev-zone ev-zone-payments" aria-labelledby="ev-payments-heading">
     <header className="ev-zone-header">
      <div className="ev-zone-heading"><span className="ev-zone-icon" aria-hidden="true"><UiIcon name="payments"/></span>
-      <div><h2 id="ev-payments-heading">Pagos por verificar</h2>
-       <p>Declaraciones pendientes de validación administrativa.</p></div>
+      <div><h2 id="ev-payments-heading">Pagos por verificar</h2></div>
      </div>
      <button type="button" className="ev-section-link" onClick={()=>setTab('payments')}>Ver pagos <span aria-hidden="true">→</span></button>
     </header>
@@ -304,202 +322,228 @@ function StockTable({data,limit=null}){
  </table></div>:<Empty title="Aún no hay productos" detail="Registra el primer modelo para comenzar."/>;
 }
 function StockEditor({model,stock,onSave,busy}){
- const [operation,setOperation]=useState('add'),[amount,setAmount]=useState('12');
+ const [operation,setOperation]=useState('add'),[amount,setAmount]=useState('1'),[unit,setUnit]=useState('dozens');
  const requestId=useRef(null);
- const units=Number(amount),valid=Number.isSafeInteger(units)&&units>=(operation==='set_total'?0:1);
- const expected=operation==='set_total'?units:operation==='add'?Number(stock.on_hand)+units:Number(stock.on_hand)-units;
- const committed=Number(stock.reserved)+Number(stock.pending_delivery);
- async function submit(e){e.preventDefault();if(!valid)return;
+ const {units,committed,target,available,valid}=stockProjection(stock,operation,amount,unit);
+ function change(set,value){set(value);requestId.current=null;}
+ async function submit(e){e.preventDefault();if(!valid||busy)return;
   if(!requestId.current)requestId.current=uuid();
   const ok=await onSave(model.id,operation,units,stock.version,requestId.current);
-  if(ok){requestId.current=null;setAmount('12');}
+  if(ok){requestId.current=null;setAmount(unit==='dozens'?'1':'12');}
  }
  return <form className="stock-editor" onSubmit={submit}>
   <p className="editor-title">Ajuste de inventario — {model.name}</p>
   <div className="stock-ops" role="group" aria-label="Tipo de movimiento">
    {[['add','＋ Añadir'],['physical_sale','− Venta física'],['set_total','= Corregir total']].map(([v,label])=>
-    <button key={v} type="button" className={'pill '+(operation===v?'active':'')}
-      aria-pressed={operation===v} onClick={()=>{setOperation(v);requestId.current=null;}}>{label}</button>)}
+    <button key={v} type="button" className={'pill '+(operation===v?'active':'')} disabled={busy}
+      aria-pressed={operation===v} onClick={()=>change(setOperation,v)}>{label}</button>)}
   </div>
-  <div className="stock-bottom"><Field title="Cantidad en prendas"><input type="number" name="units" required
-   min={operation==='set_total'?0:1} max="2147483647" step="1" inputMode="numeric"
-   value={amount} onChange={e=>{setAmount(e.target.value);requestId.current=null;}}/></Field>
-   <div className="stock-projection"><small>Resultado estimado</small><b>{valid?rup(expected):'—'} prendas</b>
-    <span>{committed} comprometidas; nunca se pueden consumir</span></div>
+  <div className="stock-ops" role="group" aria-label="Unidad del ajuste">{[['dozens','Docenas'],['units','Prendas']].map(([v,label])=><button type="button" key={v} className={'pill '+(unit===v?'active':'')} aria-pressed={unit===v} disabled={busy} onClick={()=>{if(v!==unit){change(setUnit,v);setAmount(v==='dozens'?'1':'12');}}}>{label}</button>)}</div>
+  <div className="stock-bottom ev-stock-bottom"><div className="field"><label className="field-label" htmlFor={'stock-units-'+model.id}>{unit==='dozens'?'Cantidad en docenas':'Cantidad en prendas'}</label>
+   <div className="ev-stock-stepper"><button type="button" className="button button-outline" aria-label="Disminuir cantidad" disabled={busy||Number(amount)<=(operation==='set_total'?0:1)} onClick={()=>change(setAmount,String(Math.max(operation==='set_total'?0:1,(Number(amount)||0)-1)))}>−</button>
+   <input id={'stock-units-'+model.id} type="number" name="units" required min={operation==='set_total'?0:1} max={unit==='dozens'?178956970:2147483647} step="1" inputMode="numeric" disabled={busy} value={amount} onChange={e=>change(setAmount,e.target.value)}/>
+   <button type="button" className="button button-outline" aria-label="Aumentar cantidad" disabled={busy||Number(amount)>=(unit==='dozens'?178956970:2147483647)} onClick={()=>change(setAmount,String(Math.min(unit==='dozens'?178956970:2147483647,(Number(amount)||0)+1)))}>＋</button></div>
+   </div>
+   <div className="stock-projection"><small>Stock resultante / disponible</small><b>{Number.isSafeInteger(target)?rup(target):'—'} / {Number.isSafeInteger(available)?rup(available):'—'} prendas</b><span>{rup(committed)} comprometidas</span></div>
   </div>
-  <button className="button button-primary" type="submit" disabled={busy||!valid||expected<committed||(stock.blocked&&operation==='physical_sale')}>
-   {busy?'Guardando…':'Aplicar ajuste'}
-  </button>
-  {expected<committed&&<p className="form-error" role="alert">No puedes reducir el stock por debajo del compromiso con clientes.</p>}
+  <button className="button button-primary" type="submit" disabled={busy||!valid}>{busy?'Guardando…':'Aplicar ajuste'}</button>
+  {target<committed&&<p className="form-error" role="alert">No puedes reducir el stock por debajo del compromiso con clientes.</p>}
  </form>;
 }
-function ModelEditor({model,onSave,busy}){
- const [price,setPrice]=useState(String(model.price_dozen_bs));
- const [photo,setPhoto]=useState(null),[error,setError]=useState('');
- const requestId=useRef(null);
- const changed=price.trim()!==String(model.price_dozen_bs)||Boolean(photo);
- async function submit(e){
-  e.preventDefault();setError('');
-  try{
-   centsFromBs(price);
-   if(!changed)return;
-   if(!requestId.current)requestId.current=uuid();
-   const ok=await onSave({model,price,photo,requestId:requestId.current});
-   if(ok){requestId.current=null;setPhoto(null);}
-  }catch(e){setError(e.message);}
- }
- return <form className="stock-editor" onSubmit={submit}>
-  <p className="editor-title">Actualizar precio o foto — {model.name}</p>
-  <p className="small-note">El precio nuevo solo afecta los próximos pedidos. Los pedidos existentes conservan su tarifa histórica. No modifica talla, colores ni stock.</p>
-  <div className="form-inline">
-   <Field title="Nuevo precio por docena (Bs)">
-    <input name={'editModelPrice-'+model.id} value={price} inputMode="decimal" required
-     onChange={e=>{setPrice(e.target.value);requestId.current=null;}}/></Field>
-   <Field title="Reemplazar fotografía (opcional)">
-    <input name={'editModelPhoto-'+model.id} type="file" accept="image/jpeg,image/png,image/webp"
-     onChange={e=>{setPhoto(e.target.files?.[0]||null);requestId.current=null;}}/></Field>
-  </div>
-  {error&&<p className="form-error" role="alert">{error}</p>}
-  <button className="button button-primary" disabled={busy||!changed} type="submit">
-   {busy?'Guardando…':'Guardar corrección auditada'}</button>
+function ProductHistory({model}){
+ const [result,setResult]=useState(null),[error,setError]=useState('');
+ useEffect(()=>{let active=true;productHistory(model.id).then(r=>{if(active)setResult(r);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[model.id,model.updated_at]);
+ if(error)return <p role="alert" className="form-error">{error}</p>;
+ if(!result)return <p role="status">Cargando historial…</p>;
+ if(!result.length)return <p className="small-note">Sin modificaciones auditadas.</p>;
+ return <div className="ev-product-history">{result.map(e=><div key={e.request_id}><strong>{e.operation==='reactivate'?'Reactivación':e.operation==='archive'?'Inhabilitación':e.source==='legacy'?'Precio / fotografía':'Edición de ficha'}</strong><small>{displayDate(e.created_at)}</small>
+  {e.source==='legacy'?<p>{e.old_price} → {e.new_price} Bs{e.old_image_path!==e.new_image_path?' · Foto modificada':''}</p>:<><p>{['name','size_label','price_dozen_bs'].filter(k=>e.previous_data?.[k]!==e.new_data?.[k]).map(k=>String(e.previous_data?.[k]??'—')+' → '+String(e.new_data?.[k]??'—')).join(' · ')||'Ficha actualizada'}</p>{e.operation==='reactivate'&&<p>Stock republicado: {e.new_data?.on_hand} prendas</p>}{JSON.stringify(e.previous_data?.colors)!==JSON.stringify(e.new_data?.colors)&&e.operation==='edit'&&<p>Colores actualizados</p>}{e.previous_data?.image_path!==e.new_data?.image_path&&<p>Fotografía actualizada</p>}</>}
+  </div>)}</div>;
+}
+function ReactivateForm({model,onSave,busy}){
+ const [docenas,setDocenas]=useState('0'),request=useRef(null);
+ const valid=docenas.trim()!==''&&Number.isSafeInteger(Number(docenas))&&Number(docenas)>=0&&Number(docenas)<=178956970;
+ return <form className="stock-editor" onSubmit={async e=>{e.preventDefault();if(!valid||busy)return;if(!request.current)request.current=uuid();await onSave({model,units:Number(docenas)*12,requestId:request.current});}}>
+  <Field title="Docenas disponibles para republicar"><input required type="number" min="0" max="178956970" step="1" value={docenas} disabled={busy} onChange={e=>{setDocenas(e.target.value);request.current=null;}}/></Field>
+  <p className="small-note">Confirma las existencias físicas actuales. La foto archivada no se recupera; puedes cargar otra después.</p>
+  <button className="button button-primary" disabled={busy||!valid||Boolean(model.image_path)}>Reactivar producto</button>
  </form>;
 }
-function Catalog({data,onCreateColor,onCreateModel,onAdjust,onUpdateModel,onArchive,onCleanup,busy}){
- const [view,setView]=useState('list'),[search,setSearch]=useState(''),[editStock,setEditStock]=useState(null),[editCatalog,setEditCatalog]=useState(null);
- const [newColor,setNewColor]=useState(''),[newHex,setNewHex]=useState('#9b6682');
+function ColorLibrary({colors,onSave,busy}){
+ const [editing,setEditing]=useState(null),[name,setName]=useState(''),[hex,setHex]=useState('#9b6682'),[active,setActive]=useState(true);
+ const request=useRef(null);
+ function select(c){setEditing(c);setName(c?.name??'');setHex(c?.hex_code??'#9b6682');setActive(c?.is_active??true);request.current=null;}
+ const duplicate=colors.some(c=>c.id!==editing?.id&&normalizeName(c.name).toLowerCase()===normalizeName(name).toLowerCase());
+ return <section className="surface pad ev-register-palette"><header className="ev-register-heading"><span aria-hidden="true">◉</span><div><h2>Paleta de colores</h2><p>Biblioteca reutilizable</p></div></header>
+  <form className="palette-form" onSubmit={async e=>{e.preventDefault();if(duplicate||busy)return;if(!request.current)request.current=uuid();
+   const ok=await onSave({id:editing?.id??null,name:normalizeName(name),hex,active,expected:editing?.updated_at??null,requestId:request.current});if(ok)select(null);}}>
+   <Field title={editing?'Corregir nombre del color':'Nombre del color'}><input value={name} required maxLength={80} disabled={busy} onChange={e=>{setName(e.target.value);request.current=null;}}/></Field>
+   <Field title="Muestra de color"><div className="color-input"><input type="color" aria-label="Elegir color visual" value={hex} disabled={busy} onChange={e=>{setHex(e.target.value);request.current=null;}}/><span>{hex.toUpperCase()}</span></div></Field>
+   {editing&&<label className="small-note"><input type="checkbox" checked={active} disabled={busy} onChange={e=>{setActive(e.target.checked);request.current=null;}}/> Color activo</label>}
+   {duplicate&&<p className="form-error">Ya existe ese nombre de color.</p>}
+   <div className="form-actions"><button type="submit" className="button button-outline" disabled={busy||duplicate||!name.trim()}>{editing?'Guardar corrección':'Guardar color'}</button>{editing&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>select(null)}>Cancelar edición</button>}</div>
+  </form>
+  <div className="palette-list">{colors.map(c=><button className="button button-outline ev-palette-edit" type="button" key={c.id} disabled={busy} onClick={()=>select(c)}><ColorChip color={c}/>{!c.is_active?' (inactivo)':''}<span aria-hidden="true">✎</span></button>)}</div>
+ </section>;
+}
+function ExpandableColorLibrary({colors,onSave,busy}){
+ const [open,setOpen]=useState(false);
+ useEffect(()=>{setOpen(window.matchMedia('(min-width: 901px)').matches);},[]);
+ return <details className="ev-color-library-disclosure" open={open} onToggle={e=>setOpen(e.currentTarget.open)}>
+  <summary><span>Paleta de colores</span><span aria-hidden="true">{open?'−':'＋'}</span></summary>
+  {open&&<ColorLibrary colors={colors} onSave={onSave} busy={busy}/>}
+ </details>;
+}
+function ModelEditor({model,models,colors,onSave,busy}){
+ return <ModelForm model={model} models={models} colors={colors} onCreate={onSave} busy={busy}/>;
+}
+function Catalog({data,onSaveColor,onCreateModel,onAdjust,onUpdateModel,onArchive,onCleanup,onReactivate,busy}){
+ const {ask}=useConfirmation();
+ const [view,setView]=useState('list'),[search,setSearch]=useState(''),[size,setSize]=useState('all'),[availability,setAvailability]=useState('all'),[archived,setArchived]=useState(false),[editing,setEditing]=useState(null),[section,setSection]=useState(''),[seed,setSeed]=useState(null);
  const pendingPhotos=[...new Set(data.models.filter(m=>!m.is_active&&m.image_path&&!data.models.some(x=>x.is_active&&x.image_path===m.image_path)).map(m=>m.image_path))];
- const filtered=data.models.filter(m=>m.is_active&&(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
- async function submitColor(e){e.preventDefault();const ok=await onCreateColor(newColor.trim(),newHex);if(ok)setNewColor('');}
+ const sizes=productSizes(data.models);
+ const filtered=data.models.filter(m=>m.is_active!==archived&&(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase())&&(size==='all'||normalizeSize(m.size_label)===size)&&(archived||availability==='all'||(availability==='stock'?!data.stock[m.id]?.blocked&&Number(data.stock[m.id]?.available)>0:availability==='empty'?!data.stock[m.id]?.blocked&&Number(data.stock[m.id]?.available)===0:Boolean(data.stock[m.id]?.blocked))));
+ const list=useRecordList(filtered,'created_at'),{view:page}=list;
+ function close(){setEditing(null);setSection('');}
+ function reset(){list.setPage(1);close();}
+ function toggle(id,name){if(editing===id&&section===name){close();return;}setEditing(id);setSection(name);}
+ function register(model=null){setSeed(model);setView('new');close();}
+ const selectedModel=data.models.find(m=>m.id===editing);
  return <>
-  <SectionHead eyebrow="CATÁLOGO E INVENTARIO" title="Productos que se venden."
-   description="Cada modelo conserva su talla y su propio precio. Los colores son muestras visuales, no existencias individuales."
-   actions={<button className="button button-primary" onClick={()=>setView(view==='new'?'list':'new')}>
-     {view==='new'?'← Volver al catálogo':'＋ Registrar producto'}</button>}/>
-  {view==='new'?<div className="two-columns catalog-forms ev-product-registration">
-   <section className="surface pad ev-register-main"><header className="ev-register-heading"><span aria-hidden="true">▧</span><div><h2>Nuevo modelo</h2><p>Fotografía, datos comerciales y existencias iniciales.</p></div></header>
-    <ModelForm colors={data.colors.filter(c=>c.is_active)} onCreate={async params=>{const ok=await onCreateModel(params);if(ok)setView('list');return ok;}} busy={busy}/>
-   </section>
-   <section className="surface pad ev-register-palette"><header className="ev-register-heading"><span aria-hidden="true">◉</span><div><h2>Paleta de colores</h2><p>Biblioteca reutilizable</p></div></header>
-    <p className="muted">Primero registra colores reutilizables. El círculo refleja el tono que has elegido.</p>
-    <form onSubmit={submitColor} className="palette-form"><Field title="Nombre del color">
-     <input value={newColor} name="colorName" required maxLength={80} onChange={e=>setNewColor(e.target.value)}
-      placeholder="Ej. tono de tela…"/></Field>
-     <Field title="Muestra de color"><div className="color-input"><input type="color" name="colorHex"
-       aria-label="Elegir color visual" value={newHex} onChange={e=>setNewHex(e.target.value)}/>
-       <span>{newHex.toUpperCase()}</span></div></Field>
-     <button className="button button-outline" type="submit" disabled={busy}>Guardar color</button>
-    </form>
-    <div className="palette-list">{data.colors.map(c=><ColorChip key={c.id} color={c}/>)}</div>
-    <p className="form-hint">El tono es una referencia visual ajustada manualmente; no sustituye una fotografía de la tela.</p>
-   </section>
+  <SectionHead eyebrow="CATÁLOGO E INVENTARIO" title={view==='new'?'Registrar producto':view==='edit'?'Editar producto':view==='colors'?'Colores':'Productos'}
+   actions={<div className="ev-catalog-actions"><button type="button" className="button button-outline" disabled={busy} onClick={()=>{close();setSeed(null);setView(view==='list'?'colors':'list');}}>{view==='list'?'Paleta de colores':'← Volver al catálogo'}</button>{view==='list'&&<button className="button button-primary" disabled={busy} onClick={()=>register()}>＋ Registrar producto</button>}</div>}/>
+  {view==='colors'?<ColorLibrary colors={data.colors} onSave={onSaveColor} busy={busy}/>:view==='new'||view==='edit'?<div className="two-columns catalog-forms ev-product-registration">
+   <section className="surface pad ev-register-main">
+    {view==='edit'&&selectedModel?<ModelEditor key={selectedModel.id+'-'+selectedModel.updated_at} model={selectedModel} models={data.models} colors={data.colors} onSave={async params=>{const ok=await onUpdateModel(params);if(ok){setView('list');close();}return ok;}} busy={busy}/>:<ModelForm key={seed?.id??'new'} seed={seed} models={data.models} colors={data.colors} onCreate={async params=>{const ok=await onCreateModel(params);if(ok){setView('list');setSeed(null);reset();}return ok;}} busy={busy}/>}
+   </section><ExpandableColorLibrary colors={data.colors} onSave={onSaveColor} busy={busy}/>
   </div>:<>
-   <div className="toolbar"><label className="search"><span aria-hidden>⌕</span>
-    <input type="search" aria-label="Buscar producto" placeholder="Buscar por modelo o talla…"
-      value={search} onChange={e=>setSearch(e.target.value)}/></label>
-    <span className="muted">{filtered.length} modelos</span></div>
+   <div className="toolbar"><label className="search"><span aria-hidden>⌕</span><input type="search" aria-label="Buscar producto" placeholder="Buscar por modelo o talla…" value={search} onChange={e=>{setSearch(e.target.value);reset();}}/></label><span className="muted">{page.total} modelos</span></div>
+   <div className="ev-product-filters"><Field title="Talla"><select value={size} onChange={e=>{setSize(e.target.value);reset();}}><option value="all">Todas las tallas</option>{sizes.map(v=><option key={v}>{v}</option>)}</select></Field>
+   {!archived&&<Field title="Disponibilidad"><select value={availability} onChange={e=>{setAvailability(e.target.value);reset();}}><option value="all">Todos</option><option value="stock">Con stock</option><option value="empty">Agotados</option><option value="blocked">En revisión</option></select></Field>}</div>
    {pendingPhotos.length>0&&<div className="ev-archive-pending" role="status"><span>{pendingPhotos.length} fotografía(s) de archivo pendientes de limpieza.</span><button type="button" className="button button-outline" disabled={busy} onClick={()=>onCleanup(pendingPhotos)}>Reintentar limpieza</button></div>}
-   {filtered.length?<div className="product-grid">{filtered.map(m=>{const s=data.stock[m.id]||{};return <article className="product-card" key={m.id}>
-    <div className="product-cover"><ProductImage model={m} large/>
-     <span className="size-tag">TALLA {m.size_label}</span></div>
-    <div className="product-card-body"><div className="product-card-header">
-      <div><h2>{m.name}</h2><p className="price">{formatBs(centsFromBs(m.price_dozen_bs))} <small>/ docena</small></p></div>
-      <span className={'availability '+(s.blocked?'bad':Number(s.available)===0?'none':'ok')}>
-       {s.blocked?'Revisión':Number(s.available)===0?'Agotado':'Disponible'}</span></div>
-     <ModelColors model={m} colors={data.colors} compact/>
-     <div className="stock-grid-mini">
-      <div><small>Publicadas</small><b>{rup(s.on_hand)}</b></div>
-      <div><small>Comprometidas</small><b>{rup(Number(s.reserved||0)+Number(s.pending_delivery||0))}</b></div>
-      <div className="emphasized"><small>Disponibles</small><b>{rup(s.available)}</b></div>
-     </div>
-     <button className="button button-outline full" type="button" onClick={()=>setEditStock(editStock===m.id?null:m.id)}>
-       {editStock===m.id?'Cerrar ajuste':'▥ Ajustar stock'}
-     </button>
-     {editStock===m.id&&<StockEditor model={m} stock={s} onSave={onAdjust} busy={busy}/>}
-     <button className="button button-outline full" type="button"
-      onClick={()=>{setEditCatalog(editCatalog===m.id?null:m.id);setEditStock(null);}}>
-      {editCatalog===m.id?'Cerrar edición':'✎ Cambiar precio o fotografía'}</button>
-     {editCatalog===m.id&&<ModelEditor key={m.id+'-'+m.updated_at} model={m} onSave={onUpdateModel} busy={busy}/>}
-     <button type="button" className="button full ev-archive-button" disabled={busy} onClick={()=>{
-      if(window.confirm('¿Inhabilitar '+m.name+'? Dejará de venderse y se eliminará su foto. El historial permanece. Esta operación no se puede revertir desde el catálogo.'))onArchive(m);
-     }}>Inhabilitar producto</button>
-
-    </div>
-   </article>})}</div>:<Empty title="No se encontraron productos" detail="Prueba otra búsqueda o registra un modelo."/>}
+   {page.total?<div className="product-grid ev-compact-product-grid">{page.items.map(m=>{const stock=data.stock[m.id]||{},opened=editing===m.id;return <article className="product-card ev-compact-product" key={m.id}>
+    <div className="ev-product-main"><div className="product-cover"><ProductImage model={m} large/><span className="size-tag">TALLA {m.size_label}</span></div>
+    <div className="product-card-body"><div className="product-card-header"><div><h2>{m.name}</h2><p className="price">{formatBs(centsFromBs(m.price_dozen_bs))} <small>/ docena</small></p></div>
+    <details className="ev-product-menu"><summary aria-label={'Acciones de '+m.name}>⋮</summary><div className="ev-product-menu-options">
+     {m.is_active&&<button type="button" disabled={busy} onClick={()=>{setEditing(m.id);setView('edit');}}>Editar producto</button>}
+     <button type="button" disabled={busy} onClick={()=>register(m)}>Duplicar producto</button>
+     <button type="button" disabled={busy} onClick={()=>toggle(m.id,'history')}>Historial de cambios</button>
+     {m.is_active?<button type="button" className="error-text" disabled={busy} onClick={async()=>{if(await ask({severity:'critical',title:'Inhabilitar producto',message:'El modelo dejará de venderse y se eliminará su fotografía. El historial permanece.',facts:[{label:'Modelo',value:m.name},{label:'Talla',value:m.size_label}],notice:'La fotografía no se recupera al reactivar el producto.',confirmLabel:'Inhabilitar'}))await onArchive(m);}}>Inhabilitar producto</button>:<button type="button" disabled={busy} onClick={()=>toggle(m.id,'reactivate')}>Reactivar producto</button>}
+    </div></details></div>
+    <span className={'availability '+(!m.is_active||stock.blocked?'bad':Number(stock.available)===0?'none':'ok')}>{!m.is_active?'Inhabilitado':stock.blocked?'Revisión':Number(stock.available)===0?'Agotado':'Disponible'}</span>
+    <ModelColors model={m} colors={data.colors} compact/>
+    </div></div>
+    <div className="ev-product-bottom"><div className="stock-grid-mini"><div><small>Publicadas</small><b>{rup(stock.on_hand)}</b></div><div><small>Comprometidas</small><b>{rup(Number(stock.reserved||0)+Number(stock.pending_delivery||0))}</b></div><div className="emphasized"><small>Disponibles</small><b>{rup(stock.available)}</b></div></div>
+     {m.is_active&&<button className="button button-outline full" type="button" disabled={busy} onClick={()=>toggle(m.id,'stock')}>{opened&&section==='stock'?'Cerrar ajuste':'▥ Ajustar stock'}</button>}
+     {opened&&section==='stock'&&<StockEditor model={m} stock={stock} onSave={onAdjust} busy={busy}/>}
+     {opened&&section==='history'&&<ProductHistory key={m.id+'-'+m.updated_at} model={m}/>}
+     {opened&&section==='reactivate'&&<ReactivateForm model={m} onSave={onReactivate} busy={busy}/>}
+    </div></article>})}</div>:<Empty title="No se encontraron productos" detail="Cambia los filtros o registra un modelo."/>}
+   <RecordListControls list={list} dateLabel="Fecha de registro" busy={busy} onChange={close}/>
+   <ListPager view={page} onPage={p=>{list.setPage(p);close();}} label="Páginas de productos" busy={busy}/>
+   <nav className="ev-order-archive-toolbar" aria-label="Vista de productos"><button type="button" className="button button-outline" aria-pressed={!archived} disabled={busy} onClick={()=>{setArchived(false);reset();}}>Productos activos</button><button type="button" className="button button-outline" aria-pressed={archived} disabled={busy} onClick={()=>{setArchived(true);reset();}}>Inhabilitados ({data.models.filter(m=>!m.is_active).length})</button></nav>
   </>}
  </>;
 }
-function ModelForm({colors,onCreate,busy}){
- const [name,setName]=useState(''),[size,setSize]=useState(''),[price,setPrice]=useState('');
- const [docenas,setDocenas]=useState('0'),[selected,setSelected]=useState([]);
- const [photo,setPhoto]=useState(null),[preview,setPreview]=useState('');
- const [localError,setLocalError]=useState('');
- const requestId=useRef(null);
+function QuickOptions({label,options,value,onSelect,busy,custom,onCustom,customLabel,children,quantity=false}){
+ return <fieldset className={'ev-quick-options '+(quantity?'ev-quick-quantity':'')}>
+  <legend className="field-label">{label}</legend>
+  <div className="ev-quick-grid" role="group" aria-label={label}>
+   {options.map(option=><button type="button" className={'pill ev-quick-choice '+(!custom&&String(value)===String(option.value)?'active':'')} key={option.value} aria-pressed={!custom&&String(value)===String(option.value)} disabled={busy||option.disabled} onClick={()=>onSelect(option.value)}>{option.label}</button>)}
+   <button type="button" className={'pill ev-quick-choice ev-quick-custom '+(custom?'active':'')} aria-pressed={custom} disabled={busy} onClick={onCustom}>＋ {customLabel}</button>
+  </div>
+  {custom&&<div className="ev-quick-input">{children}</div>}
+ </fieldset>;
+}
+function ModelForm({colors,models=[],model=null,seed=null,onCreate,busy}){
+ const {ask}=useConfirmation();
+ const original=model??seed;
+ const [name,setName]=useState(original?.name??''),[size,setSize]=useState(original?.size_label??''),[customSize,setCustomSize]=useState(false),[price,setPrice]=useState(original?String(original.price_dozen_bs):'');
+ const [docenas,setDocenas]=useState('0'),[selected,setSelected]=useState(()=>[...(original?.colorIds??[])]);
+ const [customPrice,setCustomPrice]=useState(false),[customStock,setCustomStock]=useState(false),[showPaletteCopy,setShowPaletteCopy]=useState(false);
+ const [photo,setPhoto]=useState(null),[preview,setPreview]=useState(''),[localError,setLocalError]=useState('');
+ const requestId=useRef(null),photoInput=useRef(null);
+ const sizes=productSizes(models),{names}=suggestions(models,size);
+ const prices=productPriceOptions(models,size,original?.price_dozen_bs);
+ const activeColors=colors.filter(c=>c.is_active);
+ const customPriceVisible=customPrice||prices.length===0;
+ const paletteSources=models.filter(m=>m.id!==model?.id&&m.colorIds?.length);
+ const validSelected=selected.filter(id=>activeColors.some(c=>c.id===id));
+ const duplicates=matchingModels(models,name,size,model?.id);
+ const unchanged=equivalentProduct(model,{name,size,price,colorIds:selected,photo});
+ function change(set,value){set(value);requestId.current=null;setLocalError('');}
  function choosePhoto(file){
-  setPhoto(file||null);setPreview('');setLocalError('');requestId.current=null;
-  if(file){if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880){
-   setPhoto(null);setLocalError('Selecciona una foto JPG, PNG o WebP de hasta 5 MB.');return;
-  }
-   const reader=new FileReader();reader.onload=()=>setPreview(String(reader.result));reader.readAsDataURL(file);
+  setPhoto(null);setLocalError('');requestId.current=null;
+  if(file){if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size===0||file.size>5242880){setLocalError('Selecciona una foto JPG, PNG o WebP de hasta 5 MB.');return;}
+   setPhoto(file);
   }
  }
+ useEffect(()=>{if(!photo){setPreview('');return;}const url=URL.createObjectURL(photo);setPreview(url);return()=>URL.revokeObjectURL(url);},[photo]);
  async function submit(e){
   e.preventDefault();setLocalError('');
+  if(busy||unchanged)return;
   try{
-   centsFromBs(price);
-   if(!selected.length)throw new Error('Selecciona al menos un color ofertado.');
-   if(!Number.isSafeInteger(Number(docenas))||Number(docenas)<0)throw new Error('Registra docenas completas publicables.');
-   if(!requestId.current)requestId.current=uuid();
-   const ok=await onCreate({name:name.trim(),size:size.trim(),price,stockDocenas:Number(docenas),colorIds:selected,photo,requestId:requestId.current});
-   if(ok){requestId.current=null;setName('');setSize('');setPrice('');setDocenas('0');setSelected([]);setPhoto(null);setPreview('');}
+   const normalized=normalizePrice(price),amount=centsFromBs(normalized);
+   if(amount>999999999999n)throw Error('Precio fuera de rango.');
+   const n=normalizeName(name),t=normalizeSize(size);
+   if(!n||n.length>120||!t||t.length>24)throw Error('Nombre o talla inválidos.');
+   if(!validSelected.length||validSelected.length!==selected.length)throw Error('Selecciona al menos un color activo; retira los inactivos.');
+   if(!model&&(!docenas.trim()||!Number.isSafeInteger(Number(docenas))||Number(docenas)<0||Number(docenas)>178956970))throw Error('Registra docenas completas publicables.');
+   if(!requestId.current){
+    if(duplicates.length&&!await ask({severity:'warning',title:'Posible producto duplicado',message:'Ya existe un modelo activo con el mismo nombre y talla.',facts:[{label:'Modelo',value:n},{label:'Talla',value:t}],confirmLabel:'Continuar registro'}))return;
+    requestId.current=uuid();
+   }
+   const ok=await onCreate({model,name:n,size:t,price:normalized,stockDocenas:Number(docenas),colorIds:validSelected,photo,requestId:requestId.current});
+   if(ok)requestId.current=null;
   }catch(err){setLocalError(err.message);}
  }
  return <form onSubmit={submit} className="model-form">
   <div className="ev-register-section-title"><b>01</b> Fotografía del producto</div>
-   <div className="photo-field">
-   <div className="photo-preview">{preview?<img alt="Vista previa de la foto elegida" src={preview}/>:
-    <div className="upload-placeholder"><span>▧</span><b>Fotografía del modelo</b><small>JPG · PNG · WebP</small></div>}</div>
-   <label className="file-label"><span className="button button-outline">Elegir fotografía</span>
-    <input name="modelPhoto" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>choosePhoto(e.target.files?.[0])}/>
-   </label>
+  <div className="photo-field"><div className="photo-preview">{preview||model?.imageUrl?<img alt="Vista previa de fotografía" src={preview||model.imageUrl}/>:<div className="upload-placeholder"><span>▧</span><b>Fotografía del modelo</b><small>JPG · PNG · WebP</small></div>}</div>
+   <label className="file-label"><span className="button button-outline">{model?'Reemplazar fotografía':'Elegir fotografía'}</span><input ref={photoInput} name="modelPhoto" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e=>choosePhoto(e.target.files?.[0])}/></label>
+   {photo&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>{choosePhoto(null);if(photoInput.current)photoInput.current.value='';}}>Quitar selección</button>}
   </div>
   <div className="ev-register-section-title"><b>02</b> Información comercial</div>
-   <div className="form-inline">
-   <Field title="Nombre del modelo"><input name="modelName" required maxLength={120} value={name}
-     onChange={e=>{setName(e.target.value);requestId.current=null;}} placeholder="Nombre comercial…"/></Field>
-   <Field title="Talla única del modelo"><input name="modelSize" required maxLength={24} value={size}
-     onChange={e=>{setSize(e.target.value);requestId.current=null;}} placeholder="Ej. M, XL o 2XL…"/></Field>
-   <Field title="Precio mayorista por docena (Bs)"><input name="modelPrice" required
-     inputMode="decimal" value={price} onChange={e=>{setPrice(e.target.value);requestId.current=null;}}
-     placeholder="Importe por docena…"/></Field>
-   <Field title="Docenas completas publicables"
-     hint={'Publicarás '+rup((Number(docenas)||0)*12)+' prendas; deja fuera tu margen de seguridad.'}>
-     <input name="modelStock" type="number" step="1" min="0" max="178956970" value={docenas}
-      onChange={e=>{setDocenas(e.target.value);requestId.current=null;}} required/></Field>
+  <div className="form-inline">
+   <Field title="Nombre del modelo"><input name="modelName" required maxLength={120} list="ev-model-names" value={name} disabled={busy} onChange={e=>change(setName,e.target.value)} placeholder="Nombre comercial…"/><datalist id="ev-model-names">{names.map(n=><option key={n} value={n}/>)}</datalist></Field>
+   <QuickOptions label="Talla única del modelo" options={sizes.map(v=>({value:v,label:v}))} value={normalizeSize(size)} custom={customSize} busy={busy} onSelect={v=>{setCustomSize(false);change(setSize,v);}} customLabel="Otra talla" onCustom={()=>{setCustomSize(true);change(setSize,'');}}>
+    <Field title="Nueva talla"><input name="modelSize" required maxLength={24} value={size} disabled={busy} onChange={e=>change(setSize,e.target.value)} placeholder="Ej. L"/></Field>
+   </QuickOptions>
+   <QuickOptions label="Precio por docena (Bs)" options={prices.map(v=>({value:v,label:v+' Bs'}))} value={Number(normalizePrice(price))>0?String(Number(normalizePrice(price))):''} custom={customPriceVisible} busy={busy} onSelect={v=>{setCustomPrice(false);change(setPrice,v);}} customLabel="Otro precio" onCustom={()=>{setCustomPrice(true);change(setPrice,'');}}>
+    <Field title="Importe por docena"><input name="modelPrice" required inputMode="decimal" value={price} disabled={busy} onChange={e=>change(setPrice,e.target.value)} placeholder="Ej. 380"/></Field>
+   </QuickOptions>
+   {!model&&<div className="ev-docena-field"><QuickOptions label="Docenas completas publicables" options={[...QUICK_DOZENS.map(v=>({value:String(v),label:String(v)})),{value:'0',label:'Sin stock'}]} value={docenas} custom={customStock} busy={busy} quantity onSelect={v=>{setCustomStock(false);change(setDocenas,v);}} customLabel="Más" onCustom={()=>{setCustomStock(true);change(setDocenas,'');}}>
+    <Field title="Otra cantidad de docenas"><input name="modelStock" type="number" step="1" min="0" max="178956970" value={docenas} disabled={busy} onChange={e=>change(setDocenas,e.target.value)} required/></Field>
+   </QuickOptions><small className="field-hint">{docenas!==''&&Number.isSafeInteger(Number(docenas))&&Number(docenas)>=0?rup(Number(docenas)*12)+' prendas publicables':'Selecciona una cantidad.'}</small></div>}
   </div>
-  <div className="palette-selector">
-    <div className="ev-register-section-title"><b>03</b> Colores disponibles</div>
+  {duplicates.length>0&&<p className="small-note" role="status">Ya existe {duplicates.length} modelo(s) activo(s) con ese nombre y talla.</p>}
+  {model&&<p className="small-note">Los pedidos conservan sus datos históricos. Nombre y talla se protegen si existen compromisos pendientes; el precio nuevo solo afecta futuras ventas.</p>}
+  <div className="palette-selector"><div className="ev-register-section-title"><b>03</b> Colores disponibles</div>
    <div className="palette-title"><strong>Colores que ofrece este modelo</strong><span>{selected.length} seleccionados</span></div>
-   <p>Selecciona muestras de la paleta. No registraremos unidades por color.</p>
-   {colors.length?<div className="color-select-grid">{colors.map(c=><ColorChip key={c.id} color={c}
-     selected={selected.includes(c.id)} onClick={()=>{requestId.current=null;setSelected(current=>current.includes(c.id)?current.filter(x=>x!==c.id):[...current,c.id]);}}/>)}</div>:
-     <Notice>Primero crea un color desde el panel de paleta.</Notice>}
+   <div className="ev-color-actions"><button type="button" className="button button-outline" disabled={busy||!activeColors.length} onClick={()=>change(setSelected,activeColors.map(c=>c.id))}>Seleccionar todos</button><button type="button" className="button button-outline" disabled={busy||!selected.length} onClick={()=>change(setSelected,[])}>Limpiar</button>
+   {paletteSources.length>0&&<button type="button" className="button button-outline ev-copy-palette" disabled={busy} aria-expanded={showPaletteCopy} onClick={()=>setShowPaletteCopy(v=>!v)}>{showPaletteCopy?'Cerrar paletas':'Copiar paleta de modelo'} <span aria-hidden="true">{showPaletteCopy?'⌃':'⌄'}</span></button>}</div>
+   {showPaletteCopy&&paletteSources.length>0&&<div className="ev-palette-source-list" role="group" aria-label="Paletas de otros modelos">{paletteSources.map(m=><button className="button button-outline" type="button" key={m.id} disabled={busy} onClick={()=>{change(setSelected,m.colorIds.filter(id=>activeColors.some(c=>c.id===id)));setShowPaletteCopy(false);}}>{m.name} · {m.size_label}</button>)}</div>}
+   {activeColors.length?<div className="color-select-grid">{activeColors.map(c=><ColorChip key={c.id} color={c} disabled={busy} selected={selected.includes(c.id)} onClick={()=>change(setSelected,selected.includes(c.id)?selected.filter(x=>x!==c.id):[...selected,c.id])}/>)}</div>:<Notice>Primero crea un color desde la paleta.</Notice>}
+   {validSelected.length!==selected.length&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>change(setSelected,validSelected)}>Retirar colores inactivos</button>}
   </div>
   {localError&&<p className="form-error" role="alert">{localError}</p>}
-  <button className="button button-primary full" type="submit" disabled={busy||!colors.length}>
-   {busy?'Guardando modelo…':'Registrar producto e inventario'}</button>
+  <button className="button button-primary full" type="submit" disabled={busy||!activeColors.length||unchanged}>{busy?'Guardando…':model?'Guardar corrección auditada':'Registrar producto e inventario'}</button>
  </form>;
 }
-function ClientEditForm({customer,onSave,onCancel,busy}){
+function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
  const [name,setName]=useState(customer.name),[phone,setPhone]=useState(customer.whatsapp);
  const [method,setMethod]=useState(customer.delivery_preference==='unclassified'?'':customer.delivery_preference);
  const [destination,setDestination]=useState(customer.shipping_destination??'');
  const [error,setError]=useState('');
  const requestId=useRef(null);
+ const [duplicateConfirmed,setDuplicateConfirmed]=useState(false);
+ const matches=normalizedWhatsApp(phone)===normalizedWhatsApp(customer.whatsapp)?[]:matchingCustomers(customers,phone,customer.id);
  async function submit(e){
-  e.preventDefault();setError('');
+  e.preventDefault();if(busy)return;setError('');
   try{
    const delivery=validateDelivery(method,destination);
    if(!name.trim()||!phone.trim())throw new Error('Nombre y WhatsApp obligatorios.');
+   if(matches.length&&!duplicateConfirmed)throw Error('Confirma el uso compartido de este WhatsApp.');
    if(!requestId.current)requestId.current=uuid();
    const ok=await onSave({customer,name:name.trim(),whatsapp:phone.trim(),...delivery,requestId:requestId.current});
    if(ok){requestId.current=null;onCancel();}
@@ -513,13 +557,14 @@ function ClientEditForm({customer,onSave,onCancel,busy}){
    <Field title="Nombre"><input value={name} maxLength={130} required
     onChange={e=>{setName(e.target.value);requestId.current=null;}}/></Field>
    <Field title="WhatsApp"><input value={phone} maxLength={30} type="tel" inputMode="tel" required
-    onChange={e=>{setPhone(e.target.value);requestId.current=null;}}/></Field>
+    onChange={e=>{setPhone(e.target.value);requestId.current=null;setDuplicateConfirmed(false);}}/></Field>
   </div>
-  <DeliveryPreferenceFields method={method} setMethod={v=>{setMethod(v);requestId.current=null;}}
+  <DeliveryPreferenceFields method={method} busy={busy} setMethod={v=>{setMethod(v);requestId.current=null;}}
    destination={destination} setDestination={v=>{setDestination(v);requestId.current=null;}}/>
+  {matches.length>0&&<div className="surface pad" role="status"><p className="small-note">Este WhatsApp coincide con: {matches.map(c=>c.name).join(', ')}.</p><label className="qr-confirm"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/>Confirmo usar el mismo número en fichas diferentes.</label></div>}
   {error&&<p role="alert" className="form-error">{error}</p>}
   <div className="form-actions">
-   <button type="submit" disabled={busy||!touched} className="button button-primary">Guardar ficha y destino</button>
+   <button type="submit" disabled={busy||!touched||(matches.length>0&&!duplicateConfirmed)} className="button button-primary">Guardar ficha y destino</button>
    <button type="button" className="button button-outline" onClick={onCancel}>Cancelar</button>
   </div>
  </form>;
@@ -527,17 +572,20 @@ function ClientEditForm({customer,onSave,onCancel,busy}){
 function ClientPanel({data,onCreate,onUpdate,busy}){
  const [search,setSearch]=useState(''),[editing,setEditing]=useState(null);
  const clients=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+ const list=useRecordList(clients,'created_at');
+ const {view}=list;
  return <>
   <SectionHead eyebrow="DIRECTORIO COMERCIAL" title="Clientes y compradores."
     description="Registra y actualiza los datos de contacto de tus compradores. El teléfono no fusiona fichas."/>
   <div className="two-columns customer-layout">
    <section className="surface pad"><h2>Registrar cliente</h2>
     <p className="muted">Indica si compra para retiro o para envíos. Si recibe envíos, registra siempre su destino habitual.</p>
-    <ClientForm onCreate={onCreate} busy={busy}/></section>
+    <ClientForm onCreate={onCreate} busy={busy} customers={data.customers}/></section>
    <section className="surface pad"><h2>{data.customers.length} fichas registradas</h2>
     <label className="search"><span aria-hidden>⌕</span><input type="search" aria-label="Buscar cliente"
-     value={search} placeholder="Buscar nombre o WhatsApp…" onChange={e=>setSearch(e.target.value)}/></label>
-    {clients.length?<div className="client-list">{clients.map(c=>{
+     value={search} placeholder="Buscar nombre o WhatsApp…" disabled={busy} onChange={e=>{setSearch(e.target.value);list.setPage(1);setEditing(null);}}/></label>
+    <RecordListControls list={list} dateLabel="Fecha de registro del cliente" busy={busy} onChange={()=>setEditing(null)}/>
+    {view.total?<div className="client-list">{view.items.map(c=>{
       const reservations=data.reservations.filter(r=>r.customer_id===c.id).length;
       const orders=data.orders.filter(o=>o.customer_id===c.id&&!o.archived_at).length;
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
@@ -545,9 +593,10 @@ function ClientPanel({data,onCreate,onUpdate,busy}){
        <button className="button button-outline" type="button" disabled={busy}
         onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button></div>
        {editing===c.id&&<ClientEditForm key={c.id+'-'+c.updated_at} customer={c}
-        onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy}/>}
+        onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy} customers={data.customers}/>}
       </div>
     })}</div>:<Empty title="Sin clientes coincidentes" detail="Registra una ficha o cambia la búsqueda."/>}
+    <ListPager view={view} onPage={p=>{list.setPage(p);setEditing(null);}} label="Páginas de clientes" busy={busy}/>
    </section>
   </div>
  </>;
@@ -563,7 +612,7 @@ function ExtraColorSummary({ids=[],colors}){
   </div>
  </div>;
 }
-function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
+function PortionEditor({model,stock,colors,selection,onChange,onRemove,busy=false,collapsed=false,onToggle}){
  const dozens=Number(selection.dozens);
  const extras=selection.extraColorIds;
  const validDozens=/^(0|[1-9]\d*)$/.test(String(selection.dozens));
@@ -572,16 +621,21 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
  const allowedColors=colors.filter(c=>model.colorIds?.includes(c.id)&&c.is_active);
  const insufficient=quantity>available;
  const noDozen=validDozens&&dozens===0;
- const validLine=validDozens&&Number.isSafeInteger(quantity)&&quantity>=6&&!insufficient&&!stock.blocked;
- const maximumDozens=Math.max(0,Math.floor((available-extras.length)/12));
+ const validLine=validDozens&&Number.isSafeInteger(quantity)&&quantity>=6&&!insufficient&&!stock.blocked&&extras.length<=11&&new Set(extras).size===extras.length&&extras.every(id=>allowedColors.some(c=>c.id===id));
+ const maximumDozens=Math.min(178956969,Math.max(0,Math.floor((available-extras.length)/12)));
  const [extrasOpen,setExtrasOpen]=useState(()=>extras.length>0||Number(selection.dozens)===0);
+ const [customDozens,setCustomDozens]=useState(()=>Number(selection.dozens)>8);
+ const quickDozens=[0,...QUICK_DOZENS].filter(n=>n===0||n<=maximumDozens||n===dozens).map(n=>({value:String(n),label:n===0?'Solo unidades':String(n),disabled:n>0&&(stock.blocked||n>maximumDozens)}));
+ const showCustomDozens=customDozens||!validDozens||dozens>8;
  const showExtras=extrasOpen||noDozen;
  function setDozens(value){
+  if(busy)return;
   if(String(value)==='0')setExtrasOpen(true);
   else if(dozens===0&&extras.length===0)setExtrasOpen(false);
   onChange({...selection,dozens:String(value)});
  }
  function toggleColor(id){
+  if(busy)return;
   if(extras.includes(id))onChange({...selection,extraColorIds:extras.filter(x=>x!==id)});
   else if(extras.length<11&&quantity<available&&!stock.blocked)
    onChange({...selection,extraColorIds:[...extras,id]});
@@ -594,20 +648,25 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
     <small>{stock.blocked?'BLOQUEADO':formatAvailableDozens(available)+' libres'}</small>
    </div>
    <button type="button" className="remove-model" title="Quitar modelo" aria-label={'Quitar '+model.name}
-    onClick={onRemove}>×</button>
+    disabled={busy} onClick={onRemove}>×</button>
+   {onToggle&&<button type="button" className="button button-outline ev-portion-expand" aria-expanded={!collapsed} onClick={onToggle}>{collapsed?'Editar':'Plegar'}</button>}
   </div>
-  <div className="ev-portion-primary">
+  <div hidden={collapsed} className="ev-portion-fields"><div className="ev-portion-primary">
    <div className="ev-portion-dozens">
     <div className="portion-label"><b>Docenas surtidas</b><span>12 prendas por docena</span></div>
+    <div className="ev-portion-quick">
+     <QuickOptions label="Seleccionar docenas" options={quickDozens} value={String(selection.dozens)} custom={showCustomDozens} busy={busy}
+      onSelect={value=>{setCustomDozens(false);setDozens(value);}} customLabel="Otra cantidad" onCustom={()=>setCustomDozens(true)}>
     <div className="dozen-entry">
      <button type="button" aria-label={'Quitar docena de '+model.name}
-      onClick={()=>setDozens(Math.max(0,dozens-1))} disabled={!validDozens||dozens<=0}>−</button>
+      onClick={()=>setDozens(Math.max(0,dozens-1))} disabled={busy||!validDozens||dozens<=0}>−</button>
      <input type="number" min="0" max={Math.min(maximumDozens,178956969)} step="1" inputMode="numeric"
-      name={'dozens-'+model.id} aria-label={'Docenas de '+model.name} value={selection.dozens}
+      name={'dozens-'+model.id} aria-label={'Docenas de '+model.name} disabled={busy} value={selection.dozens}
       onChange={e=>setDozens(e.target.value)}/>
      <button type="button" aria-label={'Añadir docena a '+model.name}
-      onClick={()=>setDozens(dozens+1)} disabled={!validDozens||dozens>=maximumDozens||stock.blocked}>＋</button>
+      onClick={()=>setDozens(dozens+1)} disabled={busy||!validDozens||dozens>=maximumDozens||stock.blocked}>＋</button>
     </div>
+    </QuickOptions></div>
    </div>
    <button type="button" className={'ev-units-toggle '+(showExtras?'expanded':'')}
     aria-expanded={showExtras} aria-controls={'extra-colors-'+model.id}
@@ -626,15 +685,16 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
    <div className="color-select-grid extra-select-grid">
     {allowedColors.map(color=><ColorChip key={color.id} color={color}
      selected={extras.includes(color.id)} onClick={()=>toggleColor(color.id)}
-     disabled={!extras.includes(color.id)&&(extras.length>=11||quantity>=available||stock.blocked)}/>)}
+     disabled={busy||(!extras.includes(color.id)&&(extras.length>=11||quantity>=available||stock.blocked))}/>)}
    </div>
+   {extras.filter(id=>!allowedColors.some(c=>c.id===id)).map(id=><button type="button" key={id} disabled={busy} className="button button-outline" onClick={()=>toggleColor(id)}>Retirar color no disponible: {colors.find(c=>c.id===id)?.name||id.slice(0,8)}</button>)}
    {!allowedColors.length&&<p className="form-hint">No hay colores activos asignados a este modelo.</p>}
    {noDozen&&extras.length<6&&<p className="portion-warning" role="status">
     Selecciona {6-extras.length} {6-extras.length===1?'color más':'colores más'} para alcanzar el mínimo mayorista.
    </p>}
    {insufficient&&<p className="form-error" role="alert">Stock insuficiente: {quantity} seleccionadas, {available} disponibles.</p>}
    {stock.blocked&&<p className="form-error">Modelo con incidencia de inventario.</p>}
-  </div>
+  </div></div>
   <div className="portion-result">
    <div><span className="portion-total-label">Subtotal del modelo</span>
     <strong>{validDozens?portionBreakdown(dozens,extras.length):'Docenas inválidas'} · {validDozens?quantity:'—'} prendas</strong>
@@ -642,240 +702,133 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove}){
   </div>
  </article>;
 }
-function OrderStepHeader({number,title,description,state}){
- return <div className="form-section-title ev-booking-section-title">
-  <span className="step" aria-hidden="true">{number===1?'♙':number===2?'▧':'✓'}</span>
-  <div className="order-step-heading"><h2>{title}</h2><p>{description}</p></div>
-  {state==='done'&&<span className="ev-section-complete" aria-label="Sección lista">✓</span>}
- </div>;
+function OrderStepHeader({number,title,state}){
+ return <div className="form-section-title ev-booking-section-title"><span className="step" aria-hidden="true">{number}</span><div className="order-step-heading"><h2>{title}</h2></div>{state==='done'&&<span className="ev-section-complete" aria-label="Sección lista">✓</span>}</div>;
 }
-function BookingPanel({data,onOrder,onCreateClient,busy}){
- const [customerId,setCustomerId]=useState('');
- const [customerSearch,setCustomerSearch]=useState('');
- const [customerListOpen,setCustomerListOpen]=useState(false);
- const [highlightedCustomer,setHighlightedCustomer]=useState(0);
- const customerPickerRef=useRef(null);
- const [productSearch,setProductSearch]=useState('');
- const [portions,setPortions]=useState({});
- const [localError,setLocalError]=useState('');
- const [recentlyAdded,setRecentlyAdded]=useState(null);
- const [addClient,setAddClient]=useState(false);
- const [method,setMethod]=useState(''),[destination,setDestination]=useState('');
- const requestId=useRef(null);
- const models=data.models.filter(m=>m.is_active);
- const stock=data.stock;
- const chosen=models.filter(m=>Object.hasOwn(portions,m.id));
- const availableModels=models.filter(m=>!Object.hasOwn(portions,m.id)&&
-   (m.name+' '+m.size_label).toLocaleLowerCase().includes(productSearch.toLocaleLowerCase()));
- const matchedCustomers=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(customerSearch.toLocaleLowerCase()));
+function BookingReceipt({id,data,onNew,onView,onPrint,onIssue,onRevoke,busy}){
+ const [loaded,setLoaded]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0),[share,setShare]=useState(false);
+ const result=loaded?.id===id?loaded.value:null;
+ const verified=loaded?.id===id&&loaded.workspace===data&&loaded.retry===retry&&!error;
+ useEffect(()=>{const controller=new AbortController();setError('');
+  loadOrderById(id,controller.signal).then(value=>{if(!controller.signal.aborted)setLoaded({id,workspace:data,retry,value});}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
+  return ()=>controller.abort();
+ },[id,data,retry]);
+ const order=result?.view.items[0],details=result?{...data,...result.details}:null;
+ const customer=details?.customers.find(c=>c.id===order?.customer_id);
+ return <><SectionHead eyebrow="VENTAS MAYORISTAS" title="Pedido registrado"/>
+  <section className="surface pad ev-booking-receipt"><div className="ev-receipt-success"><span aria-hidden="true">✓</span><h2>Compra confirmada</h2><small>Referencia {id.slice(0,8)}</small></div>
+   {error?<Notice type="error">El pedido está registrado. No se pudo cargar su detalle: {error} <button type="button" className="button button-outline" onClick={()=>setRetry(n=>n+1)}>Actualizar detalle</button></Notice>:!order?<p role="status">Consultando pedido confirmado…</p>:<>
+    <h3>{customer?.name||'Cliente'}</h3><p>{order.lines.length} modelos · {order.lines.reduce((n,l)=>n+Number(l.quantity),0)} prendas · {deliveryLabel(order.fulfillment_method)}</p>
+    <strong className="ev-receipt-total">{formatBs(order.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n))}</strong>
+    <div className="ev-receipt-actions"><button className="button button-primary" type="button" disabled={busy||!verified||order.status!=='active'} onClick={()=>setShare(v=>!v)}>{share?'Cerrar mensaje':'Preparar mensaje de WhatsApp'}</button>
+     <button className="button button-outline" type="button" disabled={busy||!verified||order.status==='voided'||order.fulfillment_method==='legacy'} onClick={()=>onPrint(order,customer)}>{order.fulfillment_method==='shipping'?'Imprimir etiqueta':'Imprimir comprobante'}</button></div>
+    {share&&<OrderLinkPanel order={order} data={details} onIssue={onIssue} onRevoke={onRevoke} busy={busy||!verified}/>}
+   </>}
+   <div className="ev-receipt-actions"><button className="button button-outline" type="button" disabled={busy} onClick={()=>onView(id)}>Ver pedido</button><button className="button button-primary" type="button" disabled={busy} onClick={onNew}>＋ Registrar otro pedido</button></div>
+  </section></>;
+}
+function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint,onIssue,onRevoke,busy}){
+ const {ask}=useConfirmation();
+ const {customerId,method,destination,portions,attempt,receipt}=draft;
+ const [customerSearch,setCustomerSearch]=useState(''),[customerListOpen,setCustomerListOpen]=useState(false),[highlightedCustomer,setHighlightedCustomer]=useState(0);
+ const customerPickerRef=useRef(null),submitting=useRef(false),photoDialog=useRef(null);
+ const [productSearch,setProductSearch]=useState(''),[sizeFilter,setSizeFilter]=useState('all'),[showUnavailable,setShowUnavailable]=useState(false);
+ const [expanded,setExpanded]=useState(null),[scrollTarget,setScrollTarget]=useState(null),[localError,setLocalError]=useState(''),[addClient,setAddClient]=useState(false),[photo,setPhoto]=useState(null),[visibleLimit,setVisibleLimit]=useState(12);
+ const locked=busy||Boolean(attempt),models=data.models.filter(m=>m.is_active),stock=data.stock;
  const chosenCustomer=data.customers.find(c=>c.id===customerId);
- const visibleCustomers=matchedCustomers.slice(0,8);
- useEffect(()=>{
-  const dismiss=e=>{if(!customerPickerRef.current?.contains(e.target))setCustomerListOpen(false);};
-  document.addEventListener('pointerdown',dismiss);
-  return ()=>document.removeEventListener('pointerdown',dismiss);
- },[]);
- function selectCustomer(customer){
-  setCustomerId(customer.id);
-  setMethod(customer.delivery_preference==='unclassified'?'':(customer.delivery_preference??''));
-  setDestination(customer.shipping_destination??'');
-  setCustomerListOpen(false);
-  setCustomerSearch('');
-  setHighlightedCustomer(0);
-  requestId.current=null;
- }
- const amount=chosen.reduce((total,m)=>{
-  const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds);
-  const valid=/^(0|[1-9]\d*)$/.test(String(s.dozens));
-  return total+(valid&&Number.isSafeInteger(q)&&q>=6?subtotalCents(m.price_dozen_bs,q):0n);
- },0n);
- const totalItems=chosen.reduce((n,m)=>{
-  const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds);
-  return n+(Number.isSafeInteger(q)&&q>=0?q:0);
- },0);
+ const review=reviewBooking(models,portions,stock,data.colors);
+ const {total:amount,units:totalItems,rows:chosen,ready:productsReady}=review;
  const clientReady=Boolean(chosenCustomer);
- const deliveryReady=(()=>{
-  try{validateDelivery(method,destination);return true;}catch{return false;}
- })();
- const productsReady=chosen.length>0&&(()=>{
-  try{return checkedPortions(models,portions,stock,data.colors).length===chosen.length;}
-  catch{return false;}
- })();
+ const deliveryReady=(()=>{try{validateDelivery(method,destination);return true;}catch{return false;}})();
  const stage=!clientReady?1:!productsReady?2:3;
+ const ready=clientReady&&productsReady&&deliveryReady;
+ const matchedCustomers=findBookingCustomers(data.customers,customerSearch);
+ const visibleCustomers=matchedCustomers.slice(0,8);
+ const recent=recentBookingCustomers(data.customers,data.orders);
+ const availableModels=models.filter(m=>!Object.hasOwn(portions,m.id)&&(sizeFilter==='all'||normalizeSize(m.size_label)===sizeFilter)&&normalizeName(m.name+' '+m.size_label).toLowerCase().includes(productSearch.toLowerCase().trim())).map(m=>{
+  const activeColors=data.colors.filter(c=>m.colorIds?.includes(c.id)&&c.is_active).length;
+  return {model:m,canAdd:canAddModelToOrder(stock[m.id],activeColors),activeColors};
+ }).filter(x=>showUnavailable||x.canAdd);
+ function change(values){setDraft(current=>current.attempt?current:{...current,...values});setLocalError('');}
+ function selectCustomer(customer){
+  if(locked)return;
+  change({customerId:customer.id,method:customer.delivery_preference==='unclassified'?'':customer.delivery_preference??'',destination:customer.shipping_destination??''});
+  setCustomerListOpen(false);setCustomerSearch('');setHighlightedCustomer(0);
+ }
+ useEffect(()=>{const dismiss=e=>{if(!customerPickerRef.current?.contains(e.target))setCustomerListOpen(false);};document.addEventListener('pointerdown',dismiss);return()=>document.removeEventListener('pointerdown',dismiss);},[]);
  useEffect(()=>{if(localError)document.getElementById('operation-error')?.focus();},[localError]);
- function editPortion(id,value){requestId.current=null;setPortions(v=>({...v,[id]:value}));setLocalError('');}
- function addModel(model){
-  requestId.current=null;
-  const modelStock=stock[model.id]||{};
-  const colorCount=data.colors.filter(c=>model.colorIds?.includes(c.id)&&c.is_active).length;
-  try{
-   const selection=initialModelPortion(modelStock,colorCount);
-   setPortions(v=>({...v,[model.id]:selection}));
-   setRecentlyAdded(model.id);
-   setLocalError('');
-  }catch(e){setLocalError(e.message);}
+ useEffect(()=>{if(photo&&photoDialog.current&&!photoDialog.current.open)photoDialog.current.showModal();},[photo]);
+ useEffect(()=>{if(scrollTarget){document.getElementById('order-model-'+scrollTarget)?.scrollIntoView({block:'nearest'});setScrollTarget(null);}},[scrollTarget]);
+ function editPortion(id,value){if(!locked)change({portions:{...portions,[id]:value}});}
+ function addModel(model,activeColors){
+  if(locked||Object.keys(portions).length>=100)return;
+  try{editPortion(model.id,initialModelPortion(stock[model.id],activeColors));setExpanded(model.id);setScrollTarget(model.id);}catch(e){setLocalError(e.message);}
  }
- useEffect(()=>{
-  if(recentlyAdded){
-   document.getElementById('order-model-'+recentlyAdded)?.scrollIntoView({block:'nearest'});
-  }
- },[recentlyAdded]);
- function removeModel(id){requestId.current=null;setPortions(current=>{
-  const copy={...current};delete copy[id];return copy;
- });setLocalError('');}
+ function removeModel(id){if(locked)return;const next={...portions};delete next[id];change({portions:next});}
+ async function clearCart(){
+  if(locked||!chosen.length)return;
+  if(await ask({severity:'warning',title:'Vaciar productos',message:'Se quitarán los modelos del borrador. No se ha comprometido inventario.',confirmLabel:'Vaciar carrito'}))change({portions:{}});
+ }
  async function submit(e){
-  e.preventDefault();setLocalError('');
+  e.preventDefault();if(busy||submitting.current)return;submitting.current=true;setLocalError('');
   try{
-   if(!customerId)throw new Error('Selecciona un cliente antes de continuar.');
+   if(attempt){await onOrder(attempt);return;}
+   if(!ready)throw Error('Completa cliente, productos y entrega.');
    const lines=checkedPortions(models,portions,stock,data.colors);
+   if(lines.length!==review.lines.length)throw Error('Revisa las cantidades.');
    const delivery=validateDelivery(method,destination);
-   if(!requestId.current)requestId.current=uuid();
-   const ok=await onOrder(customerId,lines,requestId.current,delivery);
-   if(ok){requestId.current=null;setPortions({});setCustomerId('');setCustomerSearch('');setCustomerListOpen(false);setMethod('');setDestination('');}
-  }catch(err){setLocalError(err.message);}
+   if(!await ask({severity:'normal',title:'Confirmar pedido',message:'La compra debe estar aceptada por el cliente. Se comprometerá el inventario y se fijarán los precios.',facts:[{label:'Cliente',value:chosenCustomer.name},{label:'Entrega',value:deliveryLabel(method)+(delivery.destination?' · '+delivery.destination:'')},{label:'Prendas',value:totalItems},{label:'Total',value:formatBs(amount)}],confirmLabel:'Registrar pedido'}))return;
+   await onOrder({customerId,lines:review.lines,delivery,requestId:uuid()});
+  }catch(e){setLocalError(e.message);}finally{submitting.current=false;}
  }
- return <div className="ev-booking">
-  <SectionHead eyebrow="VENTAS MAYORISTAS" title="Registrar pedido confirmado"
-   description="Selecciona comprador y modelos; las docenas son surtidas y las unidades por color se detallan cuando las agregas."/>
+ if(receipt)return <BookingReceipt id={receipt} data={data} onNew={()=>{setDraft(emptyBooking());setLocalError('');}} onView={onView} onPrint={onPrint} onIssue={onIssue} onRevoke={onRevoke} busy={busy}/>;
+ return <div className="ev-booking ev-booking-v2">
+  <SectionHead eyebrow="VENTAS MAYORISTAS" title="Nuevo pedido"/>
   <nav className="order-progress ev-order-progress" aria-label="Progreso del registro de pedido">
-   <div className="ev-progress-caption">
-    <strong>Progreso del pedido</strong>
-    <span>Paso {stage} de 3</span>
-   </div>
-   <div className="ev-progress-bar" role="progressbar" aria-label="Progreso del pedido"
-    aria-valuemin={1} aria-valuemax={3} aria-valuenow={stage}>
-    <span style={{width:(stage*100/3)+'%'}}/>
-   </div>
-   <div className="ev-progress-labels">
-    {['Cliente','Modelos','Confirmación'].map((label,index)=>
-     <span key={label} className={index+1<stage?'done':index+1===stage?'current':'next'}>
-      <span aria-hidden="true">{index+1<stage?'✓':index+1}</span>{label}
-     </span>)}
-   </div>
+   <div className="ev-progress-bar" role="progressbar" aria-label="Secciones válidas" aria-valuemin={0} aria-valuemax={3} aria-valuenow={Number(clientReady)+Number(productsReady)+Number(deliveryReady)}><span style={{width:((Number(clientReady)+Number(productsReady)+Number(deliveryReady))*100/3)+'%'}}/></div>
+   <div className="ev-progress-labels">{[['Cliente',clientReady],['Productos',productsReady],['Entrega',deliveryReady]].map(([label,done],i)=><span key={label} className={done?'done':i+1===stage?'current':'next'}><span aria-hidden="true">{done?'✓':i+1}</span>{label}</span>)}</div>
   </nav>
+  {attempt&&<Notice type="error">Existe un intento de registro sin resultado confirmado. Reintenta con exactamente los mismos datos para evitar duplicados. El borrador permanece bloqueado hasta resolverlo.</Notice>}
   <div className="booking-layout">
    <div className="surface booking-form">
-    <section className={'form-section order-step-card '+(1<stage?'done':1===stage?'current':'next')}>
-     <OrderStepHeader number={1} title="Elegir comprador" description="Busca por nombre o WhatsApp, o registra un cliente nuevo." state={1<stage?'done':1===stage?'current':'next'}/>
-     <div className="customer-chooser ev-customer-chooser">
-      <div className="ev-client-picker-row">
-       <div className="ev-client-field" ref={customerPickerRef}>
-        <label htmlFor="ev-client-search" className="field-label">Cliente del pedido</label>
-        <div className="search ev-client-search">
-         <span aria-hidden="true">⌕</span>
-         <input id="ev-client-search" type="search" role="combobox"
-          aria-label="Buscar y seleccionar cliente por nombre o WhatsApp" aria-autocomplete="list"
-          aria-expanded={customerListOpen} aria-controls="ev-client-results"
-          aria-activedescendant={customerListOpen&&visibleCustomers[highlightedCustomer]?'ev-client-option-'+visibleCustomers[highlightedCustomer].id:undefined}
-          autoComplete="off" placeholder="Nombre o número de WhatsApp…"
-          value={customerSearch} onFocus={()=>setCustomerListOpen(true)}
-          onChange={e=>{setCustomerSearch(e.target.value);setCustomerListOpen(true);setHighlightedCustomer(0);}}
-          onKeyDown={e=>{
-           if(e.key==='ArrowDown'){e.preventDefault();setCustomerListOpen(true);setHighlightedCustomer(i=>Math.min(visibleCustomers.length-1,Math.max(0,i+1)));}
-           else if(e.key==='ArrowUp'){e.preventDefault();setCustomerListOpen(true);setHighlightedCustomer(i=>Math.max(0,i-1));}
-           else if(e.key==='Enter'&&customerListOpen&&visibleCustomers.length){e.preventDefault();selectCustomer(visibleCustomers[Math.min(highlightedCustomer,visibleCustomers.length-1)]);}
-           else if(e.key==='Escape'){setCustomerListOpen(false);}
-          }}/>
-        </div>
-        <div id="ev-client-results" role="listbox" aria-label="Resultados de clientes"
-         className="ev-client-results" hidden={!customerListOpen}>
-         {visibleCustomers.length?visibleCustomers.map((c,index)=>
-          <button type="button" key={c.id} id={'ev-client-option-'+c.id}
-           role="option" aria-selected={customerId===c.id}
-           className={'ev-client-option '+(index===highlightedCustomer?'highlighted':'')}
-           onMouseDown={e=>e.preventDefault()} onClick={()=>selectCustomer(c)}>
-           <span className="avatar">{initials(c.name)}</span>
-           <span className="ev-client-meta"><strong>{c.name}</strong><small>{c.whatsapp}</small></span>
-           <span className="ev-client-type">{c.delivery_preference==='shipping'?'Envío':c.delivery_preference==='pickup'?'Retiro':'Sin clasificar'}</span>
-           {customerId===c.id&&<span className="ev-client-selected-icon" aria-label="Seleccionado">✓</span>}
-          </button>):
-          <p className="ev-client-empty">No se encontraron clientes. Puedes registrar uno nuevo.</p>}
-         {matchedCustomers.length>visibleCustomers.length&&
-          <p className="ev-client-more">Mostrando 8 de {matchedCustomers.length}. Escribe para filtrar.</p>}
-        </div>
-       </div>
-       <button type="button" className="button button-outline ev-new-client" aria-expanded={addClient}
-        onClick={()=>setAddClient(x=>!x)}>{addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button>
-      </div>
-     </div>
-     {chosenCustomer&&<div className="selected-client ev-selected-client">
-       <span className="avatar small">{initials(chosenCustomer.name)}</span>
-       <div><b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp}</small></div>
-       <span className="ev-chosen-tag">✓ Seleccionado</span>
-      </div>}
-     {addClient&&<div className="inline-client"><ClientForm compact busy={busy}
-       onCreate={async(payload)=>{const ok=await onCreateClient(payload);if(ok){setAddClient(false);setCustomerSearch(payload.whatsapp);setCustomerListOpen(true);setHighlightedCustomer(0);}return ok;}}/></div>}
+    <section className="form-section order-step-card">
+     <OrderStepHeader number={1} title="Cliente" state={clientReady?'done':'current'}/>
+     {chosenCustomer?<div className="selected-client ev-selected-client"><span className="avatar small">{initials(chosenCustomer.name)}</span><div><b>{chosenCustomer.name}</b><small>{chosenCustomer.whatsapp} · {deliveryLabel(chosenCustomer.delivery_preference)}</small></div><button type="button" className="button button-outline" disabled={locked} onClick={()=>{change({customerId:'',method:'',destination:''});setCustomerListOpen(true);}}>Cambiar</button></div>:<>
+     <div className="ev-client-picker-row"><div className="ev-client-field" ref={customerPickerRef}><label htmlFor="ev-client-search" className="field-label">Buscar cliente</label>
+      <div className="search ev-client-search"><span aria-hidden="true">⌕</span><input id="ev-client-search" type="search" role="combobox" aria-label="Buscar y seleccionar cliente por nombre o WhatsApp" aria-autocomplete="list" aria-expanded={customerListOpen} aria-controls="ev-client-results" aria-activedescendant={customerListOpen&&visibleCustomers[highlightedCustomer]?'ev-client-option-'+visibleCustomers[highlightedCustomer].id:undefined} autoComplete="off" placeholder="Nombre o WhatsApp…" disabled={locked} value={customerSearch}
+       onFocus={()=>setCustomerListOpen(true)} onChange={e=>{setCustomerSearch(e.target.value);setCustomerListOpen(true);setHighlightedCustomer(0);}}
+       onKeyDown={e=>{if(e.key==='ArrowDown'){e.preventDefault();setCustomerListOpen(true);setHighlightedCustomer(i=>Math.max(0,Math.min(visibleCustomers.length-1,i+1)));}else if(e.key==='ArrowUp'){e.preventDefault();setHighlightedCustomer(i=>Math.max(0,i-1));}else if(e.key==='Enter'&&customerListOpen&&visibleCustomers.length){e.preventDefault();selectCustomer(visibleCustomers[Math.min(highlightedCustomer,visibleCustomers.length-1)]);}else if(e.key==='Escape')setCustomerListOpen(false);}}/></div>
+      <div id="ev-client-results" role="listbox" aria-label="Resultados de clientes" className="ev-client-results" hidden={!customerListOpen}>{visibleCustomers.length?visibleCustomers.map((c,index)=><button type="button" key={c.id} id={'ev-client-option-'+c.id} role="option" aria-selected={customerId===c.id} className={'ev-client-option '+(index===highlightedCustomer?'highlighted':'')} disabled={locked} onMouseDown={e=>e.preventDefault()} onClick={()=>selectCustomer(c)}><span className="avatar">{initials(c.name)}</span><span className="ev-client-meta"><strong>{c.name}</strong><small>{c.whatsapp}</small></span><span className="ev-client-type">{c.delivery_preference==='shipping'?'Envío':c.delivery_preference==='pickup'?'Retiro':'Sin clasificar'}</span></button>):<p className="ev-client-empty">Sin coincidencias.</p>}{matchedCustomers.length>visibleCustomers.length&&<p className="ev-client-more">Mostrando 8 de {matchedCustomers.length}. Escribe para filtrar.</p>}</div></div>
+      <button type="button" className="button button-outline ev-new-client" aria-expanded={addClient} disabled={locked} onClick={()=>setAddClient(x=>!x)}>{addClient?'Cerrar ficha':'＋ Nuevo cliente'}</button></div>
+     {!customerSearch&&recent.length>0&&<div className="ev-recent-buyers"><h3>Clientes recientes</h3>{recent.map(c=><button key={c.id} type="button" disabled={locked} className="ev-client-option" onClick={()=>selectCustomer(c)}><span className="avatar">{initials(c.name)}</span><span className="ev-client-meta"><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}</small></span></button>)}</div>}
+     {addClient&&<div className="inline-client"><ClientForm compact busy={locked} customers={data.customers} onCreate={async payload=>{const result=await onCreateClient(payload,true);if(result?.state==='created'){selectCustomer({id:result.id,delivery_preference:payload.method,shipping_destination:payload.destination});setAddClient(false);return true;}return result;}}/></div>}
+     </>}
     </section>
-    <section className={'form-section order-step-card '+(2<stage?'done':2===stage?'current':'next')}>
-     <OrderStepHeader number={2} title="Seleccionar productos" description="Agrega modelos y elige docenas; despliega unidades y colores solo cuando lo necesites." state={2<stage?'done':2===stage?'current':'next'}/>
-     <label className="search model-search"><span aria-hidden="true">⌕</span>
-      <input type="search" aria-label="Buscar modelos para añadir" placeholder="Buscar modelo o talla…"
-       value={productSearch} onChange={e=>setProductSearch(e.target.value)}/></label>
-     {availableModels.length?<div className="product-picker" aria-label="Productos disponibles para el pedido">{availableModels.map(m=>{
-      const st=stock[m.id]||{},available=Number(st.available)||0;
-      const activeColors=data.colors.filter(c=>m.colorIds?.includes(c.id)&&c.is_active).length;
-      const canAdd=canAddModelToOrder(st,activeColors);
-      return <button key={m.id} type="button" className="picker-item picker-add"
-       disabled={!canAdd} aria-label={'Agregar '+m.name+' al pedido'}
-       onClick={()=>addModel(m)}>
-       <ProductImage model={m}/>
-       <div className="picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small>
-        <span className={!canAdd?'error-text':'positive-text'}>{st.blocked?'Incidencia · bloqueado':
-          !canAdd?'Sin cupo suficiente para el mínimo mayorista':formatAvailableDozens(available)+' disponibles'}</span>
-       </div><span className="picker-add-action" aria-hidden="true">＋ Agregar</span>
-      </button>})}</div>:<p className="muted">{models.length?'Todos los modelos coincidentes están agregados.':'Todavía no hay productos activos.'}</p>}
-     <div className="cart-subhead"><h3>Modelos agregados al pedido</h3><span aria-live="polite">{chosen.length} modelo(s) · {totalItems} prendas</span></div>
-     {chosen.length?<div className="cart-models">{chosen.map(m=>
-      <div key={m.id} id={'order-model-'+m.id} className="order-model-anchor"><PortionEditor model={m} colors={data.colors} stock={stock[m.id]||{}}
-       selection={portions[m.id]} onChange={v=>editPortion(m.id,v)} onRemove={()=>removeModel(m.id)}/></div>
-     )}</div>:<Empty title="Aún no agregaste modelos" detail="Elige uno o varios productos del catálogo superior."/>}
+    <section className="form-section order-step-card">
+     <OrderStepHeader number={2} title="Productos" state={productsReady?'done':'current'}/>
+     <div className="ev-booking-sizes" role="group" aria-label="Filtrar talla">{['all',...productSizes(models)].map(v=><button type="button" key={v} className={'pill '+(sizeFilter===v?'active':'')} aria-pressed={sizeFilter===v} disabled={locked} onClick={()=>{setSizeFilter(v);setVisibleLimit(12);}}>{v==='all'?'Todas':v}</button>)}</div>
+     <label className="search model-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Buscar modelos para añadir" placeholder="Buscar modelo…" disabled={locked} value={productSearch} onChange={e=>{setProductSearch(e.target.value);setVisibleLimit(12);}}/></label>
+     <div className="ev-booking-picker-toolbar"><button type="button" className="button button-outline" aria-pressed={showUnavailable} disabled={locked} onClick={()=>{setShowUnavailable(v=>!v);setVisibleLimit(12);}}>{showUnavailable?'Solo disponibles':'Mostrar no disponibles'}</button><span className="muted">{availableModels.length} modelos</span></div>
+     {availableModels.length?<div className="product-picker ev-booking-picker" aria-label="Productos disponibles para el pedido">{availableModels.slice(0,visibleLimit).map(({model:m,canAdd,activeColors})=><article key={m.id} className="ev-picker-card"><button type="button" className="ev-picker-photo" disabled={!m.imageUrl} onClick={()=>setPhoto(m)} aria-label={'Ampliar foto de '+m.name}><ProductImage model={m}/></button><div className="ev-picker-info"><b>{m.name}</b><small>Talla {m.size_label} · {formatBs(centsFromBs(m.price_dozen_bs))}/doc.</small><small className={canAdd?'positive-text':'error-text'}>{canAdd?formatAvailableDozens(Number(stock[m.id]?.available))+' libres':stock[m.id]?.blocked?'Bloqueado':'Sin mínimo disponible'}</small></div><button type="button" className="button button-primary" disabled={locked||!canAdd||chosen.length>=100} aria-label={'Agregar '+m.name+' al pedido'} onClick={()=>addModel(m,activeColors)}>＋ Agregar</button></article>)}</div>:<p className="muted">No hay modelos disponibles con estos filtros.</p>}
+     {availableModels.length>visibleLimit&&<button type="button" className="button button-outline full" disabled={locked} onClick={()=>setVisibleLimit(n=>n+12)}>Mostrar más modelos</button>}
+     <div className="cart-subhead"><h3>Carrito ({chosen.length})</h3>{chosen.length>0&&<button type="button" className="button button-outline" disabled={locked} onClick={clearCart}>Vaciar</button>}</div>
+     {chosen.length?<div className="cart-models">{chosen.map(row=>row.model?<div key={row.id} id={'order-model-'+row.id} className="order-model-anchor"><PortionEditor model={row.model} colors={data.colors} stock={stock[row.id]||{}} selection={row.selection} busy={locked} collapsed={expanded!==row.id&&row.valid} onToggle={row.valid?()=>setExpanded(v=>v===row.id?null:row.id):undefined} onChange={v=>editPortion(row.id,v)} onRemove={()=>removeModel(row.id)}/>{!row.valid&&<p role="alert" className="form-error">{row.error}</p>}</div>:<Notice key={row.id} type="error">{row.selection.previousName||'Modelo no disponible'}: inhabilitado o inexistente. <button type="button" className="button button-outline" disabled={locked} onClick={()=>removeModel(row.id)}>Retirar</button></Notice>)}</div>:<p className="muted">Selecciona un modelo.</p>}
     </section>
-    <section className={'form-section order-step-card '+(3<stage?'done':3===stage?'current':'next')}>
-     <OrderStepHeader number={3} title="Revisar y confirmar" description="Comprueba los importes antes de comprometer inventario." state={3<stage?'done':3===stage?'current':'next'}/>
-     <div className="order-confirmation-note"><strong>Compra confirmada</strong><p>Registra únicamente pedidos aceptados por el cliente. Al confirmar, las prendas quedan comprometidas para su entrega y el precio queda fijado.</p></div>
-     <div className="order-delivery-choice">
-      <Field title="¿Cómo recibirá este pedido?">
-       <select aria-label="Modalidad de entrega del pedido" value={method} required
-        onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');requestId.current=null;}}>
-        <option value="">Selecciona retiro o envío…</option>
-        <option value="pickup">Retiro en local</option>
-        <option value="shipping">Envío nacional / interdepartamental</option>
-       </select>
-      </Field>
-      {method==='shipping'&&<Field title="Destino exacto para este pedido">
-       <input aria-label="Destino del pedido" value={destination} required maxLength={200} minLength={2}
-        placeholder="Ciudad / departamento / agencia"
-        onChange={e=>{setDestination(e.target.value);requestId.current=null;}}/>
-      </Field>}
-      <p className="small-note">El pedido guarda su destino propio, aunque después se modifique la ficha del cliente.</p>
-     </div>
+    <section className="form-section order-step-card"><OrderStepHeader number={3} title="Entrega" state={deliveryReady?'done':'current'}/>
+     <DeliveryMethodChoices label="Modalidad" method={method} busy={locked} onChange={value=>change({method:value,destination:value==='shipping'?destination:''})}/>
+     {method==='shipping'&&<><DestinationShortcut destination={destination} known={chosenCustomer?.shipping_destination} busy={locked} onSelect={value=>change({destination:value})}/><Field title="Destino del pedido"><input aria-label="Destino del pedido" value={destination} required maxLength={200} minLength={2} disabled={locked} onChange={e=>change({destination:e.target.value})}/></Field></>}
     </section>
     {localError&&<p className="form-error" role="alert" tabIndex={-1} id="operation-error">{localError}</p>}
    </div>
-   <aside className="surface checkout">
-    <p className="eyebrow">RESUMEN PREVIO</p><h2>Detalle mayorista</h2>
-    <div className="checkout-customer"><span className="label-dim">Cliente</span>
-     <strong>{chosenCustomer?.name||'Selecciona un cliente'}</strong></div>
-    <div className="checkout-lines">{chosen.length?chosen.map(m=>{
-     const s=portions[m.id],q=portionQuantity(Number(s.dozens),s.extraColorIds),
-           valid=Number.isSafeInteger(q)&&q>=6;
-     return <div className="checkout-line" key={m.id}>
-      <div><b>{m.name}</b><small>{portionBreakdown(Number(s.dozens),s.extraColorIds.length)} · {q} prendas</small>
-       <ExtraColorSummary ids={s.extraColorIds} colors={data.colors}/></div>
-      <strong>{valid?formatBs(subtotalCents(m.price_dozen_bs,q)):'—'}</strong>
-     </div>;}):<p className="muted">Los modelos seleccionados aparecerán aquí.</p>}</div>
-    <div className="checkout-total"><span>Total del pedido</span><strong>{formatBs(amount)}</strong></div>
-    <div className="checkout-delivery"><span>Entrega</span>
-     <strong>{deliveryLabel(method)}</strong>{method==='shipping'&&destination.trim()&&<small>{destination.trim()}</small>}
-    </div>
-    <p className="checkout-note">Las docenas son surtidas. Se registran los colores de las prendas adicionales, una por color. La disponibilidad física por color se verifica fuera del sistema.</p>
-    <form id="booking-submit" onSubmit={submit}>
-     <button className="button button-primary full" type="submit" disabled={busy||!clientReady||!productsReady||!deliveryReady}>
-      {busy?'Guardando…':'Confirmar y registrar pedido'}
-     </button>
-    </form>
+   <aside className="surface checkout" id="ev-booking-summary"><p className="eyebrow">RESUMEN</p><h2>Pedido</h2><div className="checkout-customer"><span className="label-dim">Cliente</span><strong>{chosenCustomer?.name||'Sin seleccionar'}</strong></div>
+    <div className="checkout-lines">{chosen.map(row=><div className="checkout-line" key={row.id}><div><b>{row.model?.name||row.selection.previousName||'Modelo no disponible'}</b><small>{row.valid?portionBreakdown(row.line.dozens,row.line.extraColorIds.length)+' · '+row.quantity+' prendas':'Por corregir'}</small><ExtraColorSummary ids={row.selection.extraColorIds} colors={data.colors}/></div><strong>{row.valid?formatBs(row.subtotal):'—'}</strong></div>)}</div>
+    <div className="checkout-total"><span>{productsReady?'Total del pedido':'Subtotal válido'}</span><strong>{formatBs(amount)}</strong></div><div className="checkout-delivery"><span>Entrega</span><strong>{deliveryLabel(method)}</strong>{method==='shipping'&&destination.trim()&&<small>{destination.trim()}</small>}</div>
+    {!ready&&!attempt&&<p className="small-note">Completa las secciones pendientes antes de registrar.</p>}
+    <form id="booking-submit" onSubmit={submit}><button className="button button-primary full" type="submit" disabled={busy||(!attempt&&!ready)}>{busy?'Guardando…':attempt?'Reintentar registro':'Confirmar pedido'}</button></form>
    </aside>
   </div>
+  <div className="ev-booking-mobile-total"><div><small>{chosen.length} modelos · {totalItems} prendas válidas</small><strong>{formatBs(amount)}</strong></div><button type="button" className="button button-primary" disabled={busy} onClick={()=>document.getElementById('ev-booking-summary')?.scrollIntoView({block:'start'})}>Revisar</button></div>
+  {photo&&<dialog ref={photoDialog} className="ev-booking-photo-dialog" onCancel={e=>{e.preventDefault();setPhoto(null);}}><button type="button" className="button button-outline" onClick={()=>setPhoto(null)}>Cerrar fotografía</button><img src={photo.imageUrl} alt={'Fotografía de '+photo.name}/></dialog>}
  </div>;
 }
 function LineComposition({line,colors,compact=false}){
@@ -884,12 +837,14 @@ function LineComposition({line,colors,compact=false}){
   <span>{hasBreakdown?
     portionBreakdown(Number(line.dozen_count),Number(line.extra_units)):
     quantityBreakdown(line.quantity)+' · registro anterior sin desglose de colores'}</span>
-  <ExtraColorSummary ids={line.extraColorIds||[]} colors={colors}/>
+  <ExtraColorSummary ids={line.extraColorIds||[]} colors={line.extraColorsSnapshot??colors}/>
  </div>;
 }
 
-function PaymentForm({targetId,onSubmit,busy}){
- const [amount,setAmount]=useState(''),[note,setNote]=useState('');
+function PaymentForm({targetId,onSubmit,busy,balance}){
+ const [amount,setAmount]=useState(''),[note,setNote]=useState(''),[customAmount,setCustomAmount]=useState(false);
+ const suggested=paymentAmountOptions(balance);
+ const showCustom=customAmount||suggested.length===0||Boolean(amount&&!suggested.some(x=>x.value===amount));
  const requestId=useRef(null);
  async function submit(e){
   e.preventDefault();
@@ -900,14 +855,15 @@ function PaymentForm({targetId,onSubmit,busy}){
    orderId:targetId,
    amount:parsed,requestId:requestId.current,note:note.trim()||null
   });
-  if(ok){requestId.current=null;setAmount('');setNote('');}
+  if(ok){requestId.current=null;setAmount('');setNote('');setCustomAmount(false);}
  }
  return <form className="money-form" onSubmit={submit}>
   <p className="small-note">Registrar aviso de pago externo. <strong>No reduce el saldo</strong> hasta que el administrador compruebe la recepción y lo apruebe.</p>
   <div className="form-inline">
-   <Field title="Monto informado (Bs)">
-    <input type="text" name={'payment-'+targetId} inputMode="decimal" placeholder="Ej. 150,50"
+   <QuickOptions label="Monto informado (Bs)" options={suggested} value={amount} custom={showCustom} busy={busy} onSelect={value=>{setCustomAmount(false);setAmount(value);requestId.current=null;}} customLabel="Otro importe" onCustom={()=>{setCustomAmount(true);setAmount('');requestId.current=null;}}>
+    <Field title="Importe recibido"><input type="text" name={'payment-'+targetId} inputMode="decimal" placeholder="Ej. 150,50" disabled={busy}
      value={amount} onChange={e=>{setAmount(e.target.value);requestId.current=null;}} required/></Field>
+   </QuickOptions>
    <Field title="Referencia u observación (opcional)">
     <input type="text" maxLength={1000} name="paymentNote" placeholder="Transferencia, efectivo…"
      value={note} onChange={e=>{setNote(e.target.value);requestId.current=null;}}/></Field>
@@ -942,7 +898,9 @@ function QrAdmin({settings,onSave,busy,canManage=true}){
   e.preventDefault();setHint('');
   if(!file||!verified)return;
   if(!req.current)req.current=uuid();
-  const ok=await onSave(file,verified,req.current);
+  const form=e.currentTarget,values=new FormData(form),password=values.get('password'),code=values.get('code');
+  form.elements.password.value='';form.elements.code.value='';
+  const ok=await onSave(file,verified,req.current,password,code);
   if(ok){req.current=null;setFile(null);setVerified(false);setHint('QR vigente publicado para los enlaces de pedidos activos.');}
  }
  return <section className="surface pad qr-admin">
@@ -959,6 +917,8 @@ function QrAdmin({settings,onSave,busy,canManage=true}){
    <label className="qr-confirm"><input type="checkbox" checked={verified}
      onChange={e=>{setVerified(e.target.checked);req.current=null;}}/>
      He comprobado que esta imagen es un QR real, vigente y reutilizable para recibir pagos.</label>
+   <Field title="Confirma tu contraseña"><input name="password" type="password" autoComplete="current-password" required/></Field>
+   <Field title="Código del autenticador"><input name="code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required/></Field>
    <button className="button button-primary" type="submit" disabled={busy||!file||!verified}>
     {busy?'Guardando…':'Publicar QR para clientes'}</button>
   </form>:<p className="small-note">Solo el propietario puede modificar el QR bancario.</p>}
@@ -1007,10 +967,10 @@ function OrderLinkPanel({order,data,onIssue,onRevoke,busy}){
     <textarea id={'whatsapp-message-'+order.id} className="whatsapp-message-draft"
       rows={13} value={draft} onChange={e=>setDraft(e.target.value)} spellCheck={true}/>
     <div className="form-actions">
-     <button type="button" className="button button-primary" disabled={!draft.trim()}
+     <button type="button" className="button button-primary" disabled={busy||!draft.trim()}
       onClick={()=>copy(draft,'Mensaje de confirmación copiado. Pégalo en el chat del comprador.')}>
       Copiar mensaje para WhatsApp</button>
-     <button type="button" className="button button-outline"
+     <button type="button" className="button button-outline" disabled={busy}
       onClick={()=>copy(plain,'Enlace privado copiado. Pégalo únicamente en el chat del comprador.')}>
       Copiar solo enlace</button>
     </div>
@@ -1023,17 +983,20 @@ function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
  const [notes,setNotes]=useState({});
  const [filter,setFilter]=useState('pending');
  const pending=['pending','observed'];
- const list=data.payments.filter(p=>!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id)))&&(filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter)));
+ const payments=data.payments.filter(p=>!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id)))&&(filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter)));
+ const list=useRecordList(payments,'created_at');
+ const {view}=list;
  return <><SectionHead eyebrow="CONCILIACIÓN MANUAL" title="Verifica los pagos recibidos."
   description="Un aviso o comprobante NO confirma dinero ingresado. Comprueba la recepción fuera del sistema antes de aprobar."/>
   <QrAdmin settings={data.qrSettings} onSave={onSaveQr} busy={busy} canManage={canManageQr}/>
   <div className="toolbar"><label className="field"><span className="field-label">Filtrar estado</span>
-   <select value={filter} onChange={e=>setFilter(e.target.value)}>
+   <select value={filter} disabled={busy} onChange={e=>{setFilter(e.target.value);list.setPage(1);}}>
     <option value="pending">Pendientes y en observación</option>
     <option value="approved">Aprobados</option><option value="rejected">Rechazados</option>
     <option value="all">Todos</option></select></label>
-   <span className="muted">{list.length} declaración(es)</span></div>
-  <div className="record-list">{list.map(p=>{
+   <span className="muted">{view.total} declaración(es)</span></div>
+  <RecordListControls list={list} dateLabel="Fecha de declaración del pago" busy={busy}/>
+  <div className="record-list">{view.items.map(p=>{
    const order=data.orders.find(o=>o.id===p.order_id);
    const res=data.reservations.find(r=>r.id===p.reservation_id);
    const customer=data.customers.find(c=>c.id===(order?.customer_id||res?.customer_id));
@@ -1063,7 +1026,8 @@ function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
       {displayDate(v.created_at)} · {v.action} {v.note?' · '+v.note:''}</small>)}
    </article>;
   })}</div>
-  {!list.length&&<Empty title="Sin declaraciones con este estado" detail="Los pagos que informen los clientes o el administrador aparecerán aquí."/>}
+  {!view.total&&<Empty title="Sin declaraciones coincidentes" detail="Cambia el estado o las fechas para consultar otros registros."/>}
+  <ListPager view={view} onPage={list.setPage} label="Páginas de pagos" busy={busy}/>
  </>;
 }
 function DeliveryForm({order,data,onSave,busy}){
@@ -1101,6 +1065,7 @@ function DeliveryForm({order,data,onSave,busy}){
  </form>;
 }
 function LegacyCommitments({data,onConvert,busy}){
+ const {ask}=useConfirmation();
  const active=data.reservations.filter(r=>r.status==='saved'||r.status==='in_review');
  if(!active.length)return null;
  return <details className="legacy-commitments surface">
@@ -1118,13 +1083,13 @@ function LegacyCommitments({data,onConvert,busy}){
      <div className="record-lines">{r.lines.map(l=>{
       const model=data.models.find(m=>m.id===l.model_id);
       return <div className="record-line-detail" key={l.id}>
-       <span>{model?.name||'Modelo'} · {l.quantity} prendas</span>
+       <span>{l.model_name_snapshot??model?.name??'Modelo'} · {l.quantity} prendas</span>
        <LineComposition line={l} colors={data.colors} compact/>
       </div>;
      })}</div>
      {payments.length>0&&<PaymentHistory items={payments} compact/>}
      {canConvert?<button type="button" className="button button-outline" disabled={busy}
-       onClick={()=>{if(window.confirm('Confirma solo si el cliente aceptó comprar estas prendas. La operación pasará a Pedido sin descontar stock dos veces.'))onConvert(r.id);}}>
+       onClick={async()=>{if(await ask({severity:'normal',title:'Confirmar compra',message:'Confirma solo si el cliente aceptó comprar estas prendas. El registro pasará a pedido sin descontar stock dos veces.',facts:[{label:'Cliente',value:customer?.name||'Cliente'},{label:'Prendas',value:r.lines.reduce((sum,l)=>sum+Number(l.quantity),0)}],confirmLabel:'Convertir en pedido'}))await onConvert(r.id);}}>
        Confirmar compra y convertir en pedido</button>:
        <p className="small-note">{r.status==='in_review'?'Este registro antiguo tiene protección de depósito y requiere revisión administrativa; su cupo no se libera automáticamente.':'Su vigencia terminó. El procesador anterior liberará las prendas si no hay depósito oportuno.'}</p>}
     </article>;
@@ -1133,6 +1098,7 @@ function LegacyCommitments({data,onConvert,busy}){
  </details>;
 }
 function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
+ const {ask}=useConfirmation();
  const [note,setNote]=useState('');
  const attempt=useRef(null);
  const balance=amountCents(finance.pending??0);
@@ -1148,7 +1114,7 @@ function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
    :action==='deliver'
    ?'¿Confirmas que entregaste físicamente las '+remaining+' prendas restantes? El pedido se cerrará como COMPLETADO.'
    :'¿Confirmas que recibiste '+formatBs(balance)+' y entregaste físicamente las '+remaining+' prendas restantes? Se cerrará el pedido COMPLETADO.';
-  if(!window.confirm(details+'\n\nEsta operación se registrará en el historial y no puede deshacerse desde el panel.'))return;
+  if(!await ask({severity:'critical',title:action==='pay'?'Confirmar cobro':action==='deliver'?'Confirmar entrega':'Confirmar cobro y entrega',message:details,facts:[...(money?[{label:'Importe recibido',value:formatBs(balance)}]:[]),...(goods?[{label:'Prendas entregadas',value:remaining}]:[])],notice:'Esta operación se registra en el historial y no puede deshacerse desde el panel.',confirmLabel:action==='pay'?'Registrar cobro':action==='deliver'?'Registrar entrega':'Cobrar y entregar'}))return;
   if(!attempt.current||attempt.current.action!==action||attempt.current.note!==note)
    attempt.current={id:uuid(),action,note};
   const ok=await onQuick({orderId:order.id,action,requestId:attempt.current.id,
@@ -1202,13 +1168,8 @@ function OrderDeliveryEditor({order,customer,onSave,busy}){
   }catch(e){setError(e.message);}
  }
  return <form className="order-delivery-editor" onSubmit={save}>
-  <Field title="Modalidad de este pedido">
-   <select value={method} required aria-label="Clasificar entrega del pedido"
-    onChange={e=>{setMethod(e.target.value);if(e.target.value!=='shipping')setDestination('');requestId.current=null;}}>
-    <option value="">Selecciona…</option><option value="pickup">Retiro local</option>
-    <option value="shipping">Envío nacional / interdepartamental</option>
-   </select>
-  </Field>
+  <DeliveryMethodChoices label="Modalidad de este pedido" method={method} busy={busy} onChange={value=>{setMethod(value);if(value!=='shipping')setDestination('');requestId.current=null;}}/>
+  {method==='shipping'&&<DestinationShortcut destination={destination} known={customer?.shipping_destination} busy={busy} onSelect={value=>{setDestination(value);requestId.current=null;}}/>}
   {method==='shipping'&&<Field title="Destino de este pedido">
    <input value={destination} aria-label="Cambiar destino del pedido" required minLength={2} maxLength={200}
     onChange={e=>{setDestination(e.target.value);requestId.current=null;}}/>
@@ -1219,6 +1180,7 @@ function OrderDeliveryEditor({order,customer,onSave,busy}){
  </form>;
 }
 function OrderEditPanel({order,data,busy,onSave,onCancel}){
+ const {ask}=useConfirmation();
  const requestId=useRef(null);
  const [search,setSearch]=useState('');
  const [error,setError]=useState('');
@@ -1247,7 +1209,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   e.preventDefault();setError('');
   try{
    const lines=checkedPortions(models,portions,effectiveStock,data.colors);
-   if(!window.confirm('¿Guardar los cambios del pedido? El inventario y el importe se actualizarán. Debes comunicar los cambios al comprador.'))return;
+   if(!await ask({severity:'warning',title:'Guardar cambios del pedido',message:'Se actualizarán el inventario y el importe del pedido.',facts:[{label:'Total actual',value:formatBs(order.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n))},{label:'Nuevo total',value:formatBs(preview)}],notice:'Comunica los cambios al comprador.',confirmLabel:'Guardar cambios'}))return;
    if(!requestId.current)requestId.current=uuid();
    await onSave({orderId:order.id,lines,expectedRevision:order.revision,requestId:requestId.current});
   }catch(err){setError(err.message);}
@@ -1275,7 +1237,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   </div>}
   <div className="ev-order-edit-selected">
    {selected.map(m=><PortionEditor key={m.id} model={m} colors={data.colors}
-    stock={effectiveStock[m.id]} selection={portions[m.id]}
+    stock={effectiveStock[m.id]} selection={portions[m.id]} busy={busy}
     onChange={v=>change(m.id,v)} onRemove={()=>remove(m.id)}/>)}
    {!selected.length&&<p className="form-hint">El pedido debe conservar al menos un modelo.</p>}
   </div>
@@ -1289,16 +1251,23 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
   <p className="small-note">Solo pedidos activos sin pagos, entregas ni enlace privado activo. No modifica cobros ya realizados ni envía mensajes automáticamente.</p>
  </form>;
 }
-function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
+function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
+ const {ask}=useConfirmation();
  const [editingId,setEditingId]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
- const visibleOrders=data.orders.filter(o=>Boolean(o.archived_at)===showArchived);
- return <><SectionHead eyebrow="PEDIDOS CONFIRMADOS" title="Desglose de pedidos."
-   description="Abre un pedido para consultar sus modelos y gestionar lo necesario."/>
-  {!showArchived&&<LegacyCommitments data={data} onConvert={onConvertLegacy} busy={busy}/>}
-  <div className="ev-order-archive-toolbar"><button type="button" className="button button-outline" aria-pressed={!showArchived} onClick={()=>setShowArchived(false)}>Pedidos vigentes e historial</button><button type="button" className="button button-outline" aria-pressed={showArchived} onClick={()=>setShowArchived(true)}>Archivados ({data.orders.filter(o=>o.archived_at).length})</button></div>
-  {visibleOrders.length?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
-   {visibleOrders.map(o=>{
+ const list=useServerOrderList(workspace,showArchived,focusOrder);
+ const {view}=list;
+ const data=list.details?{...workspace,...list.details}:workspace;
+ const pageBusy=busy||list.loading||Boolean(list.error);
+ const changeArchive=archived=>{onClearFocus?.();setShowArchived(archived);list.setPage(1);setEditingId(null);};
+ return <><header className="ev-orders-heading"><p className="eyebrow">{showArchived?'HISTORIAL COMERCIAL':'PEDIDOS CONFIRMADOS'}</p><h1>{showArchived?'Pedidos archivados':'Pedidos'}</h1></header>
+  {focusOrder&&<button type="button" className="button button-outline" onClick={()=>{onClearFocus();list.clear();}}>Ver todos los pedidos</button>}
+  {!showArchived&&!focusOrder&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
+  <RecordListControls list={list} dateLabel={showArchived?"Fecha de archivo":"Fecha de confirmación del pedido"} busy={busy} onChange={()=>setEditingId(null)}/>
+  {list.loading&&<p className="small-note" role="status">{list.refreshing?'Actualizando pedidos; las acciones quedan temporalmente desactivadas.':'Cargando página de pedidos…'}</p>}
+  {list.error&&<div role="alert" className="surface pad"><p>No se pudieron actualizar los pedidos. {view?'Los datos visibles no están verificados. ':''}{list.error}</p><button type="button" className="button button-outline" disabled={busy} onClick={list.retry}>Reintentar</button></div>}
+  {!list.range.valid||!view?null:view.total?<div className="record-list ev-order-accordion-list" aria-label="Lista de pedidos">
+   {view.items.map(o=>{
     const customer=data.customers.find(x=>x.id===o.customer_id);
     const total=o.lines.reduce((sum,l)=>sum+centsFromBs(l.subtotal_bs),0n);
     const finance=data.finances[o.id]||{total:0,approved:0,pending:0,excess:0};
@@ -1316,8 +1285,8 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
      o.lines.some(l=>data.stock[l.model_id]?.blocked)?'Modelo con inventario en revisión':
      !Number.isSafeInteger(o.revision)?'Falta habilitar la edición en Supabase':null;
     const canArchive=!o.archived_at&&((o.status==='completed'&&!relatedPayments.some(p=>p.status==='pending'||p.status==='observed'))||(o.status==='active'&&!relatedPayments.length&&!data.deliveries.some(d=>d.order_id===o.id)&&Number(delivery.delivered)===0));
-    const sizes=[...new Set(o.lines.map(l=>data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
-    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" data-order-status={o.status}>
+    const sizes=[...new Set(o.lines.map(l=>l.size_label_snapshot??data.models.find(m=>m.id===l.model_id)?.size_label).filter(Boolean))];
+    return <details className="record order-record ev-order-accordion" key={o.id} name="evalia-orders" open={focusOrder===o.id?true:undefined} data-order-status={o.status}>
      <summary className="ev-order-summary">
       <span className="ev-order-summary-primary">
        <span className="avatar ev-order-avatar" aria-hidden="true">{initials(customer?.name)}</span>
@@ -1333,7 +1302,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
       </span>
       <span className="ev-order-summary-end">
        <strong className="ev-order-summary-total">{formatBs(total)}</strong>
-       {o.status==='active'&&!o.archived_at?<button type="button" className="ev-preparation-toggle" data-prepared={Boolean(o.prepared_at)} disabled={busy} aria-label={(o.prepared_at?'Volver a en preparación: ':'Marcar preparado: ')+(customer?.name||'Cliente')} onClick={e=>{e.preventDefault();e.stopPropagation();onPreparation(o);}}><strong>{o.prepared_at?'✓ Preparado':'En preparación'}</strong><small>{o.prepared_at?'Deshacer':'Marcar preparado'}</small></button>:<Status value={o.status}/>}
+       {o.status==='active'&&!o.archived_at?<button type="button" className="ev-preparation-toggle" data-prepared={Boolean(o.prepared_at)} disabled={pageBusy} aria-label={(o.prepared_at?'Volver a en preparación: ':'Marcar preparado: ')+(customer?.name||'Cliente')} onClick={e=>{e.preventDefault();e.stopPropagation();onPreparation(o);}}><strong>{o.prepared_at?'✓ Preparado':'En preparación'}</strong><small>{o.prepared_at?'Deshacer':'Marcar preparado'}</small></button>:<Status value={o.status}/>}
        {o.archived_at&&<span className="ev-order-archive-label">Archivado</span>}
       </span>
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
@@ -1341,23 +1310,22 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
      <div className="ev-order-expanded">
       {o.archived_at?<p className="small-note">Archivado · {displayDate(o.archived_at)} · {o.archive_reason}{o.status==='voided'?' · Sin cobros ni entregas pendientes.':''}</p>:
        <div className="ev-order-archive-action">
-        <button type="button" className="button ev-archive-button" disabled={busy||!canArchive} onClick={()=>{
+        <button type="button" className="button ev-archive-button" disabled={pageBusy||!canArchive} onClick={async()=>{
          const explanation=o.status==='active'?'Anular este pedido libera las prendas comprometidas y desactiva su enlace.':'Archivar este pedido solo lo oculta. Conserva los cobros y las entregas registrados.';
-         if(!window.confirm(explanation+' ¿Continuar?'))return;
-         const reason=window.prompt('Motivo del archivo (máximo 300 caracteres)','Registro de prueba o error');
-         if(reason?.trim())onArchiveOrder(o.id,reason.trim());
+         const decision=await ask({severity:o.status==='active'?'critical':'warning',title:o.status==='active'?'Anular pedido':'Archivar pedido',message:explanation,facts:[{label:'Cliente',value:customer?.name||'Cliente'},{label:'Total',value:formatBs(total)}],reasonRequired:true,confirmLabel:o.status==='active'?'Anular pedido':'Archivar pedido'});
+         if(decision?.confirmed&&decision.reason)await onArchiveOrder(o.id,decision.reason);
         }}>{o.status==='active'?'Anular y ocultar pedido':'Archivar pedido'}</button>
         {!canArchive&&<span className="small-note">Resuelve primero los movimientos pendientes. No se anulan pedidos activos con pagos, avisos o entregas.</span>}
        </div>}
       {o.status==='active'&&<div className="ev-order-edit-access">
-       <button type="button" className="button button-outline ev-order-edit-button" disabled={busy||Boolean(editReason)}
+       <button type="button" className="button button-outline ev-order-edit-button" disabled={pageBusy||Boolean(editReason)}
         onClick={()=>setEditingId(current=>current===o.id?null:o.id)}>
         {editingId===o.id?'Cerrar edición':'✎ Editar pedido'}
        </button>
        {editReason&&<span className="ev-edit-restriction">{editReason}</span>}
       </div>}
       {editingId===o.id&&!editReason&&<OrderEditPanel key={o.id+'-'+o.revision}
-       order={o} data={data} busy={busy} onCancel={()=>setEditingId(null)}
+       order={o} data={data} busy={pageBusy} onCancel={()=>setEditingId(null)}
        onSave={async params=>{const ok=await onEdit(params);if(ok)setEditingId(null);return ok;}}/>}
       {o.status==='active'&&<div className="ev-order-finance-brief" aria-label="Situación del cobro">
        {amountCents(finance.pending)>0n?
@@ -1366,6 +1334,7 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        {amountCents(finance.pending)>0n&&amountCents(finance.approved)>0n&&
         <small>Abonos aprobados: {formatBs(amountCents(finance.approved))}</small>}
       </div>}
+      <button type="button" className="button button-outline" disabled={pageBusy||o.status==='voided'} onClick={()=>onRepeat(o)}>Repetir como nuevo pedido</button>
       <section className="ev-order-model-section" aria-label="Modelos incluidos en el pedido">
        <h3>Modelos</h3>
        <div className="order-lines">
@@ -1373,8 +1342,8 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
          return <div className="order-product" key={l.id||l.model_id}>
           {m?.is_active&&<ProductImage model={m}/>}
           <div className="order-product-data">
-           <strong>{m?.name||'Modelo'}</strong>
-           <small>Talla {m?.size_label||'—'}</small>
+           <strong>{l.model_name_snapshot??m?.name??'Modelo'}</strong>
+           <small>Talla {l.size_label_snapshot??m?.size_label??'—'}</small>
            <LineComposition line={l} colors={data.colors} compact/>
           </div>
           <div className="order-line-price">
@@ -1391,10 +1360,10 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
         {o.fulfillment_method==='shipping'&&<p>Destino: {o.shipping_destination}</p>}
         {o.fulfillment_method==='legacy'&&<p>Pedido anterior a la clasificación de entregas. Indica cómo se entregará para habilitar la impresión.</p>}
         {o.status!=='voided'&&o.fulfillment_method!=='legacy'&&<button type="button" className="button button-primary"
-         onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Vista previa de etiqueta de envío':'Vista previa del comprobante'}</button>}
+         disabled={pageBusy} onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Vista previa de etiqueta de envío':'Vista previa del comprobante'}</button>}
         {o.status==='active'&&<details className="order-delivery-details">
          <summary>{o.fulfillment_method==='legacy'?'Clasificar entrega para imprimir':'Corregir destino o modalidad'}</summary>
-         <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={busy}/>
+         <OrderDeliveryEditor order={o} customer={customer} onSave={onUpdateFulfillment} busy={pageBusy}/>
         </details>}
        </section>
       </details>
@@ -1403,30 +1372,35 @@ function Orders({data,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevoke
        <summary><span>{o.status==='active'?'Cobro y cierre':'Historial y seguimiento'}</span></summary>
        <div className="order-operations ev-order-operations">
         {o.status==='active'&&<OrderQuickActions order={o} finance={finance} delivery={delivery}
-         payments={relatedPayments} onQuick={onQuick} busy={busy}/>}
+         payments={relatedPayments} onQuick={onQuick} busy={pageBusy}/>}
         <details className="order-advanced" aria-label="Abonos y comprobantes">
          <summary>Abonos y comprobantes <span>Ver historial</span></summary>
          <div className="order-advanced-body">
           <h3>Historial de pagos</h3>
           <PaymentHistory items={relatedPayments}/>
           {o.status==='active'&&Number(finance.pending)>0&&
-           <PaymentForm targetId={o.id} onSubmit={onReport} busy={busy}/>}
+           <PaymentForm targetId={o.id} onSubmit={onReport} busy={pageBusy} balance={finance.pending}/>}
          </div>
         </details>
         {o.status==='active'&&<button className="button button-primary" type="button"
-         disabled={busy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
+         disabled={pageBusy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
          onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
         {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
         <details className="ev-order-link-details">
          <summary>WhatsApp y enlace privado <span aria-hidden="true">⌄</span></summary>
-         {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={busy}/>}
+         {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={pageBusy}/>}
         </details>
        </div>
       </details>
      </div>
     </details>;
    })}
-  </div>:<Empty title={showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
+  </div>:<Empty title={list.preset!=='all'?"Sin pedidos en este rango":showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={list.preset!=='all'?"Cambia las fechas o quita el filtro.":showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
+  {view&&<ListPager view={view} onPage={p=>{list.setPage(p);setEditingId(null);}} label="Páginas de pedidos" busy={busy||list.loading}/> }
+  <nav className="ev-order-archive-toolbar" aria-label="Vista de pedidos">
+   <button type="button" className="button button-outline" aria-pressed={!showArchived} disabled={busy} onClick={()=>changeArchive(false)}>Pedidos vigentes e historial</button>
+   <button type="button" className="button button-outline" aria-pressed={showArchived} disabled={busy} onClick={()=>changeArchive(true)}>Archivados ({workspace.orders.filter(o=>o.archived_at).length})</button>
+  </nav>
  </>;
 }
 function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
@@ -1456,24 +1430,34 @@ function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
   <p className="small-note">En tu dispositivo personal puedes guardar la contraseña con el gestor del navegador. Cierra sesión al usar un dispositivo compartido. No existe registro público de cuentas.</p>
  </section></main>;
 }
-export default function HomePage(){
+export default function HomePage(){return <ConfirmationProvider><EvaliaWorkspace/></ConfirmationProvider>;}
+function EvaliaWorkspace(){
+ const {cancel:cancelConfirmation}=useConfirmation();
  const [tab,setTab]=useState('home'),[data,setData]=useState(null),[ready,setReady]=useState(false);
+ const [bookingDraft,setBookingDraft]=useState(emptyBooking),[focusOrder,setFocusOrder]=useState(null);
+ const bookingWrite=useRef(false);
+ const {ask}=useConfirmation();
  const [authenticated,setAuthenticated]=useState(false),[forbidden,setForbidden]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [logoutPending,setLogoutPending]=useState(false);
  const [owner,setOwner]=useState(false);
+ const [mfaGate,setMfaGate]=useState(null),pendingIdentity=useRef(null);
+ const [canEnrollMfa,setCanEnrollMfa]=useState(false);
  const menu=owner?[...MENU,['security','Usuarios','⚙']]:MENU;
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
  const db=useMemo(()=>getSupabase(),[]);
  const configured=Boolean(db);
  const clearAccess=useCallback(()=>{
+  cancelConfirmation();
   authGeneration.current++;
   refreshGeneration.current++;
-  authorizedUser.current=null;
+  setBookingDraft(emptyBooking());setFocusOrder(null);
+  authorizedUser.current=null;pendingIdentity.current=null;setMfaGate(null);setCanEnrollMfa(false);
   setOwner(false);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
- },[]);
+ },[cancelConfirmation]);
  const refresh=useCallback(async()=>{
+  cancelConfirmation();
   const generation=++refreshGeneration.current;
   const expected=authorizedUser.current;
   if(!expected)return;
@@ -1488,34 +1472,50 @@ export default function HomePage(){
    if(generation!==refreshGeneration.current)return;
    setOwner(!role.error&&role.data===true);
    const snapshot=await loadWorkspace();
-   if(generation===refreshGeneration.current)setData(snapshot);
+   if(generation===refreshGeneration.current){cancelConfirmation();setData(snapshot);}
   }catch(e){
    if(generation!==refreshGeneration.current)return;
-   setData(null);
+   cancelConfirmation();setData(null);
    throw e;
   }
- },[clearAccess,db]);
+ },[clearAccess,db,cancelConfirmation]);
+ const authorize=useCallback(async(user,generation)=>{
+  if(!user||generation!==authGeneration.current)return 'cancelled';
+  pendingIdentity.current=user.id;
+  const state=await inspectAdminMfa(db,user.id);
+  if(generation!==authGeneration.current)return 'cancelled';
+  if(state.step==='enroll'||state.step==='challenge'){
+   setMfaGate({identity:user.id,...state});return 'mfa';
+  }
+  if(state.step!=='check-server'||!await adminAllowed()){
+   if(generation!==authGeneration.current)return 'cancelled';
+   pendingIdentity.current=null;setMfaGate(null);return 'denied';
+  }
+  if(generation!==authGeneration.current)return 'cancelled';
+  pendingIdentity.current=null;setMfaGate(null);setCanEnrollMfa(state.factors.length===0);authorizedUser.current=user.id;setAuthenticated(true);setForbidden(false);
+  try{await refresh();}catch{setError('Acceso autorizado, pero no se pudieron cargar los datos. Pulsa Actualizar.');}
+  return 'authorized';
+ },[db,refresh]);
  useEffect(()=>{
   let active=true;
   if(!db){setReady(true);return;}
   const generation=authGeneration.current;
   authUser().then(async user=>{
     if(!active||generation!==authGeneration.current||!user)return;
-    const permitted=await adminAllowed();
-    if(!active||generation!==authGeneration.current)return;
-    setForbidden(!permitted);
-    if(permitted){authorizedUser.current=user.id;setAuthenticated(true);await refresh();}
+    const outcome=await authorize(user,generation);
+    if(active&&generation===authGeneration.current)setForbidden(outcome==='denied');
   }).catch(()=>{if(active&&generation===authGeneration.current)setError('No se pudo verificar el acceso. Inténtalo nuevamente.');})
    .finally(()=>{if(active)setReady(true);});
   const {data:listener}=db.auth.onAuthStateChange((event,session)=>{
     if(!active)return;
     if(event==='SIGNED_OUT'){clearAccess();return;}
-    if(event==='SIGNED_IN'&&authorizedUser.current&&session?.user?.id!==authorizedUser.current){
+    const expected=authorizedUser.current||pendingIdentity.current;
+    if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED')&&expected&&session?.user?.id!==expected){
      clearAccess();setError('La cuenta cambió en otra pestaña. Inicia sesión nuevamente.');
     }
   });
   return ()=>{active=false;refreshGeneration.current++;authGeneration.current++;listener.subscription.unsubscribe();};
- },[db,refresh,clearAccess]);
+ },[db,authorize,clearAccess]);
  useEffect(()=>{
   if(!authenticated)return;
   const revalidate=()=>{
@@ -1532,19 +1532,29 @@ export default function HomePage(){
   try{
    const session=await signIn(email,password);
    if(generation!==authGeneration.current)return;
-   if(!session?.user||!await adminAllowed()){
+   const outcome=session?.user?await authorize(session.user,generation):'denied';
+   if(outcome==='denied'){
     if(generation!==authGeneration.current)return;
     clearAccess();
     try{await signOut();setLogoutPending(false);setError('No se pudo iniciar sesión. Verifica tus credenciales y autorización.');}
     catch{setLogoutPending(true);setError('No se pudo cerrar la sesión no autorizada. Reintenta el cierre.');}
     return;
    }
-   if(generation!==authGeneration.current)return;
-   authorizedUser.current=session.user.id;setAuthenticated(true);
-   try{await refresh();}catch{setError('Acceso autorizado, pero no se pudieron cargar los datos. Pulsa Actualizar.');}
   }catch{
    if(generation===authGeneration.current)setError('No se pudo iniciar sesión. Verifica tus credenciales y conexión.');
   }finally{setBusy(false);}
+ }
+ function startOptionalMfa(){
+  if(busy||!canEnrollMfa||!authorizedUser.current)return;
+  const identity=authorizedUser.current;
+  clearAccess();pendingIdentity.current=identity;setMfaGate({identity,step:'enroll',factors:[]});
+ }
+ async function finishMfa(identity){
+  if(pendingIdentity.current!==identity)return;
+  const generation=authGeneration.current,user=await authUser();
+  if(user?.id!==identity||generation!==authGeneration.current)throw Error('La sesión cambió.');
+  const outcome=await authorize(user,generation);
+  if(outcome!=='authorized'&&outcome!=='cancelled')throw Error('No se pudo autorizar el acceso. Cierra sesión e inténtalo nuevamente.');
  }
  async function logout(){
   if(busy)return;
@@ -1554,28 +1564,59 @@ export default function HomePage(){
   finally{setBusy(false);}
  }
  async function mutation(fn,success){
-  if(busy)return false;
+  if(busy||!authorizedUser.current)return false;
+  const actor=authorizedUser.current;
   setBusy(true);setError('');setMessage('');
-  try{await fn();await refresh();setMessage(success);return true;}
-  catch(e){setError(e.message);return false;}finally{setBusy(false);}
+  try{
+   const result=await writeThenRefresh(fn,refresh);
+   if(!result.confirmed){
+    if(authorizedUser.current===actor)setError(result.error?.message||'No se pudo confirmar la operación. Verifica el registro antes de reintentar.');
+    return false;
+   }
+   if(authorizedUser.current===actor){
+    setMessage(success);
+    if(!result.refreshed)setError(CONFIRMED_REFRESH_WARNING);
+   }
+   return true;
+  }finally{setBusy(false);}
+ }
+ async function refreshManually(){
+  if(busy||!authorizedUser.current)return;
+  const actor=authorizedUser.current;
+  setBusy(true);setError('');setMessage('');
+  try{await refresh();if(authorizedUser.current===actor)setMessage('Datos actualizados.');}
+  catch(e){if(authorizedUser.current===actor)setError(e.message||'No se pudieron actualizar los datos.');}
+  finally{setBusy(false);}
  }
  async function addModel(values){
   return mutation(async()=>{
-   const req=values.requestId||uuid(),path=values.photo?await uploadPhoto(values.photo):null;
+   const req=values.requestId||uuid(),path=values.photo?await uploadPhoto(values.photo,req):null;
    await createModel({...values,imagePath:path,requestId:req});
   },'El modelo y su stock se registraron en Supabase.');
  }
- const saveModelEdit=(params)=>mutation(async()=>{
-  const imagePath=params.photo?await uploadPhoto(params.photo):null;
-  try{
-   await updateModel({modelId:params.model.id,price:params.price,imagePath,
-    expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
-  }catch(e){if(imagePath)await removePhoto(imagePath).catch(()=>{});throw e;}
- },'Precio/fotografía actualizados; los pedidos históricos no cambiaron.');
- const archiveProduct=(model)=>mutation(async()=>{
+ async function saveModelEdit(params){
+  const actor=authorizedUser.current;let cleanupPending=false;
+  const ok=await mutation(async()=>{
+   const imagePath=params.photo?await uploadPhoto(params.photo,params.requestId):null;
+   // Only clean the previous path after a confirmed write, and only when no active product references it.
+   await editProduct({modelId:params.model.id,name:params.name,size:params.size,price:params.price,colorIds:params.colorIds,imagePath,expectedUpdatedAt:params.model.updated_at,requestId:params.requestId});
+   if(imagePath&&params.model.image_path&&imagePath!==params.model.image_path){
+    try{await cleanupReplacedPhoto(params.model.image_path);}catch{cleanupPending=true;}
+   }
+  },'Ficha actualizada; los pedidos históricos conservan sus datos.');
+  if(ok&&cleanupPending&&authorizedUser.current===actor)setMessage('Ficha actualizada; la fotografía anterior quedó pendiente de limpieza.');
+  return ok;
+ }
+ async function archiveProduct(model){
+  const actor=authorizedUser.current;
+  let cleanupPending=false;
+  const ok=await mutation(async()=>{
    const result=await archiveModel(model);
-   if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch(err){await refresh();throw new Error('Producto inhabilitado; fotografía pendiente de limpieza. '+err.message);}}
+   if(result?.photo_path){try{await cleanupArchivedPhotos([result.photo_path]);}catch{cleanupPending=true;}}
   },'Producto inhabilitado; el historial permanece intacto.');
+  if(ok&&cleanupPending&&authorizedUser.current===actor)setMessage('Producto inhabilitado; fotografía pendiente de limpieza. Actualiza y utiliza la opción de limpieza.');
+  return ok;
+ }
  const changePreparation=o=>mutation(()=>setOrderPrepared({orderId:o.id,prepared:!o.prepared_at,expectedVersion:o.preparation_version}),o.prepared_at?'Pedido nuevamente en preparación.':'Pedido marcado como preparado.');
  const archiveSelectedOrder=(orderId,reason)=>mutation(()=>archiveOrder(orderId,reason),'Pedido archivado; historial conservado.');
  const cleanArchivedPhotos=(paths)=>mutation(()=>cleanupArchivedPhotos(paths),'Fotografías archivadas eliminadas.');
@@ -1584,11 +1625,48 @@ export default function HomePage(){
   method:params.method,destination:params.destination,
   expectedUpdatedAt:params.customer.updated_at,requestId:params.requestId
  }),'Ficha y destino corregidos con auditoría.');
- const addColor=(name,hex)=>mutation(()=>createColor(name,hex),'Color registrado.');
- const addClient=(payload)=>mutation(()=>createCustomer(payload),'Cliente registrado con categoría de entrega.');
+ const addColor=(params)=>mutation(()=>saveColor(params),'Color guardado.');
+ const reactivate=(params)=>mutation(()=>reactivateProduct({modelId:params.model.id,units:params.units,expectedUpdatedAt:params.model.updated_at,requestId:params.requestId}),'Producto reactivado con stock confirmado.');
+ async function addClient(payload,returnRecord=false){
+  const actor=authorizedUser.current;
+  let duplicate=null,created=null;
+  const ok=await mutation(async()=>{
+   const result=await createCustomer(payload);created=result;
+   if(result.state==='duplicate'){duplicate=result;throw Error('Se encontró otra ficha con ese WhatsApp. Confirma antes de continuar.');}
+  },'Cliente registrado con categoría de entrega.');
+  return authorizedUser.current===actor?(duplicate||(ok&&returnRecord?created:ok)):false;
+ }
  const updateStock=(modelId,operation,units,version,requestId)=>
   mutation(()=>adjustStock({modelId,operation,units,version,requestId:requestId||uuid()}),'Stock actualizado.');
- const order=(customerId,lines,requestId,delivery)=>mutation(()=>createOrder(customerId,lines,requestId||uuid(),delivery),'Pedido confirmado con destino y precios congelados.');
+ async function order(attempt){
+  if(busy||bookingWrite.current||!authorizedUser.current)return false;
+  const actor=authorizedUser.current;bookingWrite.current=true;setBusy(true);setError('');setMessage('');
+  setBookingDraft(current=>({...current,attempt}));
+  try{
+   const result=await writeThenRefresh(()=>createOrder(attempt.customerId,attempt.lines,attempt.requestId,attempt.delivery),refresh);
+   if(authorizedUser.current!==actor)return false;
+   if(!result.confirmed){
+    const code=result.error?.code;
+    // Explicit PostgreSQL validation failure rolls the transaction back. Transport failures do not.
+    if(['40001','22023','22003','23514','P0002','42501'].includes(code)){
+     setBookingDraft(current=>({...current,attempt:null}));
+     try{await refresh();}catch{/* Keep server rejection visible; refresh can be retried manually. */}
+    }
+    if(authorizedUser.current===actor)setError(result.error?.message||'Resultado no confirmado. Reintenta el mismo registro.');return false;
+   }
+   setBookingDraft({...emptyBooking(),receipt:result.value});
+   setMessage('Pedido confirmado con destino y precios congelados.');
+   if(!result.refreshed)setError(CONFIRMED_REFRESH_WARNING);
+   return true;
+  }finally{bookingWrite.current=false;setBusy(false);}
+ }
+ function navigate(id){if(id==='orders')setFocusOrder(null);setTab(id);}
+ function viewOrder(id){setFocusOrder(id);setTab('orders');}
+ async function repeatOrder(previous){
+  if(busy||bookingDraft.attempt)return;
+  if(hasBookingDraft(bookingDraft)&&!await ask({severity:'warning',title:'Reemplazar borrador',message:'El pedido anterior sustituirá tu borrador. Se revisarán precios y stock vigentes.',confirmLabel:'Reemplazar borrador'}))return;
+  setBookingDraft(repeatBooking(previous,data.models));setFocusOrder(null);setTab('booking');
+ }
  const editOrder=(args)=>mutation(()=>reviseOrder(args),'Pedido actualizado con auditoría; verifica el detalle y comunica el cambio al cliente.');
  const convert=(id)=>mutation(()=>confirmReservation(id,uuid()),'Registro anterior convertido en pedido, sin descontar inventario dos veces.');
  const report=(v)=>mutation(()=>reportPayment(v),'Aviso de pago guardado; pendiente de aprobación.');
@@ -1605,14 +1683,26 @@ export default function HomePage(){
   'Retirada física registrada; inventario actualizado.');
  const complete=(orderId)=>mutation(()=>completeOrder({orderId,requestId:uuid()}),
   'Pedido COMPLETADO con pago y entrega íntegros.');
- const saveQr=(file,verified,requestId)=>mutation(()=>saveRealQr(file,verified,requestId),
+ const saveQr=(file,verified,requestId,password,code)=>mutation(()=>withOwnerReauthentication(db,password,code,scoped=>saveRealQr(file,verified,requestId,scoped)),
   'QR real registrado y disponible para pedidos activos.');
  async function issueLink(orderId){
-  if(busy)return null;
-  setBusy(true);setError('');
-  try{const link=await issueOrderLink(orderId);await refresh();setMessage('Enlace privado creado; compártelo solo con el destinatario.');return link;}
-  catch(e){setError(e.message);return null;}
-  finally{setBusy(false);}
+  if(busy||!authorizedUser.current)return null;
+  const actor=authorizedUser.current;
+  setBusy(true);setError('');setMessage('');
+  try{
+   const result=await writeThenRefresh(()=>issueOrderLink(orderId),refresh);
+   if(authorizedUser.current!==actor)return null;
+   if(!result.confirmed){
+    setError(result.error?.message||'No se pudo confirmar la creación del enlace. Verifica el estado antes de reintentar.');
+    return null;
+   }
+   if(!result.refreshed){
+    setError('El enlace fue creado, pero no se pudo actualizar el pedido. Actualiza antes de compartir o reemplazar el enlace.');
+    return null;
+   }
+   setMessage('Enlace privado creado; compártelo solo con el destinatario.');
+   return result.value;
+  }finally{setBusy(false);}
  }
  const revokeLink=(orderId)=>mutation(()=>revokeOrderLink(orderId),'Enlace privado revocado.');
 
@@ -1630,6 +1720,7 @@ export default function HomePage(){
   <p>No se mostrarán datos ficticios como si fueran operaciones reales.</p>
  </section></main>;
  if(!ready)return <main className="loading">Verificando acceso administrativo…</main>;
+ if(!authenticated&&mfaGate)return <MfaGate key={mfaGate.identity+':'+mfaGate.step} db={db} identity={mfaGate.identity} step={mfaGate.step} factors={mfaGate.factors} onVerified={finishMfa} onCancel={logout}/>;
  if(!authenticated)return forbidden?<main className="setup-screen"><section className="setup-card">
   <h1>Acceso restringido</h1><p>La cuenta no figura como administradora de EVALIA.</p>
   <button className="button button-outline" onClick={()=>{setForbidden(false);setError('');}}>Volver al acceso</button>
@@ -1639,7 +1730,7 @@ export default function HomePage(){
    <div><b>EVALIA</b><small>GESTIÓN COMERCIAL</small></div></div>
    <p className="sidebar-label">ESPACIO DE TRABAJO</p>
    <nav className="sidebar-nav" aria-label="Navegación principal">{menu.map(([id,label,symbol])=>
-    <button key={id} onClick={()=>setTab(id)} aria-current={tab===id?'page':undefined}
+    <button key={id} onClick={()=>navigate(id)} aria-current={tab===id?'page':undefined}
       className={tab===id?'active':''}><span className="nav-icon"><UiIcon name={id}/></span>{label}</button>)}</nav>
    <div className="sidebar-bottom"><span className="connected-dot"/><div><strong>Base de datos conectada</strong><small>Sesión administrativa</small></div></div>
   </aside>
@@ -1647,7 +1738,8 @@ export default function HomePage(){
    <header className="topbar"><div className="breadcrumb"><BrandMark className="ev-mobile-brand"/>EVALIA <span>/</span>
     <strong>{menu.find(x=>x[0]===tab)?.[1]}</strong></div>
     <div className="top-actions"><span className="live-label"><span className="connected-dot"/> Supabase</span>
-     <button className="button button-ghost" onClick={()=>mutation(async()=>refresh(),'Datos actualizados.')} disabled={busy}>↻ Actualizar</button>
+     <button className="button button-ghost" onClick={refreshManually} disabled={busy}>↻ Actualizar</button>
+     {canEnrollMfa&&<button className="button button-ghost" onClick={startOptionalMfa} disabled={busy}>Activar MFA</button>}
      <button className="button button-ghost" onClick={logout} disabled={busy}>Salir</button></div>
    </header>
    <main id="main" className="main-content">
@@ -1655,10 +1747,10 @@ export default function HomePage(){
     <ToastNotifications error={error} message={message}
       onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
-      tab==='home'?<Dashboard data={data} setTab={setTab}/>:
-      tab==='catalog'?<Catalog data={data} onCreateColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} busy={busy}/>: 
-      tab==='booking'?<BookingPanel data={data} onOrder={order} onCreateClient={addClient} busy={busy}/>: 
-      tab==='orders'?<Orders data={data} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
+      tab==='home'?<Dashboard data={data} setTab={navigate}/>:
+      tab==='catalog'?<Catalog data={data} onSaveColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} onReactivate={reactivate} busy={busy}/>: 
+      tab==='booking'?<BookingPanel data={data} draft={bookingDraft} setDraft={setBookingDraft} onOrder={order} onCreateClient={addClient} onView={viewOrder} onPrint={printSelected} onIssue={issueLink} onRevoke={revokeLink} busy={busy}/>: 
+      tab==='orders'?<Orders data={data} focusOrder={focusOrder} onClearFocus={()=>setFocusOrder(null)} onRepeat={repeatOrder} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
       tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
@@ -1666,7 +1758,7 @@ export default function HomePage(){
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
   </div>
   <nav className={'mobile-nav'+(owner?' mobile-nav-owner':'')} aria-label="Navegación móvil">{menu.map(([id,label,sign])=>
-   <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)} className={tab===id?'active':''}>
+   <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>navigate(id)} className={tab===id?'active':''}>
     <span><UiIcon name={id}/></span><small>{id==='booking'?'Nuevo':label}</small></button>)}</nav>
  </div>;
 }

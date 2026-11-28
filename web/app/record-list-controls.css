@@ -1,0 +1,16 @@
+/* Shared numbered pagination and calendar filters, consistent with existing Evalia styles. */
+.ev-list-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:12px;align-items:end;padding:12px;margin:12px 0 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.ev-list-controls .field{min-width:0}
+.ev-list-controls .field input,.ev-list-controls .field select{width:100%;min-width:0;min-height:44px}
+.ev-list-controls .button{min-height:44px}
+.ev-list-filter-error{grid-column:1/-1;margin:0}
+.ev-list-pager{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin:16px 0 0}
+.ev-list-pager>.small-note{margin:0}
+.ev-page-numbers{display:flex;flex-wrap:wrap;align-items:center;gap:6px;list-style:none;padding:0;margin:0}
+.ev-page-numbers li{margin:0}
+.ev-page-numbers a{display:flex;align-items:center;justify-content:center;min-width:40px;min-height:44px;padding:5px 9px;border:1px solid var(--border);border-radius:9px;color:var(--plum);background:#fff;text-decoration:none;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation}
+.ev-page-numbers a:focus-visible{outline:3px solid #ac688b;outline-offset:2px}
+.ev-page-numbers .ev-page-current a{background:var(--plum);border-color:var(--plum);color:white;cursor:default}
+.ev-page-numbers .ev-page-disabled a,.ev-list-pager[aria-disabled=true] a{opacity:.55;cursor:not-allowed}
+.ev-page-numbers a:hover:not([aria-disabled=true]){box-shadow:0 2px 5px #51344a20}
+@media(max-width:480px){.ev-list-controls{gap:9px;padding:10px}.ev-list-pager{align-items:flex-start;flex-direction:column}.ev-page-numbers{gap:4px}.ev-page-numbers a{min-width:34px;padding:5px 6px}}

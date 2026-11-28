@@ -13,6 +13,10 @@
 
 ---
 
+## Plan V1.1 aprobado — 25 de noviembre de 2026
+
+El propietario aprobó E1–E4 y las decisiones D01–D10. Contrato vigente para esta evolución: [59_PLAN_EVOLUCION_V1_1.md](59_PLAN_EVOLUCION_V1_1.md). Baseline publicado y dev verificados en `dffbb41e21906933078d5585c56b743d7c29d465`. E1 se inicia en rama independiente; no está aprobado como implementación ni autorizado para producción. Se conservan las reglas comerciales V1.
+
 ## Impresión compacta y autorización de publicación — 23 de noviembre de 2026
 
 El propietario aprobó el candidato `29d54020283adc93e3bdd0a23b129bb2c15c7d86` (PR #24) y autorizó integrar a la rama estable y `main`. Seis formatos de impresión: retiro y envío en 15×10, 10×15 y 10×10 cm; vista previa y monocromo; privacidad estricta de envío. Ver docs/53_FORMATOS_IMPRESION_COMPACTOS.md. CI de código aprobada: Node, Next.js y pgTAP; Preview READY. Sin migraciones ni cambios de reglas. Las menciones históricas a mantener `main` sin cambios quedan superadas por esta autorización concreta, no para futuras publicaciones.

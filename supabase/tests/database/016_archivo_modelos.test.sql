@@ -5,6 +5,8 @@ set local search_path=public,extensions;
 select plan(14);
 insert into auth.users(id,email) values('18110000-0000-4000-8000-000000000001','archive@example.invalid');
 insert into public.admin_profiles(user_id) values('18110000-0000-4000-8000-000000000001');
+-- Sesiones sintéticas válidas, no hay cambios en aserciones comerciales.
+insert into auth.sessions(id,user_id,created_at,updated_at,aal) values ('18110000-0000-4000-8000-000000000001','18110000-0000-4000-8000-000000000001',now(),now(),'aal1');
 insert into public.customers(id,name,whatsapp) values('38110000-0000-4000-8000-000000000001','Archivo prueba','70012345');
 insert into public.models(id,name,size_label,price_dozen_bs,image_path) values
  ('28110000-0000-4000-8000-000000000001','Modelo histórico','M',380,'models/archive-test.jpg'),
@@ -12,6 +14,7 @@ insert into public.models(id,name,size_label,price_dozen_bs,image_path) values
 update public.model_inventory set on_hand=24 where model_id::text like '28110000-%';
 set local role authenticated;
 set local request.jwt.claim.sub='18110000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"18110000-0000-4000-8000-000000000001","session_id":"18110000-0000-4000-8000-000000000001","aal":"aal1"}';
 select lives_ok($q$select public.create_evalia_order_delivery('38110000-0000-4000-8000-000000000001',
  '[{"modelId":"28110000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]',
  '58110000-0000-4000-8000-000000000001','pickup',null)$q$,'pedido activo creado');

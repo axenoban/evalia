@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import {getSupabase} from '../lib/supabase.js';
 import {validEmail} from '../lib/admin-account-contract.js';
+import {withOwnerReauthentication} from '../lib/mfa-client.js';
 
 export default function AdminAccounts(){
  const [accounts,setAccounts]=useState([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -18,26 +19,23 @@ export default function AdminAccounts(){
  }
  async function execute(e){
   e.preventDefault();if(busy||!action)return;
-  const form=e.currentTarget,password=new FormData(form).get('password');
+  const form=e.currentTarget,values=new FormData(form),password=values.get('password'),code=values.get('code');
+  form.reset();
   setBusy(true);setError('');setMessage('');
   try{
-   const db=getSupabase(),current=await db.auth.getUser();
-   if(current.error||!current.data.user?.email)throw Error('No se pudo confirmar la cuenta actual.');
-   // Se verifica la contraseña propia directamente con Supabase Auth, no con el servidor EVALIA.
-   const auth=await db.auth.signInWithPassword({email:current.data.user.email,password});
-   form.reset();
-   if(auth.error||auth.data.user?.id!==current.data.user.id||!auth.data.session?.access_token)throw Error('No se pudo confirmar tu contraseña.');
-   if(action.action==='state'){
-    const {error}=await db.rpc('set_evalia_operator_active',{p_target:action.userId,p_active:action.active});
-    if(error)throw Error('No se pudo cambiar el acceso.');
-    setMessage(action.active?'Acceso reactivado.':'Acceso suspendido.');
-   }else{
-    const body=action.action==='invite'?{action:'invite',email:action.email}:{action:'recovery',userId:action.userId};
-    const res=await fetch('/api/admin-cuentas',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+auth.data.session.access_token},body:JSON.stringify(body),cache:'no-store'});
-    const result=await res.json();
-    if(!res.ok)throw Error(result.message||'No se pudo realizar la operación.');
-    setMessage(result.message);
-   }
+   await withOwnerReauthentication(getSupabase(),password,code,async(db,accessToken)=>{
+    if(action.action==='state'){
+     const {error}=await db.rpc('set_evalia_operator_active',{p_target:action.userId,p_active:action.active});
+     if(error)throw Error('No se pudo cambiar el acceso.');
+     setMessage(action.active?'Acceso reactivado.':'Acceso suspendido.');
+    }else{
+     const body=action.action==='invite'?{action:'invite',email:action.email}:{action:'recovery',userId:action.userId};
+     const res=await fetch('/api/admin-cuentas',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+accessToken},body:JSON.stringify(body),cache:'no-store'});
+     const result=await res.json();
+     if(!res.ok)throw Error(result.message||'No se pudo realizar la operación.');
+     setMessage(result.message);
+    }
+   });
    setAction(null);await reload();
   }catch(e){setError(e.message||'No se pudo realizar la operación.');}
   finally{form.reset();setBusy(false);}
@@ -54,6 +52,7 @@ export default function AdminAccounts(){
    <h3>Confirma tu identidad</h3>
    <p className="small-note">{action.action==='invite'?'Invitar a '+action.email:action.action==='recovery'?'Enviar recuperación al correo de '+action.email:(action.active?'Reactivar ':'Suspender ')+action.email}</p>
    <label className="field"><span className="field-label">Tu contraseña de propietario</span><input name="password" type="password" autoComplete="current-password" required/></label>
+   <label className="field"><span className="field-label">Código del autenticador</span><input name="code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required/></label>
    <div className="form-actions"><button className="button button-primary" disabled={busy} type="submit">Confirmar operación</button>
    <button className="button button-outline" disabled={busy} type="button" onClick={()=>{setAction(null);setError('');}}>Cancelar</button></div>
   </form>}

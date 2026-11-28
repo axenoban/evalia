@@ -1,0 +1,84 @@
+/* Compact product catalog; preserve existing brand and tactile controls. */
+.ev-product-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.ev-compact-product-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));align-items:start}
+.ev-compact-product{overflow:visible;min-width:0}
+.ev-product-main{display:grid;grid-template-columns:minmax(92px,34%) minmax(0,1fr);align-items:start;gap:0}
+.ev-compact-product .product-cover{height:auto;aspect-ratio:4/5;min-height:105px;border-radius:13px 0 0 0;overflow:hidden}
+.ev-compact-product .product-cover .product-image{width:100%;height:100%;object-fit:cover;object-position:center}
+.ev-compact-product .product-card-body{padding:12px;min-width:0}
+.ev-compact-product .product-card-header{gap:6px;align-items:start}
+.ev-compact-product .product-card-header h2{overflow-wrap:anywhere;font-size:16px;margin:0 0 4px}
+.ev-compact-product .availability{display:inline-flex;margin:3px 0 6px}
+.ev-compact-product .color-row{max-height:84px;overflow:auto}
+.ev-product-bottom{padding:0 12px 12px}.ev-product-bottom .stock-grid-mini{margin:8px 0}
+.ev-product-menu{position:relative;flex:none}
+.ev-product-menu summary{list-style:none;cursor:pointer;min-width:44px;min-height:44px;display:grid;place-items:center;font-size:22px;border:1px solid var(--border);border-radius:9px}
+.ev-product-menu summary::-webkit-details-marker{display:none}
+.ev-product-menu-options{position:absolute;right:0;top:100%;z-index:5;min-width:174px;padding:5px;background:#fff;border:1px solid var(--border);box-shadow:0 8px 20px #402b3e22;border-radius:9px}
+.ev-product-menu-options button{display:block;width:100%;min-height:44px;text-align:left;padding:9px;border:0;background:transparent;border-radius:6px;font:inherit;cursor:pointer}
+.ev-product-menu-options button:hover{background:#f6eaf1}
+.ev-stock-stepper{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:5px}
+.ev-stock-stepper input{width:100%;min-width:0;text-align:center}
+.ev-stock-stepper .button{padding:4px;min-height:44px}
+.ev-price-suggestions{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.ev-price-suggestions .pill{min-height:36px}
+.ev-palette-edit{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:44px;width:100%}
+.ev-product-history{display:grid;gap:6px;padding:12px 0}
+.ev-product-history>div{padding:10px;border:1px solid var(--border);border-radius:9px;overflow-wrap:anywhere}
+.ev-product-history small{display:block;margin-top:4px;color:#786b78}
+.ev-product-history p{margin:4px 0;font-size:12px}
+@media(max-width:480px){.ev-compact-product-grid{grid-template-columns:1fr}.ev-product-filters{gap:8px}.ev-product-main{grid-template-columns:minmax(92px,35%) minmax(0,1fr)}.ev-compact-product .product-card-body{padding:9px}.ev-product-bottom{padding:0 9px 9px}}
+
+/* Feedback QA: give quantity its own full row so neither button can overlap the input. */
+.ev-product-bottom,.ev-product-bottom .stock-editor{min-width:0}
+.ev-stock-bottom{grid-template-columns:minmax(0,1fr);align-items:start;gap:10px}
+.ev-stock-bottom>.field{width:100%;min-width:0}
+.ev-stock-stepper{width:100%;grid-template-columns:minmax(44px,1fr) minmax(64px,2fr) minmax(44px,1fr);align-items:stretch;gap:8px}
+.ev-stock-stepper input{box-sizing:border-box;min-width:0;width:100%;max-width:100%;height:44px;padding:6px;text-align:center;appearance:textfield}
+.ev-stock-stepper input::-webkit-inner-spin-button,.ev-stock-stepper input::-webkit-outer-spin-button{appearance:none;margin:0}
+.ev-stock-stepper>.button{box-sizing:border-box;min-width:0;width:100%;margin:0}
+.ev-stock-bottom .stock-projection{padding:8px 10px;border:1px solid #eadde6;border-radius:8px}
+.ev-catalog-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.ev-catalog-actions>.button{min-height:44px;white-space:normal}
+.ev-quick-options{border:0;padding:0;margin:0;min-width:0;display:grid;gap:8px}
+.ev-quick-options legend{padding:0;margin-bottom:7px}
+.ev-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,74px),1fr));gap:7px;min-width:0}
+.ev-quick-choice.pill{min-height:44px;padding:8px 5px;font-size:13px;line-height:1.2;white-space:normal;overflow-wrap:anywhere}
+.ev-quick-custom{border-style:dashed}
+.ev-quick-input{min-width:0}
+.ev-docena-field{min-width:0;display:grid;gap:5px}
+.ev-quick-quantity .ev-quick-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ev-quick-quantity .ev-quick-custom,.ev-quick-quantity .ev-quick-choice:nth-child(9){grid-column:span 2}
+.ev-register-main .form-inline{grid-template-columns:minmax(0,1fr);gap:16px}
+.ev-color-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+.ev-color-actions .button{min-height:44px;padding:9px 5px;white-space:normal;min-width:0}
+.ev-copy-palette{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between}
+.ev-palette-source-list{display:grid;gap:7px;max-height:240px;overflow:auto;margin-bottom:10px}
+.ev-palette-source-list .button{text-align:left;white-space:normal;min-height:44px;overflow-wrap:anywhere}
+.ev-register-main .color-select-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ev-register-main .color-choice{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.ev-color-library-disclosure{min-width:0;border:1px solid #eadde6;border-radius:14px;background:white;overflow:hidden}
+.ev-color-library-disclosure summary{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:48px;padding:12px 16px;cursor:pointer;list-style:none;color:var(--brand-plum);font-weight:750}
+.ev-color-library-disclosure summary::-webkit-details-marker{display:none}
+.ev-color-library-disclosure .ev-register-palette{border:0;box-shadow:none;border-radius:0}
+.ev-color-library-disclosure .ev-register-heading{display:none}
+.ev-register-palette .palette-form .form-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ev-register-palette .palette-form .form-actions>.button{min-height:44px}
+@media(max-width:900px){.ev-product-registration{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:640px){.section-head:has(.ev-catalog-actions) .head-actions{width:100%;min-width:0}.ev-catalog-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:8px}.ev-catalog-actions>.button:only-child{grid-column:1/-1}.ev-catalog-actions>.button{padding:9px 5px;font-size:12px}.ev-quick-choice.pill{font-size:12px}.ev-stock-stepper{grid-template-columns:44px minmax(64px,1fr) 44px}}
+@media(min-width:1100px){.ev-quick-quantity .ev-quick-grid{grid-template-columns:repeat(8,minmax(0,1fr))}.ev-quick-quantity .ev-quick-custom,.ev-quick-quantity .ev-quick-choice:nth-child(9){grid-column:span 4}}
+
+/* Keep vacant tracks in desktop grids. A lone model must not stretch into a full-width card. */
+@media(min-width:901px){.ev-compact-product-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));justify-items:start}.ev-compact-product-grid>.ev-compact-product{width:100%;max-width:460px}.ev-compact-product .product-cover{max-height:190px}.ev-compact-product .product-card-body{align-self:start}}
+.ev-fixed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ev-delivery-options .ev-quick-choice{min-width:0}
+.ev-destination-shortcut{width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left;margin:5px 0;min-height:44px}
+.ev-portion-primary .ev-portion-dozens,.ev-booking .ev-portion-dozens{display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0}
+.ev-portion-quick{width:100%;min-width:0}
+.ev-portion-quick .ev-quick-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ev-portion-quick .ev-quick-custom{grid-column:span 3}
+.ev-portion-quick .ev-quick-choice{font-size:12px;min-height:40px}
+.ev-portion-quick .dozen-entry{display:grid;grid-template-columns:44px minmax(64px,1fr) 44px;width:100%;gap:6px}
+.ev-portion-quick .dozen-entry button,.ev-booking .ev-portion-quick .dozen-entry button{width:100%;height:44px}
+.ev-portion-quick .dozen-entry input,.ev-booking .ev-portion-quick .dozen-entry input{width:100%;min-width:0;height:44px}
+.money-form .ev-quick-grid{grid-template-columns:minmax(0,1fr)}

@@ -27,17 +27,65 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - run: npm run build
+      - name: Audit production dependencies (E1-08)
+        run: npm audit --omit=dev --audit-level=high
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
       - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: '3.4.0'
+      - name: Isolate Supabase CI stack and ports
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import socket
+          path = pathlib.Path("supabase/config.toml")
+          config = path.read_text()
+          project = "evalia-ci-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+          assert 'project_id = "evalia"' in config
+          config = config.replace('project_id = "evalia"', f'project_id = "{project}"', 1)
+          keys = [("api", "port"), ("db", "port"), ("db", "shadow_port"),
+                  ("studio", "port"), ("local_smtp", "port"),
+                  ("local_smtp", "smtp_port"), ("local_smtp", "pop3_port"),
+                  ("analytics", "port"), ("analytics", "vector_port"), ("db.pooler", "port")]
+          sockets = []
+          sections = {}
+          try:
+              for section, key in keys:
+                  s = socket.socket()
+                  sockets.append(s)
+                  s.bind(("0.0.0.0", 0))
+                  sections.setdefault(section, []).append(f"{key} = {s.getsockname()[1]}")
+              for section, values in sections.items():
+                  assert f"[{section}]" not in config, f"Existing config section: {section}"
+                  config += "\n[" + section + "]\n" + "\n".join(values) + "\n"
+              path.write_text(config)
+          finally:
+              for s in sockets:
+                  s.close()
+          PY
       - run: supabase start
       - run: supabase test db
+      - run: npm ci --prefix web --no-audit --no-fund
+      - name: E1 real SDK Auth and concurrency (isolated)
+        run: node web/tests/e1-auth-live.mjs
+      - name: Install age for disposable recovery drill
+        run: |
+          if ! command -v age >/dev/null || ! command -v age-keygen >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y age
+          fi
+      - name: E1 encrypted synthetic recovery (isolated)
+        run: node web/tests/e1-recovery-live.mjs
       - if: always()
         run: supabase stop --no-backup || true

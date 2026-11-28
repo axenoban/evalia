@@ -5,11 +5,14 @@ set local search_path=public,extensions;
 select plan(17);
 insert into auth.users(id,email) values('10000000-0000-4000-8000-000000000001','evalia-catalog-test@example.invalid');
 insert into public.admin_profiles(user_id) values('10000000-0000-4000-8000-000000000001');
+-- Sesiones sintéticas válidas, no hay cambios en aserciones comerciales.
+insert into auth.sessions(id,user_id,created_at,updated_at,aal) values ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',now(),now(),'aal1');
 insert into public.models(id,name,size_label,price_dozen_bs) values('20000000-0000-4000-8000-000000000001','Original','M',360.00);
 update public.model_inventory set on_hand=36 where model_id='20000000-0000-4000-8000-000000000001'::uuid;
 insert into public.customers(id,name,whatsapp) values('30000000-0000-4000-8000-000000000001','Contacto original','6000000');
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"10000000-0000-4000-8000-000000000001","session_id":"10000000-0000-4000-8000-000000000001","aal":"aal1"}';
 select lives_ok($q$select public.create_evalia_order('30000000-0000-4000-8000-000000000001'::uuid,'[{"modelId":"20000000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]'::jsonb,'70000000-0000-4000-8000-000000000001'::uuid)$q$,'pedido histórico de una docena');
 select lives_ok($q$select public.update_evalia_model('20000000-0000-4000-8000-000000000001'::uuid,420.00,null,(select updated_at from public.models where id='20000000-0000-4000-8000-000000000001'::uuid),'80000000-0000-4000-8000-000000000001'::uuid)$q$,'admin corrige precio futuro');
 select is((select price_dozen_bs from public.models where id='20000000-0000-4000-8000-000000000001'::uuid),420.00::numeric,'catálogo refleja nuevo precio');
@@ -27,6 +30,7 @@ select is((select count(*)::integer from public.customer_contact_revisions),1::i
 select ok((not has_column_privilege('authenticated','public.models','price_dozen_bs','UPDATE')),'precio no puede cambiarse directamente');
 select ok((not has_column_privilege('authenticated','public.customers','whatsapp','UPDATE')),'WhatsApp requiere RPC auditada');
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000099';
+set local request.jwt.claims='{"sub":"10000000-0000-4000-8000-000000000099","session_id":"10000000-0000-4000-8000-000000000099","aal":"aal1"}';
 select throws_ok($q$select public.update_evalia_customer('30000000-0000-4000-8000-000000000001'::uuid,'Atacante','000',(select expected_updated_at from public.customer_contact_revisions where request_id='80000000-0000-4000-8000-000000000002'::uuid),'80000000-0000-4000-8000-000000000004'::uuid)$q$,'42501','Acceso administrativo requerido','no admin no edita contacto');
 select * from finish();
 rollback;

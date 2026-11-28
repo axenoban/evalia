@@ -1,4 +1,8 @@
 import { getSupabase } from './supabase.js';
+import { assembleWorkspace } from './workspace-assembly.js';
+import { readAllPages } from './workspace-pagination.js';
+import { loadDashboardOrderLines,loadOrderPage } from './order-page.js';
+import { loadStockBatches,loadModelPhotos } from './product-data.js';
 
 function unwrap(result,action) {
   if(result.error) throw new Error(action+': '+result.error.message);
@@ -22,78 +26,85 @@ export async function signOut(){
 export async function loadWorkspace(){
   const db=client();
   const [modelData,colorData,modelColorData,customerData,reservationData,
-    reservationLineData,orderData,archivedOrderData,orderLineData,reservationColorData,orderColorData,revisionData,
-    paymentData,paymentReviewData,deliveryData,deliveryLineData,linkData,qrData]=await Promise.all([
-    db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at,updated_at').order('created_at',{ascending:false}),
-    db.from('colors').select('id,name,hex_code,is_active').order('name'),
-    db.from('model_colors').select('model_id,color_id'),
-    db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at').order('created_at',{ascending:false}),
-    db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at').order('created_at',{ascending:false}).limit(200),
-    db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units'),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version').is('archived_at',null).order('confirmed_at',{ascending:false}).limit(200),
-    db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,shipping_destination,recipient_name,recipient_phone,fulfillment_updated_at,archived_at,archive_reason,prepared_at,preparation_version').not('archived_at','is',null).order('archived_at',{ascending:false}).limit(200),
-    db.from('order_lines').select('id,order_id,model_id,quantity,dozen_count,extra_units,price_dozen_bs,subtotal_bs'),
-    db.from('reservation_extra_colors').select('reservation_line_id,color_id,position').order('position'),
-    db.from('order_extra_colors').select('order_line_id,color_id,position').order('position'),
-    db.from('reservation_revisions').select('reservation_id,created_at,actor_id').order('created_at',{ascending:false}).limit(500),
-    db.from('payment_reports').select('id,request_id,order_id,reservation_id,amount_bs,status,origin,note,public_note,receipt_path,created_at,approved_at').order('created_at',{ascending:false}).limit(500),
-    db.from('payment_reviews').select('id,report_id,action,note,created_at,actor_id').order('created_at',{ascending:false}).limit(500),
-    db.from('deliveries').select('id,order_id,delivered_at,actor_id').order('delivered_at',{ascending:false}).limit(500),
-    db.from('delivery_lines').select('delivery_id,order_line_id,order_id,quantity'),
-    db.from('order_access_links').select('order_id,issued_at,revoked_at,version'),
+    reservationLineData,orderData,archivedOrderData,reservationColorData,revisionData,
+    paymentData,paymentReviewData,qrData]=await Promise.all([
+    readAllPages(()=>db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at,updated_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'models'),
+    readAllPages(()=>db.from('colors').select('id,name,hex_code,is_active,updated_at',{count:'exact'}).order('name').order('id',{ascending:true}),["id"],'colors'),
+    readAllPages(()=>db.from('model_colors').select('model_id,color_id',{count:'exact'}).eq('is_offered',true).order('model_id',{ascending:true}).order('color_id',{ascending:true}),["model_id","color_id"],'model_colors'),
+    readAllPages(()=>db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'customers'),
+    readAllPages(()=>db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'reservations'),
+    readAllPages(()=>db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units,model_name_snapshot,size_label_snapshot',{count:'exact'}).order('id',{ascending:true}),["id"],'reservation_lines'),
+    readAllPages(()=>db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,archived_at',{count:'exact'}).is('archived_at',null).order('confirmed_at',{ascending:false}).order('id',{ascending:true}),["id"],'orders'),
+    readAllPages(()=>db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,archived_at',{count:'exact'}).not('archived_at','is',null).order('archived_at',{ascending:false}).order('id',{ascending:true}),["id"],'orders'),
+    readAllPages(()=>db.from('reservation_extra_colors').select('reservation_line_id,color_id,position,color_name_snapshot,color_hex_snapshot',{count:'exact'}).order('position').order('reservation_line_id',{ascending:true}).order('color_id',{ascending:true}),["reservation_line_id","color_id"],'reservation_extra_colors'),
+    readAllPages(()=>db.from('reservation_revisions').select('id,reservation_id,created_at,actor_id',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'reservation_revisions'),
+    readAllPages(()=>db.from('payment_reports').select('id,request_id,order_id,reservation_id,amount_bs,status,origin,note,public_note,receipt_path,created_at,approved_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'payment_reports'),
+    readAllPages(()=>db.from('payment_reviews').select('id,report_id,action,note,created_at,actor_id',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'payment_reviews'),
     db.from('payment_qr').select('image_path,reusable_verified,updated_at').limit(1)
   ]);
   const models=unwrap(modelData,'Modelos'),colors=unwrap(colorData,'Colores'),
    modelColors=unwrap(modelColorData,'Colores de modelo'),customers=unwrap(customerData,'Clientes'),
    reservations=unwrap(reservationData,'Reservas'),reservationLines=unwrap(reservationLineData,'Líneas de reserva'),
-   orders=[...unwrap(orderData,'Pedidos'),...unwrap(archivedOrderData,'Pedidos archivados')],orderLines=unwrap(orderLineData,'Líneas de pedido'),
+   orders=[...unwrap(orderData,'Pedidos'),...unwrap(archivedOrderData,'Pedidos archivados')],
    reservationColors=unwrap(reservationColorData,'Colores de unidades reservadas'),
-   orderColors=unwrap(orderColorData,'Colores de unidades pedidas'),
    revisions=unwrap(revisionData,'Historial de ediciones de reserva'),
    payments=unwrap(paymentData,'Avisos de pago'),paymentReviews=unwrap(paymentReviewData,'Historial de pagos'),
-   deliveries=unwrap(deliveryData,'Recogidas'),deliveryLines=unwrap(deliveryLineData,'Prendas recogidas'),
-   links=unwrap(linkData,'Enlaces de cliente'),qrSettings=unwrap(qrData,'QR administrativo')?.[0]||null;
-  // La nueva RPC de edición se habilita solo cuando existe la migración 015.
-  // En una Preview anterior no romper las lecturas del catálogo ni los pedidos.
-  const revisionResponse=await db.from('orders').select('id,revision').limit(200);
-  const revisionMap=new Map((revisionResponse.error?[]:revisionResponse.data??[]).map(o=>[o.id,o.revision]));
+   qrSettings=unwrap(qrData,'QR administrativo')?.[0]||null;
   // Cada consulta usa RLS. Refrescar después de toda escritura, sin calcular cupos desde datos del cliente.
-  const [stocks,images,financeEntries,deliveryEntries]=await Promise.all([
-    Promise.all(models.map(async model=>{
-      const result=unwrap(await db.rpc('get_model_stock',{p_model_id:model.id}),'Inventario');
-      return [model.id,result];
-    })),
-    Promise.all(models.map(async model=>{
-      if(!model.is_active||!model.image_path) return [model.id,null];
-      const {data,error}=await db.storage.from('evalia-models').createSignedUrl(model.image_path,3600);
-      return [model.id,error?null:data.signedUrl];
-    })),
-    Promise.all(orders.map(async o=>[o.id,unwrap(await db.rpc('get_evalia_order_finance',{p_order_id:o.id}),'Saldo del pedido')])),
-    Promise.all(orders.map(async o=>[o.id,unwrap(await db.rpc('get_evalia_order_delivery',{p_order_id:o.id}),'Retiro del pedido')]))
+  const [stocks,images,orderLines]=await Promise.all([
+    loadStockBatches(db,models),
+    loadModelPhotos(db,models),
+    loadDashboardOrderLines(db,orders)
   ]);
-  return {models:models.map(m=>({...m,colorIds:modelColors.filter(x=>x.model_id===m.id).map(x=>x.color_id),imageUrl:images.find(x=>x[0]===m.id)?.[1]})),
-   colors,customers,stock:Object.fromEntries(stocks),revisions,payments,paymentReviews,
-   deliveries,deliveryLines,links,qrSettings,finances:Object.fromEntries(financeEntries),deliveryStats:Object.fromEntries(deliveryEntries),
-   reservations:reservations.map(r=>({...r,lines:reservationLines.filter(x=>x.reservation_id===r.id).map(l=>({...l,
-      extraColorIds:reservationColors.filter(c=>c.reservation_line_id===l.id).map(c=>c.color_id)}))})),
-   orders:orders.map(o=>({...o,revision:revisionMap.get(o.id)??null,lines:orderLines.filter(x=>x.order_id===o.id).map(l=>({...l,
-      extraColorIds:orderColors.filter(c=>c.order_line_id===l.id).map(c=>c.color_id)}))}))};
+  // The global workspace retains headers for exact dashboard counts and legacy/payment references.
+  // Full order details are loaded only for the selected server page.
+  return assembleWorkspace({models,modelColors,colors,customers,reservations,reservationLines,reservationColors,orders,orderLines,orderColors:[],revisions,payments,paymentReviews,deliveries:[],deliveryLines:[],links:[],qrSettings,stocks,images,financeEntries:[],deliveryEntries:[]});
 }
-export async function createColor(name,hex){
-  return unwrap(await client().from('colors').insert({name,hex_code:hex}).select('id').single(),'Crear color');
+export async function loadOrdersPage(params){return loadOrderPage(client(),params);}
+export async function loadOrderById(id,signal){const result=await loadOrderPage(client(),{archived:false,range:{from:'',to:'',valid:true},page:1,size:10,orderId:id,signal});if(result.view?.items.length!==1||result.view.items[0].id!==id)throw Error('No se encontró el pedido vigente');return result;}
+export async function saveColor({id=null,name,hex,active=true,expected=null,requestId}){
+ return unwrap(await client().rpc('save_evalia_color',{p_id:id,p_name:name,p_hex:hex,p_active:active,p_expected:expected,p_request_id:requestId}),'Guardar color');
 }
-export async function createCustomer({name,whatsapp,method,destination}){
- return unwrap(await client().from('customers').insert({
-  name,whatsapp,delivery_preference:method,shipping_destination:destination
- }).select('id').single(),'Crear cliente');
+export async function createColor(name,hex,requestId){return saveColor({name,hex,requestId});}
+export async function editProduct({modelId,name,size,price,colorIds,imagePath,expectedUpdatedAt,requestId}){
+ return unwrap(await client().rpc('edit_evalia_product',{p_model_id:modelId,p_name:name,p_size:size,p_price:price,p_colors:colorIds,p_image_path:imagePath,p_expected:expectedUpdatedAt,p_request_id:requestId}),'Editar producto');
 }
-export async function uploadPhoto(file){
+export async function reactivateProduct({modelId,units,expectedUpdatedAt,requestId}){
+ return unwrap(await client().rpc('reactivate_evalia_product',{p_id:modelId,p_units:units,p_expected:expectedUpdatedAt,p_request_id:requestId}),'Reactivar producto');
+}
+export async function productHistory(id){
+ const db=client();
+ const [events,old]=await Promise.all([readAllPages(()=>db.from('catalog_change_events').select('request_id,operation,previous_data,new_data,actor_id,created_at',{count:'exact'}).eq('entity_type','model').eq('entity_id',id).order('created_at',{ascending:false}).order('request_id'),['request_id'],'Cambios del catálogo'),readAllPages(()=>db.from('model_catalog_revisions').select('id,request_id,old_price,new_price,old_image_path,new_image_path,actor_id,created_at',{count:'exact'}).eq('model_id',id).order('created_at',{ascending:false}).order('id'),['id'],'Revisiones anteriores')]);
+ const current=events.data.map(e=>({...e,source:'integral'})),seen=new Set(current.map(e=>e.request_id));
+ return [...current,...old.data.filter(e=>!seen.has(e.request_id)).map(e=>({...e,operation:'price_photo',source:'legacy'}))].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+}
+export async function createCustomer({name,whatsapp,method,destination,requestId,confirmDuplicate=false}){
+ const result=unwrap(await client().rpc('create_evalia_customer',{
+  p_name:name,p_whatsapp:whatsapp,p_method:method,p_destination:destination,
+  p_request_id:requestId,p_confirm_duplicate:confirmDuplicate
+ }),'Crear cliente');
+ if(result?.state==='duplicate'&&Number.isInteger(result.count)&&result.count>0)return result;
+ if(result?.state!=='created'||!result.id)throw Error('No se pudo confirmar el alta. Verifica antes de repetir.');
+ return result;
+}
+export async function uploadPhoto(file,requestId=crypto.randomUUID()){
   if(!file)return null;
   const allowed=['image/png','image/jpeg','image/webp'];
-  if(!allowed.includes(file.type)||file.size>5*1024*1024)throw new Error('La foto debe ser JPG, PNG o WebP de hasta 5 MB.');
+  if(!allowed.includes(file.type)||file.size>5*1024*1024||file.size===0)throw new Error('La foto debe ser JPG, PNG o WebP de hasta 5 MB.');
+  if(!/^[0-9a-f-]{36}$/i.test(requestId))throw Error('Identificador de carga inválido.');
   const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
-  const path='models/'+crypto.randomUUID()+'.'+ext;
-  unwrap(await client().storage.from('evalia-models').upload(path,file,{contentType:file.type,upsert:false}),'Subir fotografía');
+  const bytes=await file.arrayBuffer(),digest=await crypto.subtle.digest('SHA-256',bytes);
+  const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  const path='models/'+requestId+'-'+hash+'.'+ext;
+  const storage=client().storage.from('evalia-models');
+  const result=await storage.upload(path,file,{contentType:file.type,upsert:false});
+  if(result.error){
+   // No aceptar un 409 a ciegas: confirmar que los bytes existentes son los mismos.
+   if(!['409','Duplicate'].includes(String(result.error.statusCode??result.error.code))&&!/already exists/i.test(result.error.message||''))unwrap(result,'Subir fotografía');
+   const existing=unwrap(await storage.download(path),'Verificar fotografía del intento anterior');
+   const prior=await crypto.subtle.digest('SHA-256',await existing.arrayBuffer());
+   if(Array.from(new Uint8Array(prior),b=>b.toString(16).padStart(2,'0')).join('')!==hash)throw Error('La fotografía anterior no coincide; revisa antes de reintentar.');
+  }
   return path;
 }
 export async function removePhoto(path){
@@ -114,6 +125,14 @@ export async function updateModel({modelId,price,imagePath=null,expectedUpdatedA
 }
 export async function archiveModel(model){
  return unwrap(await client().rpc('archive_evalia_model',{p_model_id:model.id,p_expected_updated_at:model.updated_at}),'Inhabilitar producto');
+}
+export async function cleanupReplacedPhoto(path){
+ if(!/^models\/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(path))throw Error('Ruta de foto inválida');
+ const db=client();
+ const refs=unwrap(await db.from('models').select('id').eq('image_path',path).eq('is_active',true).limit(1),'Comprobar referencias');
+ if(refs.length)return false;
+ await cleanupArchivedPhotos([path]);
+ return true;
 }
 export async function cleanupArchivedPhotos(paths){
  const db=client();
@@ -145,10 +164,13 @@ export async function adjustStock({modelId,operation,units,version,requestId}){
   }),'Ajustar stock');
 }
 export async function createOrder(customerId,lines,requestId,delivery){
- return unwrap(await client().rpc('create_evalia_order_delivery',{
+ const result=await client().rpc('create_evalia_order_delivery',{
   p_customer_id:customerId,p_lines:lines,p_request_id:requestId,
   p_method:delivery.method,p_destination:delivery.destination
- }),'Confirmar pedido');
+ });
+ if(result.error){const error=new Error('Confirmar pedido: '+result.error.message);error.code=result.error.code;throw error;}
+ if(typeof result.data!=='string'||!(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(result.data)))throw Error('No se pudo verificar el identificador del pedido. Reintenta la misma solicitud.');
+ return result.data;
 }
 /** Edición idempotente y auditada: solo pedido activo sin pagos/entregas/enlace. */
 export async function reviseOrder({orderId,lines,expectedRevision,requestId}){
@@ -236,23 +258,22 @@ export async function getAdminQrUrl(path){
  return unwrapStorage(await client().storage.from('evalia-qr')
   .createSignedUrl(path,120),'Mostrar QR').signedUrl;
 }
-export async function saveRealQr(file,verified,requestId){
+export async function saveRealQr(file,verified,requestId,db=client()){
  if(!verified)throw new Error('Antes de compartirlo confirma que el QR bancario es real, vigente y reutilizable.');
  if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5242880||file.size===0)
   throw new Error('El QR debe ser una imagen JPG, PNG o WebP de hasta 5 MB.');
  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
  const path='qr/'+requestId+'.'+ext;
- const result=await client().storage.from('evalia-qr')
+ const result=await db.storage.from('evalia-qr')
   .upload(path,file,{contentType:file.type,upsert:false});
  if(result.error && !String(result.error.message||'').toLowerCase().includes('already exists'))
   throw new Error('Carga del QR: '+result.error.message);
  try{
-  return unwrap(await client().rpc('update_evalia_qr',{
+  return unwrap(await db.rpc('update_evalia_qr',{
    p_image_path:path,p_verified_reusable:true,p_request_id:requestId
   }),'Actualizar QR de EVALIA');
  }catch(err){
-  // No eliminar archivo repetido, podría estar enlazado a un intento anterior.
-  if(!result.error)await client().storage.from('evalia-qr').remove([path]);
+  // Una respuesta perdida no demuestra rollback: preservar archivo hasta conciliación segura.
   throw err;
  }
 }

@@ -10,9 +10,10 @@ assert.ok(start>0&&end>start,'se debe conservar el componente Orders');
 const orders=page.slice(start,end);
 
 test('listado de pedidos usa acordeones nativos cerrados de inicio',()=>{
- assert.match(orders,/<details className="record order-record ev-order-accordion" key=\{o.id\} name="evalia-orders" data-order-status=\{o.status\}>/);
+ assert.match(orders,/<details className="record order-record ev-order-accordion" key=\{o.id\} name="evalia-orders" open=\{focusOrder===o.id\?true:undefined\} data-order-status=\{o.status\}>/);
  assert.match(orders,/<summary className="ev-order-summary">/);
- assert.doesNotMatch(orders,/<details className="record order-record ev-order-accordion"[^>]*\bopen=/);
+ assert.match(orders,/open=\{focusOrder===o.id\?true:undefined\}/);
+ assert.match(page,/\[focusOrder,setFocusOrder\]=useState\(null\)/);
  assert.match(orders,/customer\?\.name/);
  assert.match(orders,/displayDate\(o.confirmed_at\)/);
  assert.match(orders,/formatBs\(total\)/);
@@ -23,8 +24,10 @@ test('detalle abierto mantiene todos los módulos operativos anteriores',()=>{
   '<LegacyCommitments','<LineComposition','<OrderQuickActions','<OrderDeliveryEditor',
   '<PaymentHistory','<PaymentForm','<OrderLinkPanel',
   'onReport','onComplete(o.id)','onQuick','onIssueLink','onRevokeLink',
-  'onUpdateFulfillment','onPrint(o,customer)','busy||Number(finance.pending)!==0'
+  'onUpdateFulfillment','onPrint(o,customer)','pageBusy||Number(finance.pending)!==0'
  ])assert.ok(orders.includes(fragment),'falta función '+fragment);
+ assert.match(orders,/const pageBusy=busy\|\|list.loading\|\|Boolean\(list.error\)/);
+ assert.match(orders,/disabled=\{pageBusy\|\|Number\(finance.pending\)!==0\|\|Number\(finance.excess\)!==0\|\|Number\(delivery.remaining\)!==0\}/);
 });
 test('operaciones secundarias están plegadas sin deshabilitar el flujo express',()=>{
  assert.match(orders,/<details className="ev-order-management"/);
@@ -64,7 +67,8 @@ test('entregas parciales desaparecen del listado, sin borrar lógica de base ni 
 });
 
 test('no repite el total ni los importes por docena en líneas de una docena',()=>{
- assert.equal((orders.match(/formatBs\(total\)/g)||[]).length,1);
+ assert.equal((orders.match(/>\{formatBs\(total\)\}<\/strong>/g)||[]).length,1);
+ assert.match(orders,/facts:\[\{label:'Cliente',value:customer\?\.name\|\|'Cliente'\},\{label:'Total',value:formatBs\(total\)\}\],reasonRequired:true/);
  assert.doesNotMatch(orders,/<footer className="order-total"/);
  assert.match(orders,/Number\(l.quantity\)!==12&&<small>/);
  assert.doesNotMatch(orders,/Talla \{m\?\.size_label\|\|'—'\} · \{rup\(l.quantity\)\} prendas/);
@@ -80,4 +84,20 @@ test('muestra únicamente el dato de pago útil y oculta destinos e impresión p
  assert.doesNotMatch(orders,/ev-order-stat-strip|Abonado y aprobado|Prendas entregadas/);
  assert.match(orders,/o.fulfillment_method==='legacy'/);
  assert.match(orders,/onPrint\(o,customer\)/);
+});
+
+test('pedidos prioriza listado, encabezado breve y acceso al archivo al final',()=>{
+ assert.match(orders,/const \[showArchived,setShowArchived\]=useState\(false\)/);
+ assert.match(orders,/<header className="ev-orders-heading"><p className="eyebrow">\{showArchived\?'HISTORIAL COMERCIAL':'PEDIDOS CONFIRMADOS'\}<\/p><h1>\{showArchived\?'Pedidos archivados':'Pedidos'\}<\/h1><\/header>/);
+ assert.doesNotMatch(orders,/Desglose de pedidos|Abre un pedido para consultar|description=/);
+ const filters=orders.indexOf('<RecordListControls');
+ const records=orders.indexOf('aria-label="Lista de pedidos"');
+ const pager=orders.indexOf('<ListPager');
+ const archive=orders.indexOf('<nav className="ev-order-archive-toolbar"');
+ assert.ok(filters>=0&&filters<records&&records<pager&&pager<archive);
+ assert.match(orders,/aria-pressed=\{!showArchived\}/);
+ assert.match(orders,/aria-pressed=\{showArchived\}/);
+ assert.match(orders,/setShowArchived\(archived\);list.setPage\(1\)/);
+ assert.match(orders,/Pedidos vigentes e historial/);
+ assert.match(style,/\.ev-order-archive-toolbar\{[^}]*margin:20px 0 0/);
 });

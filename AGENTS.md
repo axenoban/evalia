@@ -1,5 +1,11 @@
 # Reglas de desarrollo — EVALIA
 
+## E2 — Rendimiento y canal QA permanente (27-11-2026)
+Para optimización de la aplicación web operativa, leer [skill evalia-react-performance](.agents/skills/evalia-react-performance/SKILL.md) y [contrato E2](docs/66_E2_CONTRATO_IMPLEMENTACION.md). Para base de datos, sumar las skills de Supabase y PostgreSQL; para interfaces, formularios, UX visual y pruebas E2E. La skill propia incorpora criterios específicos de Evalia y referencias oficiales de Vercel; no instala paquetes externos ni cambia el stack. E1 tiene alcance revisado en docs/59 y está integrado en dev. El canal permanente de QA reutiliza feature/evalia-e1-estabilidad y sus credenciales exclusivas: verificar CI verde, SHA, compatibilidad y Vercel READY antes de cada prueba. No volver a solicitar configuración de credenciales por etapa. No promover producción ni integrar a dev sin aprobación.
+
+## Evolución V1.1 — 25-11-2026
+Leer [docs/59_PLAN_EVOLUCION_V1_1.md](docs/59_PLAN_EVOLUCION_V1_1.md): E1–E4 y D01–D10 aprobados. E1 en feature/evalia-e1-estabilidad; baseline main/dev dffbb41. No aplicar migraciones ni activar cambios remotos de seguridad sin autorización de publicación. Las referencias históricas a estados anteriores no prevalecen sobre este contrato.
+
 ## Baseline actualizado — 23-11-2026
 Antes de cualquier cambio, verificar HEAD real de `dev/evalia-core` y leer la actualización al inicio de `docs/50_DOCUMENTO_MAESTRO_EVALIA.md`. Identidad visual y preparación física aprobadas: docs/51 y docs/52. No modificar reglas ni estados comerciales para representar preparación. Mantener main sin cambios salvo autorización. El flujo de correo de D9 conserva su QA específica.
 
@@ -134,3 +140,6 @@ El propietario aprobó D0-F. Ver [D1-A](docs/35_D1_A_SUPABASE_PRIMER_BLOQUE.md):
 
 ## Skills de desarrollo (2026-11-23)
 Las skills especializadas están catalogadas en docs/37_SKILLS_DESARROLLO_FORMULARIOS.md. Antes de cambios en formularios, leer .agents/skills/evalia-formularios/SKILL.md y la skill de funcionalidad (catálogo o reservas/pedidos); sumar evalia-ux-visual y evalia-pruebas-e2e en revisión de UX/QA. Para SQL consultar evalia-seguridad-supabase y supabase-postgres-best-practices. Claude Code usa entradas compartidas en .claude/skills/. Son instrucciones técnicas, no autorización para modificar reglas aprobadas, sustituir el stack ni habilitar pedidos reales en la demo.
+
+## Protocolo de validación con el propietario (25-11-2026)
+Continuar implementaciones autorizadas sin pedir aprobaciones intermedias innecesarias. Solicitar intervención solo ante decisión de negocio/arquitectura pendiente, acceso imprescindible o prueba real. Para cada prueba funcional entregar: 1) URL del candidato verificado y commit (no confundir con producción); 2) pasos concretos y datos ficticios permitidos; 3) resultados esperados y formato de respuesta del propietario, incluyendo errores o capturas sin secretos; 4) siguiente bloque si se aprueba. No enviar candidatos con regresión roja ni usar producción para validar migraciones de seguridad no autorizadas. Si la prueba es de equipo local (respaldo, restauración), indicar herramienta y comandos en lugar de inventar enlace web. Después de aprobación, verificar CI y baseline e integrar a dev si corresponde; main solo por autorización específica.

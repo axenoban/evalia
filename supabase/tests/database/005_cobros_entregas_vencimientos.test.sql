@@ -7,6 +7,8 @@ select plan(39);
 
 insert into auth.users(id,email) values('10000000-0000-4000-8000-000000000001','evalia-cashier@example.invalid');
 insert into public.admin_profiles(user_id) values('10000000-0000-4000-8000-000000000001');
+-- Sesiones sintéticas válidas, no hay cambios en aserciones comerciales.
+insert into auth.sessions(id,user_id,created_at,updated_at,aal) values ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',now(),now(),'aal1');
 insert into public.colors(id,name) select ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Prueba '||n from generate_series(1,6) n;
 insert into public.models(id,name,size_label,price_dozen_bs) values('20000000-0000-4000-8000-000000000001','Modelo contable','M',360.00);
 insert into public.model_colors(model_id,color_id)
@@ -18,6 +20,7 @@ insert into public.customers(id,name,whatsapp)
 grant execute on function public.create_evalia_reservation(uuid,jsonb,uuid) to authenticated;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+set local request.jwt.claims='{"sub":"10000000-0000-4000-8000-000000000001","session_id":"10000000-0000-4000-8000-000000000001","aal":"aal1"}';
 
 select ok(public.is_evalia_admin(),'admin autorizado');
 select lives_ok($t$select public.create_evalia_reservation('30000000-0000-4000-8000-000000000001'::uuid,'[{"modelId":"20000000-0000-4000-8000-000000000001","dozens":1,"extraColorIds":[]}]'::jsonb,'50000000-0000-4000-8000-000000000001'::uuid)$t$,'crear reserva A de una docena');

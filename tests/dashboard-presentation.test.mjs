@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {formatAvailableDozens,formatModelDozenPrice} from '../web/lib/dashboard-presentation.js';
+import {formatAvailableDozens,formatModelDozenPrice,countModelsWithStock} from '../web/lib/dashboard-presentation.js';
 
 test('el stock libre se expresa por docenas y unidades, sin redondear',()=>{
  assert.equal(formatAvailableDozens(0),'0 unidades');
@@ -30,7 +30,7 @@ test('dashboard consume disponibilidad libre y no altera la gestión de pedidos'
  const dashboard=page.slice(page.indexOf('function DashboardProductCard'),page.indexOf('function StockTable('));
  assert.match(dashboard,/formatAvailableDozens\(stock\?\.available\?\?0\)/);
  assert.match(dashboard,/formatModelDozenPrice\(model\.price_dozen_bs\)/);
- assert.match(dashboard,/data\.orders\.filter\(o=>o\.status==='active'\)/);
+ assert.match(dashboard,/data\.orders\.filter\(o=>o\.status==='active'&&!o\.archived_at\)/);
  assert.match(page,/const menu=owner\?\[\.\.\.MENU,\['security','Usuarios','⚙'\]\]:MENU;/);
  assert.match(page,/menu\.map\(\(\[id,label,sign\]\)=>/);
  for(const id of ['home','catalog','booking','orders','payments','customers']) assert.match(page,new RegExp("\\['"+id+"',"));
@@ -43,4 +43,30 @@ test('la presentación incorpora carrusel accesible y cuadrícula móvil de dos 
  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
  assert.match(css,/@media\(max-width:740px\)/);
  assert.match(layout,/import '\.\/dashboard\.css'/);
+});
+
+test('modelos con stock cuenta modelos activos distintos con disponibilidad positiva verificada',()=>{
+ const models=['a','b','c','d','e','f','a'].map(id=>({id,is_active:id!=='e'}));
+ const stock={a:{available:12},b:{available:0},c:{available:24,blocked:true},d:{available:'6'},e:{available:36}};
+ assert.equal(countModelsWithStock(models,stock),2);
+ assert.equal(countModelsWithStock([{id:'a',is_active:true}],{a:{available:-1}}),0);
+ assert.equal(countModelsWithStock([{id:'a',is_active:true}],{a:{available:1.5}}),0);
+ assert.equal(countModelsWithStock([],{}),0);
+});
+test('dashboard prioriza dos indicadores, modelos y después las acciones y secciones de apoyo',()=>{
+ const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
+ const dashboard=page.slice(page.indexOf('function Dashboard('),page.indexOf('\nfunction ',page.indexOf('function Dashboard(')+10));
+ assert.equal((dashboard.match(/<SummaryCard /g)||[]).length,2);
+ assert.match(dashboard,/label="Pedidos pendientes" value=\{activeOrders.length\}/);
+ assert.match(dashboard,/label="Modelos con stock" value=\{modelsWithStock\}/);
+ assert.match(dashboard,/countModelsWithStock\(activeModels,data.stock\)/);
+ assert.match(dashboard,/const \[showOlder,setShowOlder\]=useState\(true\)/);
+ assert.doesNotMatch(dashboard,/description=|<p>Modelos recientes|<p>Compras confirmadas|<p>Declaraciones pendientes/);
+ const kpi=dashboard.indexOf('ev-overview'),catalog=dashboard.indexOf('ev-zone ev-zone-catalog'),actions=dashboard.indexOf('ev-dashboard-actions'),support=dashboard.indexOf('ev-support-grid');
+ assert.ok(kpi>=0&&kpi<catalog&&catalog<actions&&actions<support);
+ assert.match(dashboard,/onClick=\{\(\)=>setTab\('booking'\)\}/);
+ assert.match(dashboard,/onClick=\{\(\)=>setTab\('catalog'\)\}/);
+ assert.match(dashboard,/onClick=\{\(\)=>setTab\('orders'\)\}/);
+ assert.match(dashboard,/onClick=\{\(\)=>setTab\('payments'\)\}/);
+ assert.match(dashboard,/<Notice type="error">/);
 });

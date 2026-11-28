@@ -4,13 +4,13 @@
  --ev-ink:#382638;--ev-soft:#6a5b69;--ev-line:#eadde6;
  color:var(--ev-ink);font-size:14px;
 }
-.ev-dashboard .section-head{margin-bottom:24px;align-items:center}
+.ev-dashboard .section-head{margin-bottom:14px;align-items:center}
 .ev-dashboard .section-head h1{font-size:clamp(27px,2.45vw,37px);letter-spacing:-.04em;color:var(--ev-deep);margin:5px 0 8px}
 .ev-dashboard .section-head .eyebrow{font-size:11px;color:#a45e80}
 .ev-dashboard .section-head .description{font-size:14px;max-width:690px;line-height:1.5;color:var(--ev-soft)}
 .ev-dashboard .section-head .button{font-size:13px;min-height:45px;padding:11px 18px}
-.ev-dashboard .metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:23px}
-.ev-dashboard .metric{position:relative;display:flex;flex-direction:column;min-width:0;min-height:152px;padding:20px 21px;border:1px solid #eee3e9;
+.ev-dashboard .metrics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.ev-dashboard .metric{position:relative;display:flex;flex-direction:column;min-width:0;min-height:100px;padding:14px 18px;border:1px solid #eee3e9;
  background:linear-gradient(155deg,#fff,#fcf8fb);box-shadow:0 8px 26px #4933440a;border-radius:17px}
 .ev-dashboard .metric.primary{background:linear-gradient(142deg,#70435f,#4b3046);border-color:#70435f;color:#fff;box-shadow:0 10px 28px #4e2f471d}
 .ev-dashboard .metric:nth-child(2){background:linear-gradient(150deg,#fff,#faf0f5)}
@@ -22,7 +22,7 @@
 .ev-metric-icon{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:9px;
  background:#f6e6ee;color:#8f4c6e;font-size:20px;line-height:1}
 .ev-dashboard .metric.primary .ev-metric-icon{background:#ffffff23;color:#fff}
-.ev-dashboard .metric strong{font-family:Manrope,'DM Sans',sans-serif;font-size:clamp(27px,3vw,36px);letter-spacing:-.05em;margin:12px 0 4px;color:var(--ev-ink)}
+.ev-dashboard .metric strong{font-family:Manrope,'DM Sans',sans-serif;font-size:clamp(27px,3vw,36px);letter-spacing:-.05em;margin:8px 0 0;color:var(--ev-ink)}
 .ev-dashboard .metric.primary strong{color:#fff}
 .ev-dashboard .metric small{font-size:11px;line-height:1.45;color:#786b78}
 .ev-dashboard .metric.primary small{color:#f2dce8}
@@ -132,8 +132,8 @@
  .ev-zone-heading h2{font-size:15px}
  .ev-zone-heading p{font-size:11px}
  .ev-section-link{font-size:11px;white-space:normal}
- .ev-dashboard .metric{min-height:130px;padding:15px}
- .ev-dashboard .metric strong{font-size:28px;margin:10px 0 5px}
+ .ev-dashboard .metric{min-height:96px;padding:12px}
+ .ev-dashboard .metric strong{font-size:28px;margin:6px 0 0}
  .ev-dashboard .metric-label{font-size:11px}
  .ev-dashboard .metric small{font-size:10px}
  .ev-metric-icon{width:27px;height:27px;font-size:18px}
@@ -164,3 +164,6 @@
 @media(prefers-reduced-motion:reduce){
  .ev-model-card{transition:none}
 }
+
+.ev-dashboard-actions{display:flex;justify-content:flex-end;margin:0 0 14px}.ev-dashboard-actions .button{min-height:44px}@media(max-width:480px){.ev-dashboard-actions .button{width:100%}}
+.ev-dashboard .ev-zone-heading h2{margin-bottom:0}.ev-dashboard .section-head h1{margin-bottom:0}
