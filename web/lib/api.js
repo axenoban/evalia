@@ -241,3 +241,10 @@ export async function saveRealQr(file,verified,requestId,db=client()){
   throw err;
  }
 }
+// E3: estadísticas y exportación exclusivas del propietario; el servidor valida rol y MFA (is_evalia_owner).
+export async function loadOwnerStats(lower,upper){
+  return unwrap(await client().rpc('get_evalia_owner_stats',{p_from:lower,p_to:upper}),'Estadísticas');
+}
+export async function exportOwnerOrders(lower,upper){
+  return unwrap(await client().rpc('export_evalia_orders',{p_from:lower,p_to:upper}),'Exportación');
+}

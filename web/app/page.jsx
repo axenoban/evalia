@@ -14,6 +14,7 @@ import {inspectAdminMfa,withOwnerReauthentication} from '../lib/mfa-client.js';
 import MfaGate from './mfa-gate.jsx';
 import {writeThenRefresh,CONFIRMED_REFRESH_WARNING} from '../lib/write-confirmation.js';
 import AdminAccounts from './admin-accounts.jsx';
+import OwnerStats from './owner-stats.jsx';
 import {BrandMark,UiIcon} from './brand.jsx';
 import {ConfirmationProvider,useConfirmation} from './confirmation-dialog.jsx';
 import { buildOrderWhatsAppMessage } from '../lib/order-whatsapp.js';
@@ -1525,7 +1526,7 @@ function EvaliaWorkspace(){
  const [owner,setOwner]=useState(false);
  const [mfaGate,setMfaGate]=useState(null),pendingIdentity=useRef(null);
  const [canEnrollMfa,setCanEnrollMfa]=useState(false);
- const menu=owner?[...MENU,['security','Usuarios','⚙']]:MENU;
+ const menu=owner?[...MENU,['stats','Estadísticas','▥'],['security','Usuarios','⚙']]:MENU;
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
  const blockingSeq=useRef(0),dataRef=useRef(null);
  useEffect(()=>{dataRef.current=data;},[data]);
@@ -1875,6 +1876,7 @@ function EvaliaWorkspace(){
       tab==='booking'?<BookingPanel data={data} draft={bookingDraft} setDraft={setBookingDraft} onOrder={order} onCreateClient={addClient} onView={viewOrder} onPrint={printSelected} onIssue={issueLink} onRevoke={revokeLink} busy={busy}/>: 
       tab==='orders'?<Orders data={data} focusOrder={focusOrder} onClearFocus={()=>setFocusOrder(null)} onRepeat={repeatOrder} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
       tab==='payments'?<PaymentReview data={data} onReview={approve} onSaveQr={saveQr} busy={busy} canManageQr={owner}/>: 
+      tab==='stats'?(owner?<OwnerStats/>:<Notice type="error">Estadísticas exclusivas del propietario.</Notice>):
       tab==='security'?(owner?<AdminAccounts/>:<Notice type="error">Acceso exclusivo del propietario.</Notice>):  
       <ClientPanel data={data} onCreate={addClient} onUpdate={saveCustomerEdit} busy={busy}/>}
    </main>

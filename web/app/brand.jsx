@@ -16,6 +16,7 @@ const icons={
  customers:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z M4 21v-2a8 8 0 0 1 16 0v2',
  security:'M12 3 4 6v6c0 4 3 7 8 9 5-2 8-5 8-9V6z M9 12l2 2 4-4',
  pending:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z M12 7v5l3 2',
+ stats:'M4 20V10 M10 20V4 M16 20v-7 M22 20H2',
  more:'M4.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0Z M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0Z M16.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0Z'
 };
 const legacy={'▧':'catalog','▤':'orders','⌑':'pending','▣':'payments','♧':'catalog'};
