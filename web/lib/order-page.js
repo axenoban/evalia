@@ -13,12 +13,18 @@ export function dateBounds(range){
  const upper=range.to?new Date(Date.parse(range.to+'T00:00:00-04:00')+86400000).toISOString():null;
  return {lower,upper};
 }
-export function buildOrderPageQuery(db,{archived,range,page,size,signal,orderId}){
+// Búsqueda por cliente: IDs resueltos desde el directorio autorizado; límite para no exceder la URL de la API.
+export const CUSTOMER_FILTER_LIMIT=100;
+export function buildOrderPageQuery(db,{archived,range,page,size,signal,orderId,customerIds=null}){
  if(typeof archived!=='boolean'||!PAGE_SIZES.includes(size)||!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(page*size))throw Error('Página inválida');
  const {lower,upper}=dateBounds(range),date=archived?'archived_at':'confirmed_at';
  let q=db.from('orders').select(ORDER_COLUMNS,{count:'exact'});
  q=archived?q.not('archived_at','is',null):q.is('archived_at',null);
  if(orderId){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId))throw Error('Pedido inválido');q=q.eq('id',orderId);}
+ if(customerIds!==null){
+  if(!Array.isArray(customerIds)||!customerIds.length||customerIds.length>CUSTOMER_FILTER_LIMIT||customerIds.some(id=>typeof id!=='string'||!id||id.length>64))throw Error('Filtro de clientes inválido');
+  q=q.in('customer_id',customerIds);
+ }
  if(lower)q=q.gte(date,lower);
  if(upper)q=q.lt(date,upper);
  q=q.order(date,{ascending:false}).order('id',{ascending:true}).range((page-1)*size,page*size-1);
@@ -57,8 +63,14 @@ export async function loadDashboardOrderLines(db,orders,signal){
  const top=orders.filter(o=>o.status==='active'&&!o.archived_at).slice(0,5).map(o=>o.id);
  return rowsByIds(db,'order_lines',LINE_COLUMNS,'order_id',top,['id'],signal);
 }
+const EMPTY_DETAILS=()=>({customers:[],payments:[],deliveries:[],deliveryLines:[],links:[],finances:{},deliveryStats:{}});
 export async function loadOrderPage(db,params){
  const {page,size,signal}=params;
+ // Ningún cliente coincide: resultado vacío exacto sin consultar.
+ if(Array.isArray(params.customerIds)&&params.customerIds.length===0){
+  if(page!==1)return {redirect:1};
+  return {view:serverPageView([],0,1,size),details:EMPTY_DETAILS()};
+ }
  const response=await buildOrderPageQuery(db,params);
  // PostgREST can return PGRST103 for an offset beyond the new last page.
  // Re-read page one rather than masking other API or authorization failures.

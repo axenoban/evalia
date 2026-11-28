@@ -7,7 +7,7 @@ const page=readFileSync(new URL('../web/app/page.jsx',import.meta.url),'utf8');
 const api=readFileSync(new URL('../web/lib/api.js',import.meta.url),'utf8');
 const client=readFileSync(new URL('../web/lib/supabase.js',import.meta.url),'utf8');
 const login=page.slice(page.indexOf('function Login('),page.indexOf('export default function HomePage('));
-const refresh=page.slice(page.indexOf(' const refresh=useCallback(async()=>'),page.indexOf(' useEffect(()=>',page.indexOf(' const refresh=useCallback(async()=>')));
+const refresh=page.slice(page.indexOf(' const refresh=useCallback(async('),page.indexOf(' useEffect(()=>',page.indexOf(' const refresh=useCallback(async(')));
 const clear=page.slice(page.indexOf(' const clearAccess=useCallback('),page.indexOf(' const refresh=useCallback('));
 test('login usa formulario POST, credenciales del DOM y atributos estándar del gestor',()=>{
  assert.match(login,/method="post" autoComplete="on"/);
@@ -25,7 +25,14 @@ test('refrescar exige misma identidad y autorización antes de consultar el espa
  assert.ok(refresh.indexOf('await authUser()')>=0);
  assert.ok(refresh.indexOf('await adminAllowed()')>refresh.indexOf('await authUser()'));
  assert.ok(refresh.indexOf('await loadWorkspace()')>refresh.indexOf('if(!permitted)'));
- assert.match(refresh,/if\(generation===refreshGeneration\.current\)\{cancelConfirmation\(\);setData\(snapshot\);\}/);
+ // Modo bloqueante: cancela confirmaciones y numera la verificación; segundo plano conserva la ventana abierta.
+ assert.match(refresh,/if\(generation===refreshGeneration\.current\)\{\s*if\(!background\)cancelConfirmation\(\);/);
+ assert.match(refresh,/setData\(\{\.\.\.snapshot,refreshKind:background\?'background':'blocking',blockingSeq:seq\}\)/);
+ // Con una confirmación abierta se verifica igualmente identidad y autorización, y se cierra el acceso si cambió.
+ const verify=page.slice(page.indexOf('const verifyAccessOnly='),page.indexOf('},[clearAccess]);',page.indexOf('const verifyAccessOnly=')));
+ assert.ok(verify.indexOf('await adminAllowed()')>verify.indexOf('await authUser()'));
+ assert.match(verify,/if\(!permitted\)\{clearAccess\(\);/);
+ assert.match(page,/if\(confirmationOpen\(\)\)\{verifyAccessOnly\(\)\.catch\(fail\);return;\}/);
  assert.match(clear,/refreshGeneration\.current\+\+/);
  assert.match(clear,/authGeneration\.current\+\+/);
  assert.match(clear,/authorizedUser\.current=null/);

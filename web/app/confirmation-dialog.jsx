@@ -14,8 +14,9 @@ export function ConfirmationProvider({children}){
  if(!gate.current)gate.current=createConfirmationGate(setOptions);
  const ask=useCallback(config=>gate.current.request(config),[]);
  const cancel=useCallback(()=>gate.current.cancel(),[]);
+ const isOpen=useCallback(()=>gate.current.isPending(),[]);
  useEffect(()=>()=>{gate.current.cancel();},[]);
- return <ConfirmationContext.Provider value={{ask,cancel}}>
+ return <ConfirmationContext.Provider value={{ask,cancel,isOpen}}>
   {children}
   {options&&<ConfirmationDialog options={options} onCancel={cancel} onConfirm={reason=>gate.current.confirm(reason)}/>}
  </ConfirmationContext.Provider>;

@@ -28,16 +28,17 @@ export function useRecordList(rows,dateKey){
  useEffect(()=>{if(page!==view.page)setPage(view.page);},[page,view.page,setPage]);
  return {...filters,view,filtered};
 }
-export function useServerOrderList(workspace,archived,orderId=null){
+export function useServerOrderList(workspace,archived,orderId=null,customerIds=null){
  const filters=useRecordFilters(),{page,size,range,setPage}=filters;
  const {from,to,valid}=range;
  const [result,setResult]=useState(null),[retry,setRetry]=useState(0);
- const key=JSON.stringify([archived,page,size,from,to,valid,retry,orderId]);
+ const idsKey=customerIds===null?null:customerIds.join(',');
+ const key=JSON.stringify([archived,page,size,from,to,valid,retry,orderId,idsKey]);
  useEffect(()=>{
   if(!valid)return;
   const controller=new AbortController();
   let active=true;
-  loadOrdersPage({archived,page,size,range:{from,to,valid},orderId,signal:controller.signal})
+  loadOrdersPage({archived,page,size,range:{from,to,valid},orderId,customerIds:idsKey===null?null:idsKey?idsKey.split(','):[],signal:controller.signal})
    .then(value=>{
     if(!active)return;
     if(value.redirect){setPage(value.redirect);return;}
@@ -46,9 +47,13 @@ export function useServerOrderList(workspace,archived,orderId=null){
     if(active&&!controller.signal.aborted)setResult(prev=>({workspace,key,value:prev?.key===key?prev.value:null,error:e.message||'No se pudieron cargar los pedidos.'}));
    });
   return ()=>{active=false;controller.abort();};
- },[workspace,archived,page,size,from,to,valid,key,setPage,orderId]);
+ },[workspace,archived,page,size,from,to,valid,key,setPage,orderId,idsKey]);
  const prior=valid&&result?.key===key?result:null;
- const current=prior?.workspace===workspace?prior:null;
+ // Actualización automática en segundo plano: la página ya verificada sigue operativa mientras se recarga;
+ // tras una escritura o actualización manual (refreshKind distinto) las acciones se bloquean hasta verificar.
+ // blockingSeq garantiza que no hubo una escritura desde la página verificada. Un fallo de recarga sí bloquea (error). El servidor revalida saldo, revisión y precio en cada operación.
+ const background=Boolean(prior&&!prior.error&&prior.value&&workspace?.refreshKind==='background'&&prior.workspace?.blockingSeq===workspace.blockingSeq);
+ const current=prior?.workspace===workspace||background?prior:null;
  const loading=valid&&!current;
  return {...filters,view:prior?.value?.view??null,details:prior?.value?.details??null,
   loading,refreshing:loading&&Boolean(prior?.value),error:current?.error??'',retry:()=>setRetry(n=>n+1)};

@@ -66,8 +66,8 @@ test('dashboard requests lines for at most five active nonarchived orders, never
  const db=mockDb({order_lines:orders.map(o=>({id:'l'+o.id,order_id:o.id,quantity:12}))});
  const lines=await loadDashboardOrderLines(db,orders);
  assert.deepEqual(lines.map(l=>l.order_id),['o2','o3','o4','o5','o6']);
- const api=readFileSync(new URL('../web/lib/api.js',import.meta.url),'utf8');
- const workspace=api.slice(api.indexOf('export async function loadWorkspace'),api.indexOf('export async function loadOrdersPage'));
+ const api=readFileSync(new URL('../web/lib/workspace-loader.js',import.meta.url),'utf8');
+ const workspace=api.slice(api.indexOf('export async function loadFullWorkspace'),api.indexOf('// Actualización liviana'));
  assert.match(workspace,/loadDashboardOrderLines\(db,orders\)/);
  assert.doesNotMatch(workspace,/get_evalia_order_(finance|delivery)/);
  assert.doesNotMatch(workspace,/db\.from\('(?:order_lines|order_extra_colors|deliveries|delivery_lines|order_access_links)'\)/);

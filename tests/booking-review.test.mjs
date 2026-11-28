@@ -46,6 +46,6 @@ test('new booking retains confirmed IDs, frozen retries, session-only state and 
  assert.match(page,/setBookingDraft\(\{\.\.\.emptyBooking\(\),receipt:result.value\}\)/);
  assert.match(page,/loadOrderById\(id,controller.signal\)/);
  assert.match(page,/onClick=\{\(\)=>onRepeat\(o\)\}/);
- assert.match(page,/useServerOrderList\(workspace,showArchived,focusOrder\)/);
+ assert.match(page,/useServerOrderList\(workspace,showArchived,focusOrder,customerIds\)/);
  assert.doesNotMatch(form,/localStorage|sessionStorage/);
 });

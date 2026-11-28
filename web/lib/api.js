@@ -1,8 +1,7 @@
 import { getSupabase } from './supabase.js';
-import { assembleWorkspace } from './workspace-assembly.js';
 import { readAllPages } from './workspace-pagination.js';
-import { loadDashboardOrderLines,loadOrderPage } from './order-page.js';
-import { loadStockBatches,loadModelPhotos } from './product-data.js';
+import { loadOrderPage } from './order-page.js';
+import { loadFullWorkspace,loadLightWorkspace } from './workspace-loader.js';
 
 function unwrap(result,action) {
   if(result.error) throw new Error(action+': '+result.error.message);
@@ -23,43 +22,8 @@ export async function signIn(email,password){
 export async function signOut(){
   return unwrap(await client().auth.signOut(),'Cerrar sesión');
 }
-export async function loadWorkspace(){
-  const db=client();
-  const [modelData,colorData,modelColorData,customerData,reservationData,
-    reservationLineData,orderData,archivedOrderData,reservationColorData,revisionData,
-    paymentData,paymentReviewData,qrData]=await Promise.all([
-    readAllPages(()=>db.from('models').select('id,name,size_label,price_dozen_bs,image_path,is_active,created_at,updated_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'models'),
-    readAllPages(()=>db.from('colors').select('id,name,hex_code,is_active,updated_at',{count:'exact'}).order('name').order('id',{ascending:true}),["id"],'colors'),
-    readAllPages(()=>db.from('model_colors').select('model_id,color_id',{count:'exact'}).eq('is_offered',true).order('model_id',{ascending:true}).order('color_id',{ascending:true}),["model_id","color_id"],'model_colors'),
-    readAllPages(()=>db.from('customers').select('id,name,whatsapp,delivery_preference,shipping_destination,created_at,updated_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'customers'),
-    readAllPages(()=>db.from('reservations').select('id,customer_id,status,expires_at,review_at,created_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'reservations'),
-    readAllPages(()=>db.from('reservation_lines').select('id,reservation_id,model_id,quantity,dozen_count,extra_units,model_name_snapshot,size_label_snapshot',{count:'exact'}).order('id',{ascending:true}),["id"],'reservation_lines'),
-    readAllPages(()=>db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,archived_at',{count:'exact'}).is('archived_at',null).order('confirmed_at',{ascending:false}).order('id',{ascending:true}),["id"],'orders'),
-    readAllPages(()=>db.from('orders').select('id,customer_id,status,origin_reservation_id,confirmed_at,fulfillment_method,archived_at',{count:'exact'}).not('archived_at','is',null).order('archived_at',{ascending:false}).order('id',{ascending:true}),["id"],'orders'),
-    readAllPages(()=>db.from('reservation_extra_colors').select('reservation_line_id,color_id,position,color_name_snapshot,color_hex_snapshot',{count:'exact'}).order('position').order('reservation_line_id',{ascending:true}).order('color_id',{ascending:true}),["reservation_line_id","color_id"],'reservation_extra_colors'),
-    readAllPages(()=>db.from('reservation_revisions').select('id,reservation_id,created_at,actor_id',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'reservation_revisions'),
-    readAllPages(()=>db.from('payment_reports').select('id,request_id,order_id,reservation_id,amount_bs,status,origin,note,public_note,receipt_path,created_at,approved_at',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'payment_reports'),
-    readAllPages(()=>db.from('payment_reviews').select('id,report_id,action,note,created_at,actor_id',{count:'exact'}).order('created_at',{ascending:false}).order('id',{ascending:true}),["id"],'payment_reviews'),
-    db.from('payment_qr').select('image_path,reusable_verified,updated_at').limit(1)
-  ]);
-  const models=unwrap(modelData,'Modelos'),colors=unwrap(colorData,'Colores'),
-   modelColors=unwrap(modelColorData,'Colores de modelo'),customers=unwrap(customerData,'Clientes'),
-   reservations=unwrap(reservationData,'Reservas'),reservationLines=unwrap(reservationLineData,'Líneas de reserva'),
-   orders=[...unwrap(orderData,'Pedidos'),...unwrap(archivedOrderData,'Pedidos archivados')],
-   reservationColors=unwrap(reservationColorData,'Colores de unidades reservadas'),
-   revisions=unwrap(revisionData,'Historial de ediciones de reserva'),
-   payments=unwrap(paymentData,'Avisos de pago'),paymentReviews=unwrap(paymentReviewData,'Historial de pagos'),
-   qrSettings=unwrap(qrData,'QR administrativo')?.[0]||null;
-  // Cada consulta usa RLS. Refrescar después de toda escritura, sin calcular cupos desde datos del cliente.
-  const [stocks,images,orderLines]=await Promise.all([
-    loadStockBatches(db,models),
-    loadModelPhotos(db,models),
-    loadDashboardOrderLines(db,orders)
-  ]);
-  // The global workspace retains headers for exact dashboard counts and legacy/payment references.
-  // Full order details are loaded only for the selected server page.
-  return assembleWorkspace({models,modelColors,colors,customers,reservations,reservationLines,reservationColors,orders,orderLines,orderColors:[],revisions,payments,paymentReviews,deliveries:[],deliveryLines:[],links:[],qrSettings,stocks,images,financeEntries:[],deliveryEntries:[]});
-}
+export const loadWorkspace=(now=Date.now())=>loadFullWorkspace(client(),now);
+export const loadWorkspaceLight=(previous,now=Date.now())=>loadLightWorkspace(client(),previous,now);
 export async function loadOrdersPage(params){return loadOrderPage(client(),params);}
 export async function loadOrderById(id,signal){const result=await loadOrderPage(client(),{archived:false,range:{from:'',to:'',valid:true},page:1,size:10,orderId:id,signal});if(result.view?.items.length!==1||result.view.items[0].id!==id)throw Error('No se encontró el pedido vigente');return result;}
 export async function saveColor({id=null,name,hex,active=true,expected=null,requestId}){

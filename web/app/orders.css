@@ -254,3 +254,6 @@
  .ev-next-step-actions>.button,.ev-next-step-secondary .button{flex:1 1 100%;width:100%}
  .ev-order-more-body>.button{justify-self:stretch}
 }
+.ev-order-search{margin:0 0 4px;max-width:520px}
+.ev-order-search input{min-height:44px}
+@media(max-width:620px){.ev-order-search{max-width:none}}

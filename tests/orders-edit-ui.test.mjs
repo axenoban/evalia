@@ -35,7 +35,7 @@ test('la edición usa la RPC revisada e impide cobrar o editar un pedido cerrado
  assert.match(orderApi,/db\.from\('orders'\)\.select\(ORDER_COLUMNS,\{count:'exact'\}\)/);
  assert.match(orderApi,/archived\?q\.not\('archived_at','is',null\):q\.is\('archived_at',null\)/);
  assert.match(orderApi,/revision:o\.revision\?\?null/);
- assert.match(orders,/useServerOrderList\(workspace,showArchived,focusOrder\)/);
+ assert.match(orders,/useServerOrderList\(workspace,showArchived,focusOrder,customerIds\)/);
  assert.doesNotMatch(api,/revisionMap|revisionResponse/);
  assert.match(orders,/!Number\.isSafeInteger\(o.revision\)/);
  const assembly=readFileSync(new URL('../web/lib/workspace-assembly.js',import.meta.url),'utf8');

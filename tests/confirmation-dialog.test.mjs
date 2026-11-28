@@ -40,8 +40,10 @@ test('all existing native operational prompts use severity-aware confirmation; s
  assert.match(page,/reasonRequired:true/);
  assert.match(page,/if\(decision\?\.confirmed&&decision.reason\)await onArchiveOrder/);
  assert.match(page,/const clearAccess=useCallback\(\(\)=>\{\s*cancelConfirmation\(\)/);
- assert.match(page,/const refresh=useCallback\(async\(\)=>\{\s*cancelConfirmation\(\)/);
- assert.match(page,/cancelConfirmation\(\);setData\(snapshot\)/);
+ // Escrituras y actualización manual (modo bloqueante) cierran confirmaciones; el segundo plano nunca.
+ assert.match(page,/const refresh=useCallback\(async\(\{background=false,light=false\}=\{\}\)=>\{\s*if\(!background\)cancelConfirmation\(\)/);
+ assert.match(page,/if\(!background\)\{cancelConfirmation\(\);setData\(null\);\}/);
+ assert.match(page,/const \{cancel:cancelConfirmation,isOpen:confirmationOpen\}=useConfirmation\(\)/);
  assert.match(dialog,/node.showModal\(\);cancelButton.current\?\.focus\(\)/);
  assert.match(dialog,/onCancel=\{e=>\{e.preventDefault\(\);onCancel\(\);\}\}/);
  assert.match(dialog,/previous\?\.isConnected/);

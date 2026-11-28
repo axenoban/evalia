@@ -7,6 +7,7 @@ export function createConfirmationGate(publish){
   pending=null;publish(null);current.resolve(result);return true;
  }
  return {
+  isPending(){return Boolean(pending);},
   request(options){
    if(pending)return Promise.resolve(null);
    return new Promise(resolve=>{pending={options,resolve};publish(options);});

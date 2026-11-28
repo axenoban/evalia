@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  authUser, adminAllowed, signIn, signOut, loadWorkspace,
+  authUser, adminAllowed, signIn, signOut, loadWorkspace, loadWorkspaceLight,
   createCustomer, createModel, editProduct, saveColor, reactivateProduct, productHistory, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, cleanupReplacedPhoto, archiveOrder, setOrderPrepared,
   createOrder, loadOrderById, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
@@ -23,6 +23,7 @@ import {matchingCustomers,normalizedWhatsApp} from '../lib/customer-duplicates.j
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
 import {matchesSearch} from '../lib/search-text.js';
+import {CUSTOMER_FILTER_LIMIT} from '../lib/order-page.js';
 import {emptyBooking,findBookingCustomers,recentBookingCustomers,reviewBooking,repeatBooking,hasBookingDraft} from '../lib/booking-review.js';
 import {
   centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
@@ -37,6 +38,7 @@ const MENU=[
   ['customers','Clientes','♙']
 ];
 const today=()=>new Date().toISOString();
+const FULL_REFRESH_MS=5*60*1000;
 const uuid=()=>crypto.randomUUID();
 const displayDate=iso=>iso?new Intl.DateTimeFormat('es-BO',{
   timeZone:'America/La_Paz',day:'2-digit',month:'short',year:'numeric',
@@ -1284,7 +1286,14 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
  const {ask}=useConfirmation();
  const [editingId,setEditingId]=useState(null),[linkOpen,setLinkOpen]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
- const list=useServerOrderList(workspace,showArchived,focusOrder);
+ const [search,setSearch]=useState(''),[query,setQuery]=useState('');
+ useEffect(()=>{const timer=window.setTimeout(()=>setQuery(search.trim()),300);return ()=>window.clearTimeout(timer);},[search]);
+ // Búsqueda por cliente en el servidor: nombre o WhatsApp sin tildes sobre el directorio autorizado.
+ const matched=query&&!focusOrder?findBookingCustomers(workspace.customers,query):null;
+ const tooMany=Boolean(matched&&matched.length>CUSTOMER_FILTER_LIMIT);
+ const customerIds=matched&&!tooMany?matched.map(c=>c.id):null;
+ const list=useServerOrderList(workspace,showArchived,focusOrder,customerIds);
+ useEffect(()=>{list.setPage(1);setEditingId(null);},[query]);// eslint-disable-line react-hooks/exhaustive-deps
  const {view}=list;
  const data=list.details?{...workspace,...list.details}:workspace;
  const pageBusy=busy||list.loading||Boolean(list.error);
@@ -1292,6 +1301,8 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
  return <><header className="ev-orders-heading"><p className="eyebrow">{showArchived?'HISTORIAL COMERCIAL':'PEDIDOS CONFIRMADOS'}</p><h1>{showArchived?'Pedidos archivados':'Pedidos'}</h1></header>
   {focusOrder&&<button type="button" className="button button-outline" onClick={()=>{onClearFocus();list.clear();}}>Ver todos los pedidos</button>}
   {!showArchived&&!focusOrder&&<LegacyCommitments data={workspace} onConvert={onConvertLegacy} busy={busy}/>}
+  {!focusOrder&&<label className="search ev-order-search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Buscar pedidos por cliente" placeholder="Buscar por cliente o WhatsApp…" value={search} onChange={e=>setSearch(e.target.value)}/></label>}
+  {tooMany&&<p className="small-note" role="status">{matched.length} clientes coinciden con «{query}». Escribe más letras o el número de WhatsApp para filtrar los pedidos.</p>}
   <RecordListControls list={list} dateLabel={showArchived?"Fecha de archivo":"Fecha de confirmación del pedido"} busy={busy} onChange={()=>setEditingId(null)}/>
   {list.loading&&<p className="small-note" role="status">{list.refreshing?'Actualizando pedidos; las acciones quedan temporalmente desactivadas.':'Cargando página de pedidos…'}</p>}
   {list.error&&<div role="alert" className="surface pad"><p>No se pudieron actualizar los pedidos. {view?'Los datos visibles no están verificados. ':''}{list.error}</p><button type="button" className="button button-outline" disabled={busy} onClick={list.retry}>Reintentar</button></div>}
@@ -1437,7 +1448,7 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
      </div>
     </details>;
    })}
-  </div>:<Empty title={list.preset!=='all'?"Sin pedidos en este rango":showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={list.preset!=='all'?"Cambia las fechas o quita el filtro.":showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
+  </div>:<Empty title={customerIds?"Sin pedidos de ese cliente":list.preset!=='all'?"Sin pedidos en este rango":showArchived?"Sin pedidos archivados":"Aún no hay pedidos"} detail={customerIds?"Revisa el nombre o WhatsApp, o cambia las fechas.":list.preset!=='all'?"Cambia las fechas o quita el filtro.":showArchived?"Los registros archivados se conservan aquí.":"Registra la primera compra confirmada desde Nuevo pedido."}/>}
   {view&&<ListPager view={view} onPage={p=>{list.setPage(p);setEditingId(null);}} label="Páginas de pedidos" busy={busy||list.loading}/> }
   <nav className="ev-order-archive-toolbar" aria-label="Vista de pedidos">
    <button type="button" className="button button-outline" aria-pressed={!showArchived} disabled={busy} onClick={()=>changeArchive(false)}>Pedidos vigentes e historial</button>
@@ -1503,7 +1514,7 @@ function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
 }
 export default function HomePage(){return <ConfirmationProvider><EvaliaWorkspace/></ConfirmationProvider>;}
 function EvaliaWorkspace(){
- const {cancel:cancelConfirmation}=useConfirmation();
+ const {cancel:cancelConfirmation,isOpen:confirmationOpen}=useConfirmation();
  const [tab,setTab]=useState('home'),[data,setData]=useState(null),[ready,setReady]=useState(false);
  const [bookingDraft,setBookingDraft]=useState(emptyBooking),[focusOrder,setFocusOrder]=useState(null);
  const bookingWrite=useRef(false);
@@ -1516,6 +1527,8 @@ function EvaliaWorkspace(){
  const [canEnrollMfa,setCanEnrollMfa]=useState(false);
  const menu=owner?[...MENU,['security','Usuarios','⚙']]:MENU;
  const refreshGeneration=useRef(0),authGeneration=useRef(0),authorizedUser=useRef(null);
+ const blockingSeq=useRef(0),dataRef=useRef(null);
+ useEffect(()=>{dataRef.current=data;},[data]);
  const db=useMemo(()=>getSupabase(),[]);
  const configured=Boolean(db);
  const clearAccess=useCallback(()=>{
@@ -1527,8 +1540,10 @@ function EvaliaWorkspace(){
   setOwner(false);
   setAuthenticated(false);setData(null);setForbidden(false);setMessage('');setTab('home');
  },[cancelConfirmation]);
- const refresh=useCallback(async()=>{
-  cancelConfirmation();
+ // Modos: completo y bloqueante (escrituras, manual, acceso) o automático en segundo plano (liviano cada minuto,
+ // completo cada 5 min o al volver a la pestaña). El segundo plano nunca cierra una confirmación abierta.
+ const refresh=useCallback(async({background=false,light=false}={})=>{
+  if(!background)cancelConfirmation();
   const generation=++refreshGeneration.current;
   const expected=authorizedUser.current;
   if(!expected)return;
@@ -1542,11 +1557,17 @@ function EvaliaWorkspace(){
    const role=await db.rpc('is_evalia_owner');
    if(generation!==refreshGeneration.current)return;
    setOwner(!role.error&&role.data===true);
-   const snapshot=await loadWorkspace();
-   if(generation===refreshGeneration.current){cancelConfirmation();setData(snapshot);}
+   const previous=dataRef.current;
+   const snapshot=light&&previous?.base?await loadWorkspaceLight(previous):await loadWorkspace();
+   if(generation===refreshGeneration.current){
+    if(!background)cancelConfirmation();
+    const seq=background?blockingSeq.current:++blockingSeq.current;
+    setData({...snapshot,refreshKind:background?'background':'blocking',blockingSeq:seq});
+   }
   }catch(e){
    if(generation!==refreshGeneration.current)return;
-   cancelConfirmation();setData(null);
+   // En segundo plano se conservan los datos visibles y se informa el error; en modo bloqueante se retiran.
+   if(!background){cancelConfirmation();setData(null);}
    throw e;
   }
  },[clearAccess,db,cancelConfirmation]);
@@ -1587,15 +1608,31 @@ function EvaliaWorkspace(){
   });
   return ()=>{active=false;refreshGeneration.current++;authGeneration.current++;listener.subscription.unsubscribe();};
  },[db,authorize,clearAccess]);
+ // Con una confirmación abierta solo se verifica que la sesión siga autorizada, sin cerrarla ni recargar datos.
+ const verifyAccessOnly=useCallback(async()=>{
+  const expected=authorizedUser.current;
+  if(!expected)return;
+  const user=await authUser();
+  const permitted=user?.id===expected&&await adminAllowed();
+  if(authorizedUser.current!==expected)return;
+  if(!permitted){clearAccess();setError('Tu acceso ya no está autorizado. Inicia sesión nuevamente.');}
+ },[clearAccess]);
  useEffect(()=>{
   if(!authenticated)return;
-  const revalidate=()=>{
-   if(document.visibilityState==='visible')refresh().catch(()=>setError('No se pudo verificar el acceso o actualizar los datos. Pulsa Actualizar.'));
+  const run=reason=>{
+   if(document.visibilityState!=='visible')return;
+   const fail=()=>setError('No se pudo verificar el acceso o actualizar los datos. Pulsa Actualizar.');
+   if(confirmationOpen()){verifyAccessOnly().catch(fail);return;}
+   const loadedAt=dataRef.current?.fullLoadedAt??0;
+   const light=reason==='timer'&&Date.now()-loadedAt<FULL_REFRESH_MS;
+   refresh({background:true,light}).catch(fail);
   };
-  const timer=setInterval(revalidate,60000);
+  const tick=()=>run('timer');
+  const revalidate=()=>run('visible');
+  const timer=setInterval(tick,60000);
   document.addEventListener('visibilitychange',revalidate);
   return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',revalidate);};
- },[authenticated,refresh]);
+ },[authenticated,refresh,confirmationOpen,verifyAccessOnly]);
  async function login(email,password){
   if(busy||logoutPending)return;
   setBusy(true);setError('');setForbidden(false);
