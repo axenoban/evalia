@@ -52,3 +52,25 @@ test('catálogo público con precios y sin cantidades de stock; servidor sin acc
  assert.match(sql,/evalia_security\.client_order_allowed\('\|\|v_arg\|\|'\)/);
  assert.match(read('supabase/tests/098_r2_clientes_catalogo.sql'),/catalog never exposes stock quantities/);
 });
+test('regresión: «Sin docena» con pocos colores no rompe la página (subtotal solo con línea válida)',async()=>{
+ const {subtotalCents}=await import('../web/lib/domain.js');
+ // Toda línea sin problema tiene ≥6 prendas, que es lo que exige subtotalCents.
+ for(let dozens=0;dozens<=2;dozens++)for(let n=0;n<=11;n++){
+  const extras=Array.from({length:n},(_,i)=>id(i+1));
+  if(!lineProblem({dozens,extraColorIds:extras}))assert.doesNotThrow(()=>subtotalCents('380',dozens*12+n));
+ }
+ assert.throws(()=>subtotalCents('380',3));
+ const form=read('web/app/cliente/ClientOrderForm.jsx');
+ assert.match(form,/subtotal:model&&!problem\?subtotalCents\(model\.price,units\):0n/);
+ for(const p of ['web/app/cliente/error.jsx','web/app/catalogo/error.jsx'])assert.match(read(p),/^'use client'/);
+ assert.match(read('web/app/catalogo/store-error.jsx'),/onClick=\{\(\)=>reset\(\)\}>Reintentar/);
+});
+test('panel: compartir catálogo público y estado del enlace visible por cliente',()=>{
+ const page=read('web/app/page.jsx');
+ assert.match(page,/window\.location\.origin\+'\/catalogo'/);
+ assert.match(page,/'https:\/\/wa\.me\/\?text='\+encodeURIComponent\(message\)/);
+ assert.match(page,/<CatalogShare onOpenCustomers=\{canManage\?/);
+ assert.match(page,/customerLinkStatuses\(\)\.then/);
+ assert.match(page,/'🔗 Enlace activo'/);
+ assert.match(read('web/lib/api.js'),/from\('customer_access_links'\)\.select\('customer_id,version,issued_at,revoked_at'\)/);
+});

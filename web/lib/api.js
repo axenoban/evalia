@@ -231,6 +231,12 @@ export async function issueCustomerLink(customerId){
 export async function revokeCustomerLink(customerId){
  return unwrap(await client().rpc('revoke_evalia_customer_link',{p_customer_id:customerId}),'Revocar enlace del cliente');
 }
+// Estado del enlace de todos los clientes en una sola consulta (RLS: solo administradores).
+export async function customerLinkStatuses(){
+ const {data,error}=await client().from('customer_access_links').select('customer_id,version,issued_at,revoked_at');
+ if(error)throw new Error('Estado de enlaces: '+error.message);
+ return new Map((data||[]).map(r=>[r.customer_id,r]));
+}
 export async function customerLinkStatus(customerId){
  const {data,error}=await client().from('customer_access_links').select('version,issued_at,revoked_at').eq('customer_id',customerId).maybeSingle();
  if(error)throw new Error('Estado del enlace: '+error.message);

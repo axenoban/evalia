@@ -6,7 +6,7 @@ import {
   createCustomer, createModel, editProduct, saveColor, reactivateProduct, productHistory, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, cleanupReplacedPhoto, archiveOrder, setOrderPrepared,
   createOrder, loadOrderById, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
   issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr,
-  issueCustomerLink, revokeCustomerLink, customerLinkStatus
+  issueCustomerLink, revokeCustomerLink, customerLinkStatus, customerLinkStatuses
 } from '../lib/api.js';
 import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,productPriceOptions,QUICK_DOZENS,paymentAmountOptions} from '../lib/product-data.js';
 import { getSupabase } from '../lib/supabase.js';
@@ -237,6 +237,7 @@ function Dashboard({data,setTab,onStartOrder,onOpenOrder,canManage=true}){
    <SummaryCard symbol="▧" label="Modelos con stock" value={modelsWithStock}/>
   </div>
   {blocked.length>0&&<Notice type="error">{blocked.length} modelo(s) están en revisión y no admiten nuevos pedidos.</Notice>}
+  <CatalogShare onOpenCustomers={canManage?()=>setTab('customers'):null}/>
 
   <section className="ev-zone ev-zone-catalog" aria-labelledby="ev-models-heading">
    <header className="ev-zone-header">
@@ -422,6 +423,7 @@ function Catalog({data,onSaveColor,onCreateModel,onAdjust,onUpdateModel,onArchiv
     {view==='edit'&&selectedModel?<ModelEditor key={selectedModel.id+'-'+selectedModel.updated_at} model={selectedModel} models={data.models} colors={data.colors} onSave={async params=>{const ok=await onUpdateModel(params);if(ok){setView('list');close();}return ok;}} busy={busy}/>:<ModelForm key={seed?.id??'new'} seed={seed} models={data.models} colors={data.colors} onCreate={async params=>{const ok=await onCreateModel(params);if(ok){setView('list');setSeed(null);reset();}return ok;}} busy={busy}/>}
    </section><ExpandableColorLibrary colors={data.colors} onSave={onSaveColor} busy={busy}/>
   </div>:<>
+   <CatalogShare/>
    <div className="toolbar"><label className="search"><span aria-hidden>⌕</span><input type="search" aria-label="Buscar producto" placeholder="Buscar por modelo o talla…" value={search} onChange={e=>{setSearch(e.target.value);reset();}}/></label><span className="muted">{page.total} modelos</span></div>
    <div className="ev-product-filters"><Field title="Talla"><select value={size} onChange={e=>{setSize(e.target.value);reset();}}><option value="all">Todas las tallas</option>{sizes.map(v=><option key={v}>{v}</option>)}</select></Field>
    {!archived&&<Field title="Disponibilidad"><select value={availability} onChange={e=>{setAvailability(e.target.value);reset();}}><option value="all">Todos</option><option value="stock">Con stock</option><option value="empty">Agotados</option><option value="blocked">En revisión</option></select></Field>}</div>
@@ -576,12 +578,42 @@ function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
   </div>
  </form>;
 }
+// R2: compartir el catálogo público (/catalogo). Es información pública: cualquier miembro del personal puede enviarla.
+// Pedir sigue requiriendo el enlace personal; el mensaje lo indica para que el cliente lo solicite.
+function CatalogShare({onOpenCustomers=null}){
+ const [open,setOpen]=useState(false),[hint,setHint]=useState('');
+ const url=open&&typeof window!=='undefined'?window.location.origin+'/catalogo':'';
+ const message='Hola, este es el catálogo mayorista de EVALIA con modelos, colores y precios por docena:\n'+url+'\nPara hacer tu pedido, pídenos tu enlace personal por este chat.';
+ async function copy(text,ok){try{await navigator.clipboard.writeText(text);setHint(ok);}catch{setHint('No se pudo copiar automáticamente; mantén presionado el enlace para copiarlo.');}}
+ async function share(){try{await navigator.share({title:'Catálogo EVALIA',text:message});}catch(e){if(e?.name!=='AbortError')setHint('No se pudo abrir el menú de compartir; usa «Enviar por WhatsApp».');}}
+ return <section className="ev-share-strip surface" aria-label="Catálogo para clientes">
+  <div className="ev-share-head">
+   <div><strong>Catálogo para clientes</strong><small>Fotos, colores, precios y disponibilidad. Para pedir, cada cliente usa su enlace personal.</small></div>
+   <div className="ev-share-actions">
+    <button type="button" className="button button-primary" aria-expanded={open} onClick={()=>{setOpen(v=>!v);setHint('');}}>{open?'Cerrar':'↗ Compartir catálogo'}</button>
+    {onOpenCustomers&&<button type="button" className="button button-outline" onClick={onOpenCustomers}>🔗 Enlaces personales</button>}
+   </div>
+  </div>
+  {open&&<div className="ev-share-body">
+   <p className="ev-share-url"><span>{url}</span></p>
+   <div className="form-actions">
+    <a className="button button-primary" href={'https://wa.me/?text='+encodeURIComponent(message)} target="_blank" rel="noopener noreferrer">Enviar por WhatsApp</a>
+    <button type="button" className="button button-outline" onClick={()=>copy(url,'Enlace del catálogo copiado.')}>Copiar enlace</button>
+    {typeof navigator!=='undefined'&&typeof navigator.share==='function'&&<button type="button" className="button button-outline" onClick={share}>Compartir…</button>}
+    <a className="button button-outline" href="/catalogo" target="_blank" rel="noopener">Ver catálogo</a>
+   </div>
+   {hint&&<p role="status" className="small-note">{hint}</p>}
+  </div>}
+ </section>;
+}
 // R2: enlace personal del cliente para catálogo con precios, pedidos y seguimiento sin cuenta.
 // Solo administradores; el enlace solo se muestra al crearlo (la base guarda únicamente su hash).
-function CustomerLinkPanel({customer}){
+function CustomerLinkPanel({customer,onStatus=()=>{}}){
  const {ask}=useConfirmation();
- const [status,setStatus]=useState(undefined),[url,setUrl]=useState(''),[draft,setDraft]=useState(''),[hint,setHint]=useState(''),[working,setWorking]=useState(false);
- useEffect(()=>{let live=true;customerLinkStatus(customer.id).then(s=>{if(live)setStatus(s);}).catch(e=>{if(live){setStatus(null);setHint(e.message);}});return ()=>{live=false;};},[customer.id]);
+ const [status,setStatusState]=useState(undefined),[url,setUrl]=useState(''),[draft,setDraft]=useState(''),[hint,setHint]=useState(''),[working,setWorking]=useState(false);
+ // Cada cambio se informa a la lista para que la etiqueta del cliente quede al día sin otra consulta.
+ function setStatus(value){setStatusState(value);onStatus(customer.id,value);}
+ useEffect(()=>{let live=true;customerLinkStatus(customer.id).then(s=>{if(live){setStatusState(s);onStatus(customer.id,s);}}).catch(e=>{if(live){setStatusState(null);setHint(e.message);}});return ()=>{live=false;};},[customer.id,onStatus]);
  const active=Boolean(status&&!status.revoked_at);
  async function issue(){
   if(active&&!await ask({severity:'warning',title:'Reemplazar enlace del cliente',message:'El enlace anterior dejará de funcionar de inmediato. Envía el nuevo por WhatsApp.',facts:[{label:'Cliente',value:customer.name},{label:'WhatsApp',value:customer.whatsapp}],confirmLabel:'Crear nuevo enlace'}))return;
@@ -596,7 +628,7 @@ function CustomerLinkPanel({customer}){
  async function revoke(){
   if(!await ask({severity:'critical',title:'Revocar enlace del cliente',message:'El cliente ya no podrá ver precios ni hacer pedidos con su enlace hasta que le envíes uno nuevo.',facts:[{label:'Cliente',value:customer.name}],confirmLabel:'Revocar enlace'}))return;
   setWorking(true);setHint('');
-  try{await revokeCustomerLink(customer.id);setStatus(s=>s?{...s,revoked_at:new Date().toISOString()}:s);setUrl('');setDraft('');setHint('Enlace revocado.');}
+  try{await revokeCustomerLink(customer.id);setStatus(status?{...status,revoked_at:new Date().toISOString()}:status);setUrl('');setDraft('');setHint('Enlace revocado.');}
   catch(e){setHint(e.message);}finally{setWorking(false);}
  }
  async function copy(text,ok){try{await navigator.clipboard.writeText(text);setHint(ok);}catch{setHint('No se pudo copiar automáticamente; selecciona el texto y cópialo.');}}
@@ -618,6 +650,11 @@ function ClientPanel({data,onCreate,onUpdate,busy,canEdit=true}){
  const clients=findBookingCustomers(data.customers,search);
  const list=useRecordList(clients,'created_at');
  const {view}=list;
+ // R2: estado del enlace personal visible en cada ficha (una consulta; solo administradores).
+ const [links,setLinks]=useState(null);
+ useEffect(()=>{if(!canEdit)return;let live=true;customerLinkStatuses().then(m=>{if(live)setLinks(m);}).catch(()=>{if(live)setLinks(null);});return ()=>{live=false;};},[canEdit]);
+ const updateLink=useCallback((id,status)=>setLinks(prev=>{const next=new Map(prev||[]);if(status)next.set(id,status);else next.delete(id);return next;}),[]);
+ const activeLinks=links?[...links.values()].filter(l=>!l.revoked_at).length:0;
  return <>
   <SectionHead eyebrow="DIRECTORIO COMERCIAL" title="Clientes"/>
   <div className="two-columns customer-layout">
@@ -625,21 +662,24 @@ function ClientPanel({data,onCreate,onUpdate,busy,canEdit=true}){
     <p className="muted">Indica si compra para retiro o para envíos. Si recibe envíos, registra siempre su destino habitual.</p>
     <ClientForm onCreate={onCreate} busy={busy} customers={data.customers}/></section>
    <section className="surface pad"><h2>{data.customers.length} fichas registradas</h2>
+    {canEdit&&links&&<p className="ev-link-summary">🔗 {activeLinks} de {data.customers.length} clientes tienen enlace personal para ver precios y pedir. Usa «Enviar enlace» en cada ficha.</p>}
     <label className="search"><span aria-hidden>⌕</span><input type="search" aria-label="Buscar cliente"
      value={search} placeholder="Buscar nombre o WhatsApp…" disabled={busy} onChange={e=>{setSearch(e.target.value);list.setPage(1);setEditing(null);}}/></label>
     <RecordListControls list={list} dateLabel="Fecha de registro del cliente" busy={busy} onChange={()=>setEditing(null)}/>
     {view.total?<div className="client-list">{view.items.map(c=>{
       const reservations=data.reservations.filter(r=>r.customer_id===c.id).length;
       const orders=data.orders.filter(o=>o.customer_id===c.id&&!o.archived_at).length;
+      const link=links?.get(c.id),linkActive=Boolean(link&&!link.revoked_at);
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
-       <div><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}{c.shipping_destination?' · '+c.shipping_destination:''}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span></div>
-       {canEdit&&<div className="ev-client-actions"><button className="button button-outline" type="button" disabled={busy}
-        onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button>
-        <button className="button button-outline" type="button" disabled={busy} aria-expanded={editing==='link:'+c.id}
-        onClick={()=>setEditing(editing==='link:'+c.id?null:'link:'+c.id)}>Enlace del cliente</button></div>}</div>
+       <div><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}{c.shipping_destination?' · '+c.shipping_destination:''}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span>
+        {canEdit&&links&&<span className={'ev-link-badge '+(linkActive?'on':'off')}>{linkActive?'🔗 Enlace activo':link?'Enlace revocado':'Sin enlace personal'}</span>}</div>
+       {canEdit&&<div className="ev-client-actions"><button className={'button '+(linkActive?'button-outline':'button-primary')} type="button" disabled={busy} aria-expanded={editing==='link:'+c.id}
+         onClick={()=>setEditing(editing==='link:'+c.id?null:'link:'+c.id)}>{editing==='link:'+c.id?'Cerrar enlace':linkActive?'🔗 Enlace personal':'🔗 Enviar enlace'}</button>
+        <button className="button button-outline" type="button" disabled={busy}
+         onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button></div>}</div>
        {editing===c.id&&<ClientEditForm key={c.id+'-'+c.updated_at} customer={c}
         onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy} customers={data.customers}/>}
-       {canEdit&&editing==='link:'+c.id&&<CustomerLinkPanel customer={c}/>}
+       {canEdit&&editing==='link:'+c.id&&<CustomerLinkPanel customer={c} onStatus={updateLink}/>}
       </div>
     })}</div>:<Empty title="Sin clientes coincidentes" detail="Registra una ficha o cambia la búsqueda."/>}
     <ListPager view={view} onPage={p=>{list.setPage(p);setEditing(null);}} label="Páginas de clientes" busy={busy}/>

@@ -29,4 +29,8 @@
 - Panel → Clientes → «Enlace del cliente» (administradores): crear, reemplazar (confirmación) o revocar (confirmación crítica), y copiar el mensaje para WhatsApp. El enlace solo se muestra al crearlo.
 - Opcional: `NEXT_PUBLIC_EVALIA_WHATSAPP` (número con código de país) activa en el catálogo el botón «Pedir mi enlace por WhatsApp».
 - **Requisito para probar en QA:** la clave de servidor de evalia-qa (`SUPABASE_SECRET_KEY`) en las variables de Preview, cargada por el propietario en el panel de Vercel. Sin ella, catálogo y portal del cliente muestran «no disponible» (fallo seguro).
+- **Ajustes tras la prueba del propietario (28-11-2026):**
+  - Corregido: en el pedido del cliente, «Sin docena» con menos de 6 colores rompía la página (el subtotal se calculaba antes de validar). Ahora muestra la guía «elige al menos 6». `/cliente` y `/catalogo` tienen pantalla de recuperación con «Reintentar».
+  - «Catálogo para clientes» en Resumen (todo el personal) y Productos: enviar por WhatsApp, copiar enlace, compartir o ver `/catalogo`.
+  - Enlace personal más visible: etiqueta por ficha (activo / revocado / sin enlace), botón «🔗 Enviar enlace» destacado si falta, resumen «N de M clientes con enlace» y acceso directo «🔗 Enlaces personales» desde Resumen (administradores).
 - Pendiente R2b: informar pagos y ver comprobantes desde el enlace del cliente (hoy: por WhatsApp; el portal por pedido existente sigue disponible).

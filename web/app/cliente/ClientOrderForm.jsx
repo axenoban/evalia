@@ -14,9 +14,11 @@ export default function ClientOrderForm({catalog,preference,destination}){
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(null);
  const requestId=useRef(null);
  const byId=new Map(catalog.map(m=>[m.id,m]));
+ // subtotalCents lanza con menos de 6 prendas: solo se calcula cuando la línea ya es válida
+ // (lineProblem garantiza ≥6), así «Sin docena» con pocos colores muestra la guía en vez de romper la página.
  const rows=Object.entries(cart).map(([id,line])=>{const model=byId.get(id);const units=line.dozens*12+line.extras.length;
-  return {id,model,line,units,problem:model?lineProblem({dozens:line.dozens,extraColorIds:line.extras}):'Modelo no disponible',
-   subtotal:model?subtotalCents(model.price,units):0n};});
+  const problem=model?lineProblem({dozens:line.dozens,extraColorIds:line.extras}):'Modelo no disponible';
+  return {id,model,line,units,problem,subtotal:model&&!problem?subtotalCents(model.price,units):0n};});
  const total=rows.reduce((s,r)=>s+(r.problem?0n:r.subtotal),0n);
  const destOk=method==='pickup'||dest.trim().length>=2;
  const ready=rows.length>0&&rows.every(r=>!r.problem)&&destOk;
