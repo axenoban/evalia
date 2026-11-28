@@ -29,7 +29,8 @@ test('all existing native operational prompts use severity-aware confirmation; s
  const dialog=readFileSync(new URL('../web/app/confirmation-dialog.jsx',import.meta.url),'utf8');
  const css=readFileSync(new URL('../web/app/confirmation-dialog.css',import.meta.url),'utf8');
  assert.doesNotMatch(page,/\bwindow\.(?:confirm|alert|prompt)\(/);
- assert.equal((page.match(/await ask\(/g)||[]).length,9);
+ assert.equal((page.match(/await ask\(/g)||[]).length,10);
+ assert.match(page,/title:approve\?'Aprobar pago':'Rechazar pago'/);
  assert.match(page,/severity:'critical',title:'Inhabilitar producto'/);
  assert.match(page,/severity:'warning',title:'Posible producto duplicado'/);
  assert.match(page,/severity:'normal',title:'Confirmar compra'/);

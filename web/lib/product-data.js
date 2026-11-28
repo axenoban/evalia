@@ -43,11 +43,14 @@ export function equivalentProduct(model,{name,size,price,colorIds,photo}){
 
 // Quick choices use recorded commercial values; no hard-coded selling prices.
 export const QUICK_DOZENS=Object.freeze([1,2,3,4,5,6,7,8]);
+// Máximo de botones de precio: el actual, luego la misma talla y después el resto.
+// Cualquier otro importe sigue disponible con la opción de escritura libre.
+export const PRICE_OPTION_LIMIT=6;
 export function productPriceOptions(models,size,current){
  const same=models.filter(m=>normalizeSize(m.size_label)===normalizeSize(size));
  const values=[current,...same.map(m=>m.price_dozen_bs),...models.map(m=>m.price_dozen_bs)];
  const result=new Set();
- for(const value of values){const raw=normalizePrice(value);if(!/^\d+(?:\.\d{1,2})?$/.test(raw))continue;const n=Number(raw);if(Number.isFinite(n)&&n>0&&n<=9999999999.99)result.add(String(n));}
+ for(const value of values){const raw=normalizePrice(value);if(!/^\d+(?:\.\d{1,2})?$/.test(raw))continue;const n=Number(raw);if(Number.isFinite(n)&&n>0&&n<=9999999999.99)result.add(String(n));if(result.size>=PRICE_OPTION_LIMIT)break;}
  return [...result];
 }
 

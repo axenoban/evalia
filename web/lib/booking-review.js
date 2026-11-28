@@ -1,7 +1,7 @@
 import {checkedPortions,centsFromBs,subtotalCents,portionQuantity} from './domain.js';
 import {normalizedWhatsApp} from './customer-duplicates.js';
+import {searchKey as normalize} from './search-text.js';
 export const emptyBooking=()=>({customerId:'',method:'',destination:'',portions:{},attempt:null,receipt:null});
-const normalize=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 export function findBookingCustomers(customers,query){
  const key=normalize(query),phone=/^[+\d\s().-]+$/.test(key)?normalizedWhatsApp(key):'';
  return customers.filter(c=>!key||normalize(c.name).includes(key)||normalize(c.whatsapp).includes(key)||(phone&&normalizedWhatsApp(c.whatsapp).includes(phone)));

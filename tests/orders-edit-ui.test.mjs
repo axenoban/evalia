@@ -15,10 +15,10 @@ test('tarjetas completadas con tratamiento suave distinto de activas y talla res
  assert.match(style,/\[data-order-status="completed"\]/);
  assert.match(style,/\.ev-order-identification strong\{font-size:16px\}/);
 });
-test('notificaciones flotantes autocerrables sin desplazar el contenido',()=>{
+test('notificaciones flotantes: el éxito se cierra solo y el error permanece hasta cerrarlo',()=>{
  assert.match(page,/function ToastNotifications\(/);
  assert.match(page,/setTimeout\(onCloseMessage,6000\)/);
- assert.match(page,/setTimeout\(onCloseError,9000\)/);
+ assert.doesNotMatch(page,/setTimeout\(onCloseError/);
  assert.match(page,/aria-label="Cerrar notificación de error"/);
  assert.match(page,/aria-label="Cerrar notificación de éxito"/);
  assert.match(toastCss,/position:fixed/);

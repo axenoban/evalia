@@ -22,6 +22,7 @@ import {validateDelivery,deliveryLabel} from '../lib/delivery.js';
 import {matchingCustomers,normalizedWhatsApp} from '../lib/customer-duplicates.js';
 import {printOrder} from '../lib/order-print.js';
 import {canAddModelToOrder,initialModelPortion} from '../lib/order-selection.js';
+import {matchesSearch} from '../lib/search-text.js';
 import {emptyBooking,findBookingCustomers,recentBookingCustomers,reviewBooking,repeatBooking,hasBookingDraft} from '../lib/booking-review.js';
 import {
   centsFromBs, amountCents, subtotalCents, formatBs, quantityBreakdown, checkedPortions, portionQuantity, portionBreakdown, inventoryTotals
@@ -92,11 +93,7 @@ function ToastNotifications({error,message,onCloseError,onCloseMessage}){
   const timer=window.setTimeout(onCloseMessage,6000);
   return ()=>window.clearTimeout(timer);
  },[message]);
- useEffect(()=>{
-  if(!error)return;
-  const timer=window.setTimeout(onCloseError,9000);
-  return ()=>window.clearTimeout(timer);
- },[error]);
+ // Los errores permanecen visibles hasta cerrarlos o iniciar otra operación: no se pierden mientras se atiende.
  if(!error&&!message)return null;
  return <div className="ev-toast-stack" aria-label="Notificaciones del sistema">
   {error&&<div className="ev-toast ev-toast-error" role="alert">
@@ -366,6 +363,8 @@ function ReactivateForm({model,onSave,busy}){
  return <form className="stock-editor" onSubmit={async e=>{e.preventDefault();if(!valid||busy)return;if(!request.current)request.current=uuid();await onSave({model,units:Number(docenas)*12,requestId:request.current});}}>
   <Field title="Docenas disponibles para republicar"><input required type="number" min="0" max="178956970" step="1" value={docenas} disabled={busy} onChange={e=>{setDocenas(e.target.value);request.current=null;}}/></Field>
   <p className="small-note">Confirma las existencias físicas actuales. La foto archivada no se recupera; puedes cargar otra después.</p>
+  {model.image_path&&<p className="form-error" role="status">Primero completa la limpieza de la fotografía archivada con «Reintentar limpieza» en la parte superior del catálogo.</p>}
+  {!valid&&<p className="form-error" role="status">Indica las docenas disponibles con un número entero (0 o más).</p>}
   <button className="button button-primary" disabled={busy||!valid||Boolean(model.image_path)}>Reactivar producto</button>
  </form>;
 }
@@ -402,7 +401,7 @@ function Catalog({data,onSaveColor,onCreateModel,onAdjust,onUpdateModel,onArchiv
  const [view,setView]=useState('list'),[search,setSearch]=useState(''),[size,setSize]=useState('all'),[availability,setAvailability]=useState('all'),[archived,setArchived]=useState(false),[editing,setEditing]=useState(null),[section,setSection]=useState(''),[seed,setSeed]=useState(null);
  const pendingPhotos=[...new Set(data.models.filter(m=>!m.is_active&&m.image_path&&!data.models.some(x=>x.is_active&&x.image_path===m.image_path)).map(m=>m.image_path))];
  const sizes=productSizes(data.models);
- const filtered=data.models.filter(m=>m.is_active!==archived&&(m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase())&&(size==='all'||normalizeSize(m.size_label)===size)&&(archived||availability==='all'||(availability==='stock'?!data.stock[m.id]?.blocked&&Number(data.stock[m.id]?.available)>0:availability==='empty'?!data.stock[m.id]?.blocked&&Number(data.stock[m.id]?.available)===0:Boolean(data.stock[m.id]?.blocked))));
+ const filtered=data.models.filter(m=>m.is_active!==archived&&matchesSearch(m.name+' '+m.size_label,search)&&(size==='all'||normalizeSize(m.size_label)===size)&&(archived||availability==='all'||(availability==='stock'?!data.stock[m.id]?.blocked&&Number(data.stock[m.id]?.available)>0:availability==='empty'?!data.stock[m.id]?.blocked&&Number(data.stock[m.id]?.available)===0:Boolean(data.stock[m.id]?.blocked))));
  const list=useRecordList(filtered,'created_at'),{view:page}=list;
  function close(){setEditing(null);setSection('');}
  function reset(){list.setPage(1);close();}
@@ -527,6 +526,8 @@ function ModelForm({colors,models=[],model=null,seed=null,onCreate,busy}){
    {validSelected.length!==selected.length&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>change(setSelected,validSelected)}>Retirar colores inactivos</button>}
   </div>
   {localError&&<p className="form-error" role="alert">{localError}</p>}
+  {unchanged&&<p className="small-note" role="status">Sin cambios por guardar. Modifica algún dato o elige otra fotografía.</p>}
+  {!activeColors.length&&<p className="small-note" role="status">Crea al menos un color activo en la paleta para registrar el producto.</p>}
   <button className="button button-primary full" type="submit" disabled={busy||!activeColors.length||unchanged}>{busy?'Guardando…':model?'Guardar corrección auditada':'Registrar producto e inventario'}</button>
  </form>;
 }
@@ -571,12 +572,11 @@ function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
 }
 function ClientPanel({data,onCreate,onUpdate,busy}){
  const [search,setSearch]=useState(''),[editing,setEditing]=useState(null);
- const clients=data.customers.filter(c=>(c.name+' '+c.whatsapp).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+ const clients=findBookingCustomers(data.customers,search);
  const list=useRecordList(clients,'created_at');
  const {view}=list;
  return <>
-  <SectionHead eyebrow="DIRECTORIO COMERCIAL" title="Clientes y compradores."
-    description="Registra y actualiza los datos de contacto de tus compradores. El teléfono no fusiona fichas."/>
+  <SectionHead eyebrow="DIRECTORIO COMERCIAL" title="Clientes"/>
   <div className="two-columns customer-layout">
    <section className="surface pad"><h2>Registrar cliente</h2>
     <p className="muted">Indica si compra para retiro o para envíos. Si recibe envíos, registra siempre su destino habitual.</p>
@@ -671,8 +671,8 @@ function PortionEditor({model,stock,colors,selection,onChange,onRemove,busy=fals
    <button type="button" className={'ev-units-toggle '+(showExtras?'expanded':'')}
     aria-expanded={showExtras} aria-controls={'extra-colors-'+model.id}
     onClick={()=>{if(!noDozen)setExtrasOpen(current=>!current);}}>
-    <span className="ev-units-leading"><strong>{extras.length?extras.length+' unidades por color':'＋ Agregar unidades'}</strong>
-     <small>{noDozen?'Mínimo 6 colores diferentes (media docena)':'Opcional · hasta 11 unidades por color'}</small></span>
+    <span className="ev-units-leading"><strong>{extras.length?extras.length+(extras.length===1?' unidad adicional':' unidades adicionales')+' · 1 por color':'＋ Agregar unidades'}</strong>
+     <small>{noDozen?'Mínimo 6 colores diferentes (media docena)':'Opcional · hasta 11 unidades, una por color'}</small></span>
     <span className="ev-units-chevron" aria-hidden="true">{showExtras?'⌃':'⌄'}</span>
    </button>
   </div>
@@ -745,7 +745,7 @@ function BookingPanel({data,draft,setDraft,onOrder,onCreateClient,onView,onPrint
  const matchedCustomers=findBookingCustomers(data.customers,customerSearch);
  const visibleCustomers=matchedCustomers.slice(0,8);
  const recent=recentBookingCustomers(data.customers,data.orders);
- const availableModels=models.filter(m=>!Object.hasOwn(portions,m.id)&&(sizeFilter==='all'||normalizeSize(m.size_label)===sizeFilter)&&normalizeName(m.name+' '+m.size_label).toLowerCase().includes(productSearch.toLowerCase().trim())).map(m=>{
+ const availableModels=models.filter(m=>!Object.hasOwn(portions,m.id)&&(sizeFilter==='all'||normalizeSize(m.size_label)===sizeFilter)&&matchesSearch(m.name+' '+m.size_label,productSearch)).map(m=>{
   const activeColors=data.colors.filter(c=>m.colorIds?.includes(c.id)&&c.is_active).length;
   return {model:m,canAdd:canAddModelToOrder(stock[m.id],activeColors),activeColors};
  }).filter(x=>showUnavailable||x.canAdd);
@@ -842,14 +842,14 @@ function LineComposition({line,colors,compact=false}){
 }
 
 function PaymentForm({targetId,onSubmit,busy,balance}){
- const [amount,setAmount]=useState(''),[note,setNote]=useState(''),[customAmount,setCustomAmount]=useState(false);
+ const [amount,setAmount]=useState(''),[note,setNote]=useState(''),[customAmount,setCustomAmount]=useState(false),[formError,setFormError]=useState('');
  const suggested=paymentAmountOptions(balance);
  const showCustom=customAmount||suggested.length===0||Boolean(amount&&!suggested.some(x=>x.value===amount));
  const requestId=useRef(null);
  async function submit(e){
-  e.preventDefault();
+  e.preventDefault();setFormError('');
   const parsed=amount.trim().replace(',','.');
-  if(!/^\d+(?:\.\d{1,2})?$/.test(parsed)||Number(parsed)<=0)return;
+  if(!/^\d+(?:\.\d{1,2})?$/.test(parsed)||Number(parsed)<=0){setFormError('Escribe un importe mayor a cero, con hasta 2 decimales (ej. 150,50).');return;}
   if(!requestId.current)requestId.current=uuid();
   const ok=await onSubmit({
    orderId:targetId,
@@ -862,12 +862,13 @@ function PaymentForm({targetId,onSubmit,busy,balance}){
   <div className="form-inline">
    <QuickOptions label="Monto informado (Bs)" options={suggested} value={amount} custom={showCustom} busy={busy} onSelect={value=>{setCustomAmount(false);setAmount(value);requestId.current=null;}} customLabel="Otro importe" onCustom={()=>{setCustomAmount(true);setAmount('');requestId.current=null;}}>
     <Field title="Importe recibido"><input type="text" name={'payment-'+targetId} inputMode="decimal" placeholder="Ej. 150,50" disabled={busy}
-     value={amount} onChange={e=>{setAmount(e.target.value);requestId.current=null;}} required/></Field>
+     value={amount} onChange={e=>{setAmount(e.target.value);setFormError('');requestId.current=null;}} required/></Field>
    </QuickOptions>
    <Field title="Referencia u observación (opcional)">
     <input type="text" maxLength={1000} name="paymentNote" placeholder="Transferencia, efectivo…"
      value={note} onChange={e=>{setNote(e.target.value);requestId.current=null;}}/></Field>
   </div>
+  {formError&&<p className="form-error" role="alert">{formError}</p>}
   <button className="button button-outline" type="submit" disabled={busy||!amount.trim()}>
    {busy?'Registrando…':'＋ Informar pago para revisión'}</button>
  </form>;
@@ -876,9 +877,7 @@ function PaymentHistory({items=[],compact=false}){
  return items.length?<div className={'payment-history '+(compact?'compact':'')}>
   {items.map(p=><div key={p.id} className="payment-history-line">
    <span>{formatBs(centsFromBs(p.amount_bs))} · {displayDate(p.created_at)}</span>
-   <strong className={'pay-state pay-'+p.status}>{
-    {pending:'Pendiente',observed:'En observación',rejected:'Rechazado',approved:'Aprobado'}[p.status]||p.status
-   }</strong>
+   <strong className={'pay-state pay-'+p.status}>{paymentStatusLabels[p.status]||p.status}</strong>
    {p.public_note&&<small>{p.public_note}</small>}
   </div>)}
  </div>:<p className="small-note">Todavía no hay pagos informados.</p>;
@@ -979,15 +978,32 @@ function OrderLinkPanel({order,data,onIssue,onRevoke,busy}){
   {hint&&<p role="status" className="small-note">{hint}</p>}
  </div>;
 }
+const paymentStatusLabels={pending:'Pendiente',observed:'En observación',rejected:'Rechazado',approved:'Aprobado'};
+const paymentReviewLabels={approve:'Aprobado',observe:'En observación',reject:'Rechazado'};
 function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
+ const {ask}=useConfirmation();
  const [notes,setNotes]=useState({});
+ // Aprobar acredita dinero y rechazar cierra el aviso: ambas piden confirmación con contexto.
+ async function decide(p,customer,action){
+  const note=notes[p.id]||null;
+  if(action!=='observe'){
+   const approve=action==='approve';
+   const confirmed=await ask({severity:approve?'critical':'warning',title:approve?'Aprobar pago':'Rechazar pago',
+    message:approve?'Aprueba solo si comprobaste que el dinero ingresó a tu cuenta. El importe reducirá el saldo del pedido.':'El aviso quedará rechazado y no reducirá el saldo.',
+    facts:[{label:'Cliente',value:customer?.name||'Cliente'},{label:'Importe',value:formatBs(centsFromBs(p.amount_bs))},...(note?[{label:'Observación',value:note}]:[])],
+    notice:approve?'La aprobación queda registrada en el historial y no puede deshacerse desde el panel.':undefined,
+    confirmLabel:approve?'Aprobar pago recibido':'Rechazar aviso'});
+   if(!confirmed)return;
+  }
+  await onReview(p.id,action,note);
+ }
  const [filter,setFilter]=useState('pending');
  const pending=['pending','observed'];
  const payments=data.payments.filter(p=>!data.orders.some(o=>o.archived_at&&(o.id===p.order_id||(o.origin_reservation_id&&o.origin_reservation_id===p.reservation_id)))&&(filter==='all'||(filter==='pending'?pending.includes(p.status):p.status===filter)));
  const list=useRecordList(payments,'created_at');
  const {view}=list;
- return <><SectionHead eyebrow="CONCILIACIÓN MANUAL" title="Verifica los pagos recibidos."
-  description="Un aviso o comprobante NO confirma dinero ingresado. Comprueba la recepción fuera del sistema antes de aprobar."/>
+ return <><SectionHead eyebrow="CONCILIACIÓN MANUAL" title="Pagos"/>
+  <p className="small-note ev-payment-rule" role="note">Un aviso o comprobante <strong>no confirma</strong> dinero ingresado. Comprueba la recepción fuera del sistema antes de aprobar.</p>
   <QrAdmin settings={data.qrSettings} onSave={onSaveQr} busy={busy} canManage={canManageQr}/>
   <div className="toolbar"><label className="field"><span className="field-label">Filtrar estado</span>
    <select value={filter} disabled={busy} onChange={e=>{setFilter(e.target.value);list.setPage(1);}}>
@@ -1003,7 +1019,7 @@ function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
    return <article className="record" key={p.id}>
     <header className="record-head"><div><h3>{customer?.name||'Cliente'} · {formatBs(centsFromBs(p.amount_bs))}</h3>
       <small>{order?'Pedido':'Compromiso anterior'} · {displayDate(p.created_at)} · {p.origin==='client'?'Aviso del cliente':'Registrado por administración'}</small></div>
-      <span className={'pay-state pay-'+p.status}>{p.status}</span></header>
+      <span className={'pay-state pay-'+p.status}>{paymentStatusLabels[p.status]||p.status}</span></header>
     <p className="small-note">{p.note||'Sin observación inicial'}</p>
     {p.receipt_path&&<button type="button" className="button button-outline" onClick={async()=>{
       try{const url=await getPrivateReceiptUrl(p.receipt_path);window.open(url,'_blank','noopener,noreferrer');}
@@ -1015,15 +1031,15 @@ function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
         onChange={e=>setNotes(prev=>({...prev,[p.id]:e.target.value}))}/></Field>
       <div className="form-actions">
        <button className="button button-primary" type="button" disabled={busy}
-        onClick={()=>onReview(p.id,'approve',notes[p.id]||null)}>✓ Aprobar solo si fue recibido</button>
+        onClick={()=>decide(p,customer,'approve')}>✓ Aprobar solo si fue recibido</button>
        <button className="button button-outline" type="button" disabled={busy}
-        onClick={()=>onReview(p.id,'observe',notes[p.id]||null)}>En observación</button>
+        onClick={()=>decide(p,customer,'observe')}>En observación</button>
        <button className="button button-outline" type="button" disabled={busy}
-        onClick={()=>onReview(p.id,'reject',notes[p.id]||null)}>Rechazar</button>
+        onClick={()=>decide(p,customer,'reject')}>Rechazar</button>
       </div>
     </div>}
     {data.paymentReviews.filter(v=>v.report_id===p.id).map(v=><small className="small-note" key={v.id}>
-      {displayDate(v.created_at)} · {v.action} {v.note?' · '+v.note:''}</small>)}
+      {displayDate(v.created_at)} · {paymentReviewLabels[v.action]||v.action}{v.note?' · '+v.note:''}</small>)}
    </article>;
   })}</div>
   {!view.total&&<Empty title="Sin declaraciones coincidentes" detail="Cambia el estado o las fechas para consultar otros registros."/>}
@@ -1031,24 +1047,25 @@ function PaymentReview({data,onReview,onSaveQr,busy,canManageQr}){
  </>;
 }
 function DeliveryForm({order,data,onSave,busy}){
- const [lines,setLines]=useState({});
+ const [lines,setLines]=useState({}),[formError,setFormError]=useState('');
  const requestId=useRef(null);
  const remaining=order.lines.map(l=>{
   const sent=data.deliveryLines.filter(d=>d.order_line_id===l.id).reduce((n,d)=>n+Number(d.quantity),0);
   return {...l,remaining:Math.max(0,Number(l.quantity)-sent)};
  }).filter(l=>l.remaining>0);
- function change(id,value){setLines(v=>({...v,[id]:value}));requestId.current=null;}
+ function change(id,value){setLines(v=>({...v,[id]:value}));setFormError('');requestId.current=null;}
  async function submit(e){
-  e.preventDefault();
+  e.preventDefault();setFormError('');
   const selected=[];
   for(const l of remaining){
+   const name=data.models.find(m=>m.id===l.model_id)?.name||'Modelo';
    const raw=String(lines[l.id]??'0').trim();
-   if(!/^\d+$/.test(raw))return;
+   if(!/^\d+$/.test(raw)){setFormError(name+': escribe una cantidad entera de prendas.');return;}
    const qty=Number(raw);
-   if(!Number.isSafeInteger(qty)||qty<0||qty>l.remaining)return;
+   if(!Number.isSafeInteger(qty)||qty<0||qty>l.remaining){setFormError(name+': puedes registrar como máximo '+l.remaining+' prendas pendientes.');return;}
    if(qty>0)selected.push({orderLineId:l.id,quantity:qty});
   }
-  if(!selected.length)return;
+  if(!selected.length){setFormError('Indica al menos una prenda retirada.');return;}
   if(!requestId.current)requestId.current=uuid();
   const ok=await onSave(order.id,selected,requestId.current);
   if(ok){requestId.current=null;setLines({});}
@@ -1061,6 +1078,7 @@ function DeliveryForm({order,data,onSave,busy}){
     <input type="number" min="0" step="1" max={l.remaining} inputMode="numeric"
      aria-label={'Unidades entregadas de '+(model?.name||'modelo')} value={lines[l.id]??'0'}
      onChange={e=>change(l.id,e.target.value)}/></div>})}
+  {formError&&<p className="form-error" role="alert">{formError}</p>}
   <button type="submit" className="button button-outline" disabled={busy}>Registrar retirada real</button>
  </form>;
 }
@@ -1195,7 +1213,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
  }));
  const selected=models.filter(m=>Object.hasOwn(portions,m.id));
  const available=models.filter(m=>!Object.hasOwn(portions,m.id)&&
-  (m.name+' '+m.size_label).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  matchesSearch(m.name+' '+m.size_label,search));
  const preview=selected.reduce((sum,m)=>{
   const s=portions[m.id];
   if(!/^(0|[1-9]\d*)$/.test(String(s.dozens)))return sum;
