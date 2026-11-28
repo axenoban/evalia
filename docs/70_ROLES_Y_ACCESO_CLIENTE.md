@@ -15,10 +15,18 @@
 - Vendedor en la interfaz: Resumen, Nuevo pedido, Pedidos (ver, informar pagos, repetir) y Clientes (alta). Sin Productos, Pagos, Estadísticas ni Usuarios; sin editar, anular, cobrar, entregar, preparar, imprimir ni enlaces.
 - Migración `20261128140000_r1_roles_vendedor.sql`; pgTAP `097_r1_roles_vendedor.sql` (26 aserciones) e inventario de auditoría 090 actualizado (51 funciones privilegiadas).
 
-## R2 — Acceso del cliente (acordado, pendiente de implementar)
+## R2 — Acceso del cliente (incremento 1 implementado en `feature/evalia-r2-clientes`)
+**Decisiones del propietario:**
 - **Solo números registrados por un administrador pueden pedir.** No hay registro abierto ni pedidos de desconocidos.
 - **Verificación:** enlace personal enviado por WhatsApp al número registrado (posesión del chat = prueba de identidad, costo cero). Revocable y reemplazable si se pierde. Sin contraseña ni PIN.
-- **Catálogo público sin precios:** fotos, nombre, talla, colores y solo «Disponible/Agotado» (disponible = se puede comprar el mínimo). Precios y pedidos solo dentro del enlace verificado. Nunca se muestra el stock numérico.
-- **Pedido del cliente:** se confirma al instante con las mismas reglas del servidor (mínimo 6 por modelo, colores únicos, docenas cerradas, precio esperado, stock transaccional); se propone un tope diario por cliente contra abusos.
-- **Seguimiento:** el cliente ve sus pedidos, saldo y pagos, e informa pagos (pendientes hasta aprobación), reutilizando el portal privado actual.
+- **Catálogo público CON precios** (decisión del 28-11-2026, reemplaza «sin precios»): fotos, nombre, talla, colores, precio por docena y solo «Disponible/Agotado» (disponible = se puede comprar el mínimo: una docena, o 6 prendas con 6 colores activos). Nunca se muestra el stock numérico. Riesgo aceptado: la competencia ve los precios mayoristas.
+- **Pedido del cliente:** se confirma al instante con las mismas funciones canónicas (mínimo 6 por modelo, colores únicos, docenas surtidas, precio esperado, stock transaccional, idempotencia); tope de 5 pedidos por cliente cada 24 h.
 - No se identifica al cliente solo por escribir su número (riesgo de suplantación y de bloqueo de stock), ni se usa OTP pagado (D01 costo cero).
+
+**Implementación:**
+- Migración `20261128160000_r2_clientes_catalogo.sql`: `customer_access_links` (solo hash SHA-256, versión, revocación), `client_order_requests` (auditoría e idempotencia del canal cliente), autorización efímera por transacción (`evalia_security.client_order_grants`) para reutilizar `create_evalia_order`, `evalia_validate_portions` y `get_model_stock` sin duplicar reglas. Emitir/revocar enlace: solo administradores. Catálogo, sesión y pedido del cliente: **solo `service_role`** (servidor Next); nada se abre a `anon` (inventario 090: 56 funciones, 216 aserciones).
+- Rutas: `/catalogo` (público), `/c/<token>` (valida y guarda cookie httpOnly 180 días, redirige sin dejar el token en la URL), `/cliente` (catálogo con pedido y «Mis pedidos» con saldo), `/api/cliente-pedido` (origen verificado, ≤32 KB, validación estricta), `/api/cliente-salir`.
+- Panel → Clientes → «Enlace del cliente» (administradores): crear, reemplazar (confirmación) o revocar (confirmación crítica), y copiar el mensaje para WhatsApp. El enlace solo se muestra al crearlo.
+- Opcional: `NEXT_PUBLIC_EVALIA_WHATSAPP` (número con código de país) activa en el catálogo el botón «Pedir mi enlace por WhatsApp».
+- **Requisito para probar en QA:** la clave de servidor de evalia-qa (`SUPABASE_SECRET_KEY`) en las variables de Preview, cargada por el propietario en el panel de Vercel. Sin ella, catálogo y portal del cliente muestran «no disponible» (fallo seguro).
+- Pendiente R2b: informar pagos y ver comprobantes desde el enlace del cliente (hoy: por WhatsApp; el portal por pedido existente sigue disponible).

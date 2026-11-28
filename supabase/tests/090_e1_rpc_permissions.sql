@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(199);
+select plan(216);
 -- Inventario cerrado: toda ampliación exige revisión explícita.
 create temporary table e1_expected(sig text primary key, authenticated boolean, service boolean);
 insert into e1_expected values
@@ -57,8 +57,14 @@ insert into e1_expected values
  ('public.is_evalia_staff()',true,false),
  ('public.get_evalia_my_role()',true,false),
  ('public.register_evalia_member(uuid,uuid,text)',false,true),
- ('public.set_evalia_member_role(uuid,text)',true,false);
-select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef),51,'Inventario de SECURITY DEFINER');
+ ('public.set_evalia_member_role(uuid,text)',true,false),
+ -- R2: enlace del cliente emitido/revocado por administradores; catálogo y portal del cliente solo vía servidor.
+ ('public.issue_evalia_customer_link(uuid,text)',true,false),
+ ('public.revoke_evalia_customer_link(uuid)',true,false),
+ ('public.get_evalia_public_catalog()',false,true),
+ ('public.client_evalia_customer_session(text)',false,true),
+ ('public.create_evalia_client_order(text,jsonb,uuid,text,text)',false,true);
+select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef),56,'Inventario de SECURITY DEFINER');
 select is((select count(*)::integer from e1_expected e where to_regprocedure(e.sig) is null),0,'Todas las firmas existen');
 select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef and not coalesce(p.proconfig @> array['search_path=""'],false)),0,'Todas tienen search_path vacío');
 select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a where n.nspname='public' and p.prosecdef and a.grantee=0 and a.privilege_type='EXECUTE'),0,'Ninguna concede EXECUTE a PUBLIC');
@@ -110,6 +116,8 @@ select throws_ok('select public.reactivate_evalia_product(null::uuid,null::integ
 select throws_ok('select public.get_evalia_owner_stats(null::timestamptz,null::timestamptz)','42501',null,'Sin perfil: get_evalia_owner_stats denegada');
 select throws_ok('select * from public.export_evalia_orders(null::timestamptz,null::timestamptz)','42501',null,'Sin perfil: export_evalia_orders denegada');
 select throws_ok('select public.set_evalia_member_role(null::uuid,null::text)','42501',null,'Sin perfil: set_evalia_member_role denegada');
+select throws_ok('select public.issue_evalia_customer_link(null::uuid,null::text)','42501',null,'Sin perfil: issue_evalia_customer_link denegada');
+select throws_ok('select public.revoke_evalia_customer_link(null::uuid)','42501',null,'Sin perfil: revoke_evalia_customer_link denegada');
 -- list_evalia_admins: pruebas de rol operador existentes y refuerzo MFA pendiente.
 -- set_evalia_operator_active: pruebas de rol operador existentes y refuerzo MFA pendiente.
 -- update_evalia_qr: pruebas de rol operador existentes y refuerzo MFA pendiente.

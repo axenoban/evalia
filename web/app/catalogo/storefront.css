@@ -1,0 +1,58 @@
+/* R2: catálogo público y portal del cliente. Identidad EVALIA (ciruela, marfil), móvil primero, objetivos táctiles 44 px. */
+.ev-store{--plum:#58394f;--plum-soft:#f4ebf0;--ink:#342d38;--ink-soft:#665c69;--line:#ebdfe6;--ivory:#f8f5f2;--ok:#1e6b45;--off:#8a5a2b;
+ min-height:100vh;background:var(--ivory);color:var(--ink);font-family:'DM Sans',system-ui,-apple-system,sans-serif;font-size:15px}
+.ev-store-wrap{max-width:1180px;margin:0 auto;padding:16px 16px 48px}
+.ev-store-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:6px 0 14px}
+.ev-store-brand{display:flex;align-items:center;gap:10px;color:var(--plum)}
+.ev-store-brand svg{width:40px;height:40px}
+.ev-store-brand b{font-size:20px;letter-spacing:.06em}
+.ev-store-brand small{display:block;font-size:11px;color:var(--ink-soft);letter-spacing:.08em}
+.ev-store-cta{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border-radius:12px;background:var(--plum);color:#fff;font-weight:700;text-decoration:none;border:0;cursor:pointer;font-size:14px}
+.ev-store-cta.outline{background:#fff;color:var(--plum);border:1px solid var(--plum)}
+.ev-store-cta:focus-visible,.ev-store button:focus-visible,.ev-store input:focus-visible{outline:3px solid #ac688b;outline-offset:2px}
+.ev-store-intro{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:0 0 16px}
+.ev-store-intro h1{margin:0 0 4px;font-size:22px;color:var(--ink)}
+.ev-store-intro p{margin:0;color:var(--ink-soft);line-height:1.5}
+.ev-store-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.ev-store-card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.ev-store-card.is-out{opacity:.72}
+.ev-store-photo{aspect-ratio:1/1;background:var(--plum-soft);display:grid;place-items:center;color:var(--plum);overflow:hidden}
+.ev-store-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.ev-store-body{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
+.ev-store-body h2{margin:0;font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+.ev-store-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft)}
+.ev-store-price{font-weight:800;color:var(--ink);font-size:16px}
+.ev-store-state{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 8px;border-radius:999px;width:fit-content}
+.ev-store-state.ok{background:#e7f4ec;color:var(--ok)}
+.ev-store-state.off{background:#f6ece2;color:var(--off)}
+.ev-swatches{display:flex;flex-wrap:wrap;gap:4px}
+.ev-swatch{width:16px;height:16px;border-radius:50%;border:1px solid #0002}
+.ev-store-empty{background:#fff;border:1px dashed var(--line);border-radius:16px;padding:24px;text-align:center;color:var(--ink-soft)}
+.ev-store-section{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:16px 0}
+.ev-store-section h2{margin:0 0 10px;font-size:17px}
+/* Pedido del cliente */
+.ev-cart-model{border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0;display:grid;gap:10px}
+.ev-cart-model header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.ev-cart-model header b{overflow-wrap:anywhere}
+.ev-choice-row{display:flex;flex-wrap:wrap;gap:6px}
+.ev-choice{min-width:44px;min-height:44px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:700;cursor:pointer}
+.ev-choice[aria-pressed=true]{background:var(--plum);color:#fff;border-color:var(--plum)}
+.ev-color-choice{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:13px}
+.ev-color-choice[aria-pressed=true]{border-color:var(--plum);background:var(--plum-soft);font-weight:700}
+.ev-color-choice:disabled{opacity:.5;cursor:not-allowed}
+.ev-cart-note{font-size:13px;color:var(--ink-soft);margin:0}
+.ev-cart-error{font-size:13px;color:#a12e3c;margin:0}
+.ev-cart-total{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border-radius:12px;background:var(--plum-soft);font-weight:700}
+.ev-cart-total strong{font-size:20px}
+.ev-store-field{display:grid;gap:6px;font-size:13px;color:var(--ink-soft)}
+.ev-store-field input{min-height:44px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;color:var(--ink)}
+.ev-store-msg{padding:12px;border-radius:12px;font-weight:600}
+.ev-store-msg.ok{background:#e7f4ec;color:var(--ok)}
+.ev-store-msg.err{background:#fbe9ec;color:#a12e3c}
+.ev-orders-list{display:grid;gap:8px}
+.ev-order-item{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.ev-order-item small{display:block;color:var(--ink-soft)}
+.ev-sticky-total{position:sticky;bottom:0;z-index:5;background:var(--ivory);padding:10px 0 4px}
+.ev-store-section .ev-sticky-total{background:#fff}
+@media(max-width:520px){.ev-store-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ev-store-body{padding:10px}.ev-store-intro h1{font-size:19px}.ev-store-cta{width:100%}
+ .ev-store-meta{flex-direction:column;align-items:flex-start;gap:2px}.ev-store-price{font-size:15px}}

@@ -212,6 +212,30 @@ export async function revokeOrderLink(orderId){
   p_order_id:orderId
  }),'Revocar enlace');
 }
+// R2: enlace personal del cliente (solo administradores). Mismo token de 32 bytes; la base guarda solo su hash.
+export async function issueCustomerLink(customerId){
+ if(process.env.NEXT_PUBLIC_EVALIA_STATIC_PREVIEW==='1')
+  throw new Error('GitHub Pages no ejecuta las rutas privadas del cliente.');
+ const status=await fetch('/api/portal-estado',{cache:'no-store',credentials:'same-origin'});
+ const state=await status.json().catch(()=>({ready:false}));
+ if(!status.ok||!state.ready)
+  throw new Error('El backend privado del cliente no está configurado. Configura SUPABASE_SECRET_KEY solo en el servidor antes de emitir enlaces.');
+ const bytes=crypto.getRandomValues(new Uint8Array(32));
+ const raw=btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ const hashBytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw)));
+ const digest=Array.from(hashBytes,b=>b.toString(16).padStart(2,'0')).join('');
+ const version=unwrap(await client().rpc('issue_evalia_customer_link',{p_customer_id:customerId,p_token_hash:digest}),'Emitir enlace del cliente');
+ // El token solo existe en esta pestaña y en el mensaje que el administrador copia.
+ return {url:window.location.origin+'/c/'+raw,version};
+}
+export async function revokeCustomerLink(customerId){
+ return unwrap(await client().rpc('revoke_evalia_customer_link',{p_customer_id:customerId}),'Revocar enlace del cliente');
+}
+export async function customerLinkStatus(customerId){
+ const {data,error}=await client().from('customer_access_links').select('version,issued_at,revoked_at').eq('customer_id',customerId).maybeSingle();
+ if(error)throw new Error('Estado del enlace: '+error.message);
+ return data;
+}
 export async function getPrivateReceiptUrl(path){
  if(!path||!/^receipts\/[0-9a-f-]+\/[0-9a-f-]+\.(jpg|jpeg|png|webp)$/.test(path))
   throw new Error('Ruta de comprobante no válida.');

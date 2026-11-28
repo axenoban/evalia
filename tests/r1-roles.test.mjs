@@ -42,7 +42,8 @@ test('interfaz por rol: menú del vendedor y acciones administrativas ocultas',(
  for(const guard of ["canManage&&o.status==='active'&&!o.archived_at?<button","{canManage&&<div className=\"ev-order-next\"","{canManage&&<details className=\"ev-order-print-details\"","{canManage&&!o.archived_at&&<div className=\"ev-order-archive-action\"","canManage&&o.status==='active'&&<div className=\"ev-order-edit-access\""])
   assert.ok(orders.includes(guard),'falta guarda: '+guard);
  assert.ok(orders.includes('<PaymentForm targetId={o.id}'),'el vendedor puede informar pagos');
- assert.match(section('ClientPanel'),/\{canEdit&&<button/);
+ assert.match(section('ClientPanel'),/\{canEdit&&<div className="ev-client-actions"><button/);
+ assert.match(section('ClientPanel'),/\{canEdit&&editing==='link:'\+c\.id&&<CustomerLinkPanel/);
  const accounts=read('web/app/admin-accounts.jsx');
  assert.match(accounts,/rpc\('set_evalia_member_role'/);
  assert.match(accounts,/Cambiar a Vendedor/);

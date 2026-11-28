@@ -701,3 +701,7 @@ button.express-secondary:hover:not(:disabled){background:#e5f3ea}
 .ev-role-option span{display:flex;flex-direction:column;gap:2px}
 .ev-role-option small{color:var(--ink-soft);font-size:12px}
 .ev-role-option:has(input:checked){border-color:var(--plum);background:#f8f1f5}
+/* R2: acciones de la ficha del cliente y panel del enlace personal. */
+.ev-client-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.ev-customer-link{margin-top:10px}
+@media(max-width:640px){.ev-client-actions{width:100%}.ev-client-actions .button{flex:1 1 auto}}

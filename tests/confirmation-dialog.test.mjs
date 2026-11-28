@@ -29,7 +29,10 @@ test('all existing native operational prompts use severity-aware confirmation; s
  const dialog=readFileSync(new URL('../web/app/confirmation-dialog.jsx',import.meta.url),'utf8');
  const css=readFileSync(new URL('../web/app/confirmation-dialog.css',import.meta.url),'utf8');
  assert.doesNotMatch(page,/\bwindow\.(?:confirm|alert|prompt)\(/);
- assert.equal((page.match(/await ask\(/g)||[]).length,10);
+ assert.equal((page.match(/await ask\(/g)||[]).length,12);
+ // R2: reemplazar (advertencia) y revocar (crítica) el enlace personal del cliente.
+ assert.match(page,/severity:'warning',title:'Reemplazar enlace del cliente'/);
+ assert.match(page,/severity:'critical',title:'Revocar enlace del cliente'/);
  assert.match(page,/title:approve\?'Aprobar pago':'Rechazar pago'/);
  assert.match(page,/severity:'critical',title:'Inhabilitar producto'/);
  assert.match(page,/severity:'warning',title:'Posible producto duplicado'/);

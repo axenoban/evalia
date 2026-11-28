@@ -5,7 +5,8 @@ import {
   authUser, adminAllowed, signIn, signOut, loadWorkspace, loadWorkspaceLight,
   createCustomer, createModel, editProduct, saveColor, reactivateProduct, productHistory, updateCustomer, uploadPhoto, adjustStock, archiveModel, cleanupArchivedPhotos, cleanupReplacedPhoto, archiveOrder, setOrderPrepared,
   createOrder, loadOrderById, reviseOrder, updateOrderDelivery, confirmReservation, reportPayment, reviewPayment, quickCheckout, recordDelivery, completeOrder,
-  issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr
+  issueOrderLink, revokeOrderLink, getPrivateReceiptUrl, getAdminQrUrl, saveRealQr,
+  issueCustomerLink, revokeCustomerLink, customerLinkStatus
 } from '../lib/api.js';
 import {normalizeName,normalizeSize,normalizePrice,productSizes,suggestions,matchingModels,stockProjection,equivalentProduct,productPriceOptions,QUICK_DOZENS,paymentAmountOptions} from '../lib/product-data.js';
 import { getSupabase } from '../lib/supabase.js';
@@ -575,6 +576,43 @@ function ClientEditForm({customer,onSave,onCancel,busy,customers=[]}){
   </div>
  </form>;
 }
+// R2: enlace personal del cliente para catálogo con precios, pedidos y seguimiento sin cuenta.
+// Solo administradores; el enlace solo se muestra al crearlo (la base guarda únicamente su hash).
+function CustomerLinkPanel({customer}){
+ const {ask}=useConfirmation();
+ const [status,setStatus]=useState(undefined),[url,setUrl]=useState(''),[draft,setDraft]=useState(''),[hint,setHint]=useState(''),[working,setWorking]=useState(false);
+ useEffect(()=>{let live=true;customerLinkStatus(customer.id).then(s=>{if(live)setStatus(s);}).catch(e=>{if(live){setStatus(null);setHint(e.message);}});return ()=>{live=false;};},[customer.id]);
+ const active=Boolean(status&&!status.revoked_at);
+ async function issue(){
+  if(active&&!await ask({severity:'warning',title:'Reemplazar enlace del cliente',message:'El enlace anterior dejará de funcionar de inmediato. Envía el nuevo por WhatsApp.',facts:[{label:'Cliente',value:customer.name},{label:'WhatsApp',value:customer.whatsapp}],confirmLabel:'Crear nuevo enlace'}))return;
+  setWorking(true);setHint('');
+  try{
+   const result=await issueCustomerLink(customer.id);
+   setUrl(result.url);setStatus({version:result.version,issued_at:new Date().toISOString(),revoked_at:null});
+   setDraft('Hola '+String(customer.name).split(/\s+/)[0]+', este es tu enlace personal de EVALIA para ver el catálogo con precios, hacer tus pedidos y revisar tu saldo:\n'+result.url+'\nGuárdalo y no lo compartas: es solo para ti.');
+   setHint('Enlace creado. Cópialo y envíalo solo al WhatsApp '+customer.whatsapp+'. No se volverá a mostrar.');
+  }catch(e){setHint(e.message);}finally{setWorking(false);}
+ }
+ async function revoke(){
+  if(!await ask({severity:'critical',title:'Revocar enlace del cliente',message:'El cliente ya no podrá ver precios ni hacer pedidos con su enlace hasta que le envíes uno nuevo.',facts:[{label:'Cliente',value:customer.name}],confirmLabel:'Revocar enlace'}))return;
+  setWorking(true);setHint('');
+  try{await revokeCustomerLink(customer.id);setStatus(s=>s?{...s,revoked_at:new Date().toISOString()}:s);setUrl('');setDraft('');setHint('Enlace revocado.');}
+  catch(e){setHint(e.message);}finally{setWorking(false);}
+ }
+ async function copy(text,ok){try{await navigator.clipboard.writeText(text);setHint(ok);}catch{setHint('No se pudo copiar automáticamente; selecciona el texto y cópialo.');}}
+ return <div className="ev-customer-link surface pad">
+  <p className="small-note">El cliente abre su enlace desde WhatsApp: ve el catálogo con precios, hace pedidos (mínimo por modelo y colores distintos) y revisa su saldo, sin crear cuenta. Envíalo solo a su número registrado.</p>
+  {status===undefined?<p role="status" className="small-note">Consultando enlace…</p>:
+   <p className="small-note"><b>{active?'Enlace vigente (versión '+status.version+')':status?'Enlace revocado':'Sin enlace todavía'}</b></p>}
+  <div className="form-actions"><button type="button" className="button button-primary" disabled={working||status===undefined} onClick={issue}>{active?'↻ Crear nuevo enlace':'＋ Crear enlace'}</button>
+   {active&&<button type="button" className="button button-outline" disabled={working} onClick={revoke}>Revocar</button>}</div>
+  {url&&<div className="whatsapp-message-composer"><label className="field-label" htmlFor={'customer-link-'+customer.id}>Mensaje para WhatsApp</label>
+   <textarea id={'customer-link-'+customer.id} className="whatsapp-message-draft" rows={5} value={draft} onChange={e=>setDraft(e.target.value)}/>
+   <div className="form-actions"><button type="button" className="button button-primary" onClick={()=>copy(draft,'Mensaje copiado. Pégalo en el chat del cliente.')}>Copiar mensaje</button>
+    <button type="button" className="button button-outline" onClick={()=>copy(url,'Enlace copiado.')}>Copiar solo enlace</button></div></div>}
+  {hint&&<p role="status" className="small-note">{hint}</p>}
+ </div>;
+}
 function ClientPanel({data,onCreate,onUpdate,busy,canEdit=true}){
  const [search,setSearch]=useState(''),[editing,setEditing]=useState(null);
  const clients=findBookingCustomers(data.customers,search);
@@ -595,10 +633,13 @@ function ClientPanel({data,onCreate,onUpdate,busy,canEdit=true}){
       const orders=data.orders.filter(o=>o.customer_id===c.id&&!o.archived_at).length;
       return <div className="client-record" key={c.id}><div className="client-row"><span className="avatar">{initials(c.name)}</span>
        <div><strong>{c.name}</strong><small>{c.whatsapp} · {deliveryLabel(c.delivery_preference)}{c.shipping_destination?' · '+c.shipping_destination:''}</small><span>{orders} pedidos{reservations>0?' · '+reservations+' registro(s) anterior(es)':''}</span></div>
-       {canEdit&&<button className="button button-outline" type="button" disabled={busy}
-        onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button>}</div>
+       {canEdit&&<div className="ev-client-actions"><button className="button button-outline" type="button" disabled={busy}
+        onClick={()=>setEditing(editing===c.id?null:c.id)}>{editing===c.id?'Cerrar':'Editar'}</button>
+        <button className="button button-outline" type="button" disabled={busy} aria-expanded={editing==='link:'+c.id}
+        onClick={()=>setEditing(editing==='link:'+c.id?null:'link:'+c.id)}>Enlace del cliente</button></div>}</div>
        {editing===c.id&&<ClientEditForm key={c.id+'-'+c.updated_at} customer={c}
         onSave={onUpdate} onCancel={()=>setEditing(null)} busy={busy} customers={data.customers}/>}
+       {canEdit&&editing==='link:'+c.id&&<CustomerLinkPanel customer={c}/>}
       </div>
     })}</div>:<Empty title="Sin clientes coincidentes" detail="Registra una ficha o cambia la búsqueda."/>}
     <ListPager view={view} onPage={p=>{list.setPage(p);setEditing(null);}} label="Páginas de clientes" busy={busy}/>
