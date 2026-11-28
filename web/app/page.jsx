@@ -173,7 +173,7 @@ function ClientForm({onCreate,busy,compact=false,customers=[]}){
   </button></div>
  </form>;
 }
-function DashboardProductCard({model,stock,recent}){
+function DashboardProductCard({model,stock,recent,onOpen}){
  const blocked=Boolean(stock?.blocked);
  const available=Number(stock?.available??0);
  const exhausted=!blocked&&available===0;
@@ -184,7 +184,7 @@ function DashboardProductCard({model,stock,recent}){
    {exhausted&&<span className="ev-model-photo-status">Sin existencias</span>}
   </div>
   <div className="ev-model-details">
-   <h3 title={model.name}>{model.name}</h3>
+   <h3 title={model.name}><button type="button" className="ev-card-stretch" onClick={()=>onOpen(model)} aria-label={(blocked||exhausted?'Ver en productos: ':'Nuevo pedido con ')+model.name}>{model.name}</button></h3>
    {recent&&<span className="ev-recent-model">Nuevo · últimas 48 h</span>}
    <span className="ev-stock-caption">Stock disponible</span>
    <strong className="ev-stock-count">{blocked?'En revisión':formatAvailableDozens(stock?.available??0)}</strong>
@@ -192,7 +192,7 @@ function DashboardProductCard({model,stock,recent}){
   </div>
  </article>;
 }
-function Dashboard({data,setTab}){
+function Dashboard({data,setTab,onStartOrder,onOpenOrder}){
  const activeModels=prioritizeModels(data.models);
  const now=Date.now();
  const recentModels=activeModels.filter(m=>isRecentModel(m,now));
@@ -249,7 +249,7 @@ function Dashboard({data,setTab}){
    {visibleModels.length?
     <div ref={trackRef} className="ev-model-track" role="region" tabIndex={0}
        aria-label="Carrusel de modelos y disponibilidad" onScroll={updateTrackEdges}>
-     {visibleModels.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]} recent={isRecentModel(m,now)}/>)}
+     {visibleModels.map(m=><DashboardProductCard key={m.id} model={m} stock={data.stock[m.id]} recent={isRecentModel(m,now)} onOpen={onStartOrder}/>)}
     </div>:
     <Empty title="Aún no hay modelos" detail="Registra un modelo y su inventario desde Productos."/>}
   </section>
@@ -273,7 +273,7 @@ function Dashboard({data,setTab}){
       const customer=customerById.get(o.customer_id);
       const total=Array.isArray(o.lines)?o.lines.reduce((sum,line)=>sum+Number(line.quantity||0),0):null;
       return <div className="ev-order-row" key={o.id}>
-       <div className="ev-order-person"><strong>{customer?.name||'Cliente'}</strong>
+       <div className="ev-order-person"><strong><button type="button" className="ev-card-stretch" onClick={()=>onOpenOrder(o.id)} aria-label={'Abrir pedido de '+(customer?.name||'Cliente')}>{customer?.name||'Cliente'}</button></strong>
         <span>{displayDate(o.confirmed_at)}</span></div>
        <span className="ev-delivery-type">{deliveryLabel(o.fulfillment_method)}</span>
        <div className="ev-order-end">{total!==null&&<b>{rup(total)} prendas</b>}
@@ -1115,7 +1115,7 @@ function LegacyCommitments({data,onConvert,busy}){
   </div>
  </details>;
 }
-function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
+function OrderQuickActions({order,finance,delivery,payments,onQuick,busy,compact=false}){
  const {ask}=useConfirmation();
  const [note,setNote]=useState('');
  const attempt=useRef(null);
@@ -1140,6 +1140,17 @@ function OrderQuickActions({order,finance,delivery,payments,onQuick,busy}){
   if(ok){attempt.current=null;setNote('');}
  }
  if(order.status!=='active')return null;
+ // Variante compacta: mismas condiciones canPay/canDeliver y misma confirmación crítica, sin textos largos.
+ if(compact)return <div className="ev-next-step-actions" role="group" aria-label="Siguiente paso del pedido">
+  {pendingEvidence&&<p className="express-warning" role="alert">Hay un comprobante sin resolver. Revísalo en Pagos antes de registrar un cobro total.</p>}
+  {excess>0n&&<p className="express-warning" role="alert">Existe un exceso de dinero aprobado. Concílialo antes del cierre rápido.</p>}
+  {canPay&&remaining>0&&<button type="button" className="button express-primary" disabled={busy} onClick={()=>run('pay_deliver')}>✓ Cobrar {formatBs(balance)} y entregar todo</button>}
+  {canPay&&<button type="button" className={'button '+(remaining>0?'express-secondary':'express-primary')} disabled={busy} onClick={()=>run('pay')}>Registrar pago total</button>}
+  {canDeliver&&<button type="button" className="button express-primary" disabled={busy} onClick={()=>run('deliver')}>✓ Entregar todo y completar</button>}
+  {(canPay||canDeliver)&&<details className="ev-next-step-note"><summary>Agregar nota (opcional)</summary>
+   <input type="text" maxLength={1000} value={note} aria-label="Nota o referencia de operación" placeholder="Ej. efectivo, QR verificado…" onChange={e=>{setNote(e.target.value);attempt.current=null;}}/>
+  </details>}
+ </div>;
  return <section className="express-checkout" aria-label="Acciones rápidas del pedido">
   <div className="express-checkout-heading">
    <span className="express-icon" aria-hidden="true">✓</span>
@@ -1271,7 +1282,7 @@ function OrderEditPanel({order,data,busy,onSave,onCancel}){
 }
 function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeliver,onComplete,onQuick,onIssueLink,onRevokeLink,onConvertLegacy,onUpdateFulfillment,onPrint,onEdit,onArchiveOrder,onPreparation,busy}){
  const {ask}=useConfirmation();
- const [editingId,setEditingId]=useState(null);
+ const [editingId,setEditingId]=useState(null),[linkOpen,setLinkOpen]=useState(null);
  const [showArchived,setShowArchived]=useState(false);
  const list=useServerOrderList(workspace,showArchived,focusOrder);
  const {view}=list;
@@ -1326,25 +1337,7 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
       <span className="ev-order-expand" aria-hidden="true">⌄</span>
      </summary>
      <div className="ev-order-expanded">
-      {o.archived_at?<p className="small-note">Archivado · {displayDate(o.archived_at)} · {o.archive_reason}{o.status==='voided'?' · Sin cobros ni entregas pendientes.':''}</p>:
-       <div className="ev-order-archive-action">
-        <button type="button" className="button ev-archive-button" disabled={pageBusy||!canArchive} onClick={async()=>{
-         const explanation=o.status==='active'?'Anular este pedido libera las prendas comprometidas y desactiva su enlace.':'Archivar este pedido solo lo oculta. Conserva los cobros y las entregas registrados.';
-         const decision=await ask({severity:o.status==='active'?'critical':'warning',title:o.status==='active'?'Anular pedido':'Archivar pedido',message:explanation,facts:[{label:'Cliente',value:customer?.name||'Cliente'},{label:'Total',value:formatBs(total)}],reasonRequired:true,confirmLabel:o.status==='active'?'Anular pedido':'Archivar pedido'});
-         if(decision?.confirmed&&decision.reason)await onArchiveOrder(o.id,decision.reason);
-        }}>{o.status==='active'?'Anular y ocultar pedido':'Archivar pedido'}</button>
-        {!canArchive&&<span className="small-note">Resuelve primero los movimientos pendientes. No se anulan pedidos activos con pagos, avisos o entregas.</span>}
-       </div>}
-      {o.status==='active'&&<div className="ev-order-edit-access">
-       <button type="button" className="button button-outline ev-order-edit-button" disabled={pageBusy||Boolean(editReason)}
-        onClick={()=>setEditingId(current=>current===o.id?null:o.id)}>
-        {editingId===o.id?'Cerrar edición':'✎ Editar pedido'}
-       </button>
-       {editReason&&<span className="ev-edit-restriction">{editReason}</span>}
-      </div>}
-      {editingId===o.id&&!editReason&&<OrderEditPanel key={o.id+'-'+o.revision}
-       order={o} data={data} busy={pageBusy} onCancel={()=>setEditingId(null)}
-       onSave={async params=>{const ok=await onEdit(params);if(ok)setEditingId(null);return ok;}}/>}
+      {o.archived_at&&<p className="small-note">Archivado · {displayDate(o.archived_at)} · {o.archive_reason}{o.status==='voided'?' · Sin cobros ni entregas pendientes.':''}</p>}
       {o.status==='active'&&<div className="ev-order-finance-brief" aria-label="Situación del cobro">
        {amountCents(finance.pending)>0n?
         <span className="ev-order-balance-due"><span>Saldo por cobrar</span><strong>{formatBs(amountCents(finance.pending))}</strong></span>:
@@ -1352,7 +1345,15 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
        {amountCents(finance.pending)>0n&&amountCents(finance.approved)>0n&&
         <small>Abonos aprobados: {formatBs(amountCents(finance.approved))}</small>}
       </div>}
-      <button type="button" className="button button-outline" disabled={pageBusy||o.status==='voided'} onClick={()=>onRepeat(o)}>Repetir como nuevo pedido</button>
+      <div className="ev-order-next" aria-label="Acciones principales del pedido">
+       {o.status==='active'&&<OrderQuickActions compact order={o} finance={finance} delivery={delivery}
+        payments={relatedPayments} onQuick={onQuick} busy={pageBusy}/>}
+       <div className="ev-next-step-secondary">
+        {o.status!=='voided'&&o.fulfillment_method!=='legacy'&&<button type="button" className="button button-outline" disabled={pageBusy} onClick={()=>onPrint(o,customer)}>🖨 {o.fulfillment_method==='shipping'?'Imprimir etiqueta':'Imprimir comprobante'}</button>}
+        {!o.archived_at&&o.status==='active'&&<button type="button" className="button button-outline" aria-expanded={linkOpen===o.id} onClick={()=>{setLinkOpen(o.id);window.requestAnimationFrame(()=>document.getElementById('order-link-'+o.id)?.scrollIntoView({block:'nearest'}));}}>WhatsApp y enlace</button>}
+       </div>
+      </div>
+      {Number(finance.excess)>0&&<Notice type="error">Existe exceso de pago para conciliación: {formatBs(amountCents(finance.excess))}. No se puede cerrar automáticamente.</Notice>}
       <section className="ev-order-model-section" aria-label="Modelos incluidos en el pedido">
        <h3>Modelos</h3>
        <div className="order-lines">
@@ -1385,12 +1386,15 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
         </details>}
        </section>
       </details>
-      {Number(finance.excess)>0&&<Notice type="error">Existe exceso de pago para conciliación: {formatBs(amountCents(finance.excess))}. No se puede cerrar automáticamente.</Notice>}
+      <div id={'order-link-'+o.id}>
+      <details className="ev-order-link-details" open={linkOpen===o.id} onToggle={e=>{const opened=e.currentTarget.open;setLinkOpen(current=>opened?o.id:current===o.id?null:current);}}>
+       <summary>WhatsApp y enlace privado <span aria-hidden="true">⌄</span></summary>
+       {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={pageBusy}/>}
+      </details>
+      </div>
       <details className="ev-order-management" aria-label="Gestión y acciones del pedido">
        <summary><span>{o.status==='active'?'Cobro y cierre':'Historial y seguimiento'}</span></summary>
        <div className="order-operations ev-order-operations">
-        {o.status==='active'&&<OrderQuickActions order={o} finance={finance} delivery={delivery}
-         payments={relatedPayments} onQuick={onQuick} busy={pageBusy}/>}
         <details className="order-advanced" aria-label="Abonos y comprobantes">
          <summary>Abonos y comprobantes <span>Ver historial</span></summary>
          <div className="order-advanced-body">
@@ -1404,10 +1408,30 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
          disabled={pageBusy||Number(finance.pending)!==0||Number(finance.excess)!==0||Number(delivery.remaining)!==0}
          onClick={()=>onComplete(o.id)}>✓ Marcar COMPLETADO</button>}
         {o.status==='completed'&&<p className="small-note">Pedido completado: pago acreditado y retirada total registrados. El enlace privado queda inactivo.</p>}
-        <details className="ev-order-link-details">
-         <summary>WhatsApp y enlace privado <span aria-hidden="true">⌄</span></summary>
-         {!o.archived_at&&<OrderLinkPanel order={o} data={data} onIssue={onIssueLink} onRevoke={onRevokeLink} busy={pageBusy}/>}
-        </details>
+       </div>
+      </details>
+      <details className="ev-order-more">
+       <summary>Más acciones</summary>
+       <div className="ev-order-more-body">
+      {o.status==='active'&&<div className="ev-order-edit-access">
+       <button type="button" className="button button-outline ev-order-edit-button" disabled={pageBusy||Boolean(editReason)}
+        onClick={()=>setEditingId(current=>current===o.id?null:o.id)}>
+        {editingId===o.id?'Cerrar edición':'✎ Editar pedido'}
+       </button>
+       {editReason&&<span className="ev-edit-restriction">{editReason}</span>}
+      </div>}
+      {editingId===o.id&&!editReason&&<OrderEditPanel key={o.id+'-'+o.revision}
+       order={o} data={data} busy={pageBusy} onCancel={()=>setEditingId(null)}
+       onSave={async params=>{const ok=await onEdit(params);if(ok)setEditingId(null);return ok;}}/>}
+      <button type="button" className="button button-outline" disabled={pageBusy||o.status==='voided'} onClick={()=>onRepeat(o)}>Repetir como nuevo pedido</button>
+      {!o.archived_at&&<div className="ev-order-archive-action">
+        <button type="button" className="button ev-archive-button" disabled={pageBusy||!canArchive} onClick={async()=>{
+         const explanation=o.status==='active'?'Anular este pedido libera las prendas comprometidas y desactiva su enlace.':'Archivar este pedido solo lo oculta. Conserva los cobros y las entregas registrados.';
+         const decision=await ask({severity:o.status==='active'?'critical':'warning',title:o.status==='active'?'Anular pedido':'Archivar pedido',message:explanation,facts:[{label:'Cliente',value:customer?.name||'Cliente'},{label:'Total',value:formatBs(total)}],reasonRequired:true,confirmLabel:o.status==='active'?'Anular pedido':'Archivar pedido'});
+         if(decision?.confirmed&&decision.reason)await onArchiveOrder(o.id,decision.reason);
+        }}>{o.status==='active'?'Anular y ocultar pedido':'Archivar pedido'}</button>
+        {!canArchive&&<span className="small-note">Resuelve primero los movimientos pendientes. No se anulan pedidos activos con pagos, avisos o entregas.</span>}
+       </div>}
        </div>
       </details>
      </div>
@@ -1420,6 +1444,35 @@ function Orders({data:workspace,focusOrder,onClearFocus,onRepeat,onReport,onDeli
    <button type="button" className="button button-outline" aria-pressed={showArchived} disabled={busy} onClick={()=>changeArchive(true)}>Archivados ({workspace.orders.filter(o=>o.archived_at).length})</button>
   </nav>
  </>;
+}
+// Menú inferior en móvil/tablet: 4 accesos directos y «Más» con el resto (Pagos, Clientes, Usuarios).
+// En PC se usa el menú lateral completo; esta barra solo se muestra bajo 1000 px.
+const MOBILE_PRIMARY=['home','catalog','booking','orders'];
+function MobileNav({menu,tab,onNavigate}){
+ const [open,setOpen]=useState(false);
+ const ref=useRef(null);
+ const primary=menu.filter(([id])=>MOBILE_PRIMARY.includes(id));
+ const secondary=menu.filter(([id])=>!MOBILE_PRIMARY.includes(id));
+ const secondaryActive=secondary.some(([id])=>id===tab);
+ useEffect(()=>{
+  if(!open)return;
+  const outside=e=>{if(!ref.current?.contains(e.target))setOpen(false);};
+  const escape=e=>{if(e.key==='Escape')setOpen(false);};
+  document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
+  return ()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
+ },[open]);
+ function go(id){setOpen(false);onNavigate(id);}
+ return <nav ref={ref} className="mobile-nav" aria-label="Navegación móvil">
+  {primary.map(([id,label])=><button key={id} type="button" aria-current={tab===id?'page':undefined} onClick={()=>go(id)} className={tab===id?'active':''}>
+   <span><UiIcon name={id}/></span><small>{id==='booking'?'Nuevo':label}</small></button>)}
+  {secondary.length>0&&<div className="ev-mobile-more">
+   <button type="button" aria-expanded={open} aria-controls="ev-mobile-more-menu" aria-current={secondaryActive?'page':undefined} className={secondaryActive||open?'active':''} onClick={()=>setOpen(v=>!v)}>
+    <span><UiIcon name="more"/></span><small>{secondaryActive?secondary.find(([id])=>id===tab)?.[1]:'Más'}</small></button>
+   {open&&<div id="ev-mobile-more-menu" className="ev-mobile-more-menu" role="group" aria-label="Más secciones">
+    {secondary.map(([id,label])=><button key={id} type="button" aria-current={tab===id?'page':undefined} className={tab===id?'active':''} onClick={()=>go(id)}><UiIcon name={id}/><span>{label}</span></button>)}
+   </div>}
+  </div>}
+ </nav>;
 }
 function Login({onLogin,onRetryLogout,logoutPending,busy,error}){
  const [showPassword,setShowPassword]=useState(false);
@@ -1680,6 +1733,21 @@ function EvaliaWorkspace(){
  }
  function navigate(id){if(id==='orders')setFocusOrder(null);setTab(id);}
  function viewOrder(id){setFocusOrder(id);setTab('orders');}
+ // Desde el resumen: agrega el modelo al borrador sin borrar lo ya elegido; la confirmación final sigue en Nuevo pedido.
+ function startOrderWithModel(model){
+  const stock=data?.stock[model.id];
+  const activeColors=(data?.colors??[]).filter(c=>model.colorIds?.includes(c.id)&&c.is_active).length;
+  if(!canAddModelToOrder(stock,activeColors)){navigate('catalog');return;}
+  if(bookingDraft.attempt){setTab('booking');return;}
+  try{
+   const portion=initialModelPortion(stock,activeColors);
+   setBookingDraft(current=>{
+    const base=current.receipt?emptyBooking():current;
+    return Object.hasOwn(base.portions,model.id)?base:{...base,portions:{...base.portions,[model.id]:portion}};
+   });
+   setTab('booking');
+  }catch(e){setError(e.message);}
+ }
  async function repeatOrder(previous){
   if(busy||bookingDraft.attempt)return;
   if(hasBookingDraft(bookingDraft)&&!await ask({severity:'warning',title:'Reemplazar borrador',message:'El pedido anterior sustituirá tu borrador. Se revisarán precios y stock vigentes.',confirmLabel:'Reemplazar borrador'}))return;
@@ -1765,7 +1833,7 @@ function EvaliaWorkspace(){
     <ToastNotifications error={error} message={message}
       onCloseError={()=>setError('')} onCloseMessage={()=>setMessage('')}/>
     {!data?<div className="loading">{error?'No se pudieron obtener los registros. Revisa el error y pulsa Actualizar.':'Cargando productos y registros…'}</div>:
-      tab==='home'?<Dashboard data={data} setTab={navigate}/>:
+      tab==='home'?<Dashboard data={data} setTab={navigate} onStartOrder={startOrderWithModel} onOpenOrder={viewOrder}/>:
       tab==='catalog'?<Catalog data={data} onSaveColor={addColor} onCreateModel={addModel} onAdjust={updateStock} onUpdateModel={saveModelEdit} onArchive={archiveProduct} onCleanup={cleanArchivedPhotos} onReactivate={reactivate} busy={busy}/>: 
       tab==='booking'?<BookingPanel data={data} draft={bookingDraft} setDraft={setBookingDraft} onOrder={order} onCreateClient={addClient} onView={viewOrder} onPrint={printSelected} onIssue={issueLink} onRevoke={revokeLink} busy={busy}/>: 
       tab==='orders'?<Orders data={data} focusOrder={focusOrder} onClearFocus={()=>setFocusOrder(null)} onRepeat={repeatOrder} onReport={report} onDeliver={deliver} onComplete={complete} onQuick={checkoutFast} onIssueLink={issueLink} onRevokeLink={revokeLink} onConvertLegacy={convert} onUpdateFulfillment={updateFulfillment} onPrint={printSelected} onEdit={editOrder} onArchiveOrder={archiveSelectedOrder} onPreparation={changePreparation} busy={busy}/>:  
@@ -1775,8 +1843,6 @@ function EvaliaWorkspace(){
    </main>
    <footer className="footer">EVALIA · Destaca en cada detalle <span>Panel administrativo · Moneda Bs · Zona horaria Bolivia</span></footer>
   </div>
-  <nav className={'mobile-nav'+(owner?' mobile-nav-owner':'')} aria-label="Navegación móvil">{menu.map(([id,label,sign])=>
-   <button key={id} aria-current={tab===id?'page':undefined} onClick={()=>navigate(id)} className={tab===id?'active':''}>
-    <span><UiIcon name={id}/></span><small>{id==='booking'?'Nuevo':label}</small></button>)}</nav>
+  <MobileNav menu={menu} tab={tab} onNavigate={navigate}/>
  </div>;
 }

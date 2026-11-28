@@ -32,7 +32,12 @@ test('dashboard consume disponibilidad libre y no altera la gestión de pedidos'
  assert.match(dashboard,/formatModelDozenPrice\(model\.price_dozen_bs\)/);
  assert.match(dashboard,/data\.orders\.filter\(o=>o\.status==='active'&&!o\.archived_at\)/);
  assert.match(page,/const menu=owner\?\[\.\.\.MENU,\['security','Usuarios','⚙'\]\]:MENU;/);
- assert.match(page,/menu\.map\(\(\[id,label,sign\]\)=>/);
+ // El menú móvil recibe el menú completo: 4 accesos directos y «Más» con el resto; ninguna sección queda inaccesible.
+ assert.match(page,/<MobileNav menu=\{menu\} tab=\{tab\} onNavigate=\{navigate\}\/>/);
+ assert.match(page,/const MOBILE_PRIMARY=\['home','catalog','booking','orders'\];/);
+ assert.match(page,/const secondary=menu\.filter\(\(\[id\]\)=>!MOBILE_PRIMARY\.includes\(id\)\);/);
+ assert.match(page,/secondary\.map\(\(\[id,label\]\)=>/);
+ assert.match(page,/menu\.map\(\(\[id,label,symbol\]\)=>/);
  for(const id of ['home','catalog','booking','orders','payments','customers']) assert.match(page,new RegExp("\\['"+id+"',"));
 });
 

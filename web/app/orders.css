@@ -234,3 +234,23 @@
 .ev-preparation-toggle:hover:not(:disabled){filter:brightness(.96)}
 .ev-preparation-toggle:focus-visible{outline:3px solid #4D3443;outline-offset:2px}
 @media(max-width:410px){.ev-preparation-toggle{padding:5px 6px;max-width:104px}.ev-preparation-toggle strong{font-size:10px}.ev-preparation-toggle small{font-size:9px}}
+/* Barra de siguiente paso: acción principal según estado; responsive en PC y móvil. */
+.ev-order-next{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;margin:0 0 14px;padding:12px;border:1px solid #c2dbc9;border-radius:12px;background:#f4fbf7}
+.ev-next-step-actions{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 360px;min-width:0}
+.ev-next-step-actions .express-warning{flex:1 1 100%;margin:0}
+.ev-next-step-actions>.button{flex:1 1 200px;min-height:48px;font-size:13px}
+.ev-next-step-secondary{display:flex;flex-wrap:wrap;gap:8px;flex:0 1 auto}
+.ev-next-step-secondary .button{min-height:48px}
+.ev-next-step-note{flex:1 1 100%;font-size:12px}
+.ev-next-step-note summary{cursor:pointer;color:#476553;min-height:32px;display:flex;align-items:center}
+.ev-next-step-note input{width:100%;min-height:44px;margin-top:6px}
+.ev-order-more{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
+.ev-order-more>summary{cursor:pointer;font-weight:700;color:var(--plum);min-height:44px;display:flex;align-items:center}
+.ev-order-more-body{display:grid;gap:12px;padding-top:8px}
+.ev-order-more-body>.button{justify-self:start}
+@media(max-width:620px){
+ .ev-order-next{padding:10px}
+ .ev-next-step-actions,.ev-next-step-secondary{flex:1 1 100%}
+ .ev-next-step-actions>.button,.ev-next-step-secondary .button{flex:1 1 100%;width:100%}
+ .ev-order-more-body>.button{justify-self:stretch}
+}

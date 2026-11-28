@@ -146,7 +146,7 @@
  .ev-dashboard .section-head .button{font-size:13px}
  .mobile-nav{justify-content:space-around;gap:0}
  .mobile-nav button{flex:1;min-width:0;padding:4px 2px}
- .mobile-nav small{font-size:10px}
+ .mobile-nav small{font-size:11px}
 }
 @media(max-width:390px){
  .ev-dashboard .metrics-grid{gap:8px}
@@ -167,3 +167,10 @@
 
 .ev-dashboard-actions{display:flex;justify-content:flex-end;margin:0 0 14px}.ev-dashboard-actions .button{min-height:44px}@media(max-width:480px){.ev-dashboard-actions .button{width:100%}}
 .ev-dashboard .ev-zone-heading h2{margin-bottom:0}.ev-dashboard .section-head h1{margin-bottom:0}
+/* Tarjetas y filas del resumen: toda la superficie abre la acción (botón accesible extendido). */
+.ev-model-card,.ev-order-row{position:relative}
+.ev-card-stretch{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:inherit;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:inherit}
+.ev-card-stretch::after{content:'';position:absolute;inset:0;z-index:1}
+.ev-card-stretch:focus-visible{outline:none}
+.ev-model-card:has(.ev-card-stretch:focus-visible),.ev-order-row:has(.ev-card-stretch:focus-visible){outline:3px solid #ac688b;outline-offset:2px}
+.ev-order-row:hover{background:#fbf7f9}

@@ -14,3 +14,11 @@
 .ev-page-numbers .ev-page-disabled a,.ev-list-pager[aria-disabled=true] a{opacity:.55;cursor:not-allowed}
 .ev-page-numbers a:hover:not([aria-disabled=true]){box-shadow:0 2px 5px #51344a20}
 @media(max-width:480px){.ev-list-controls{gap:9px;padding:10px}.ev-list-pager{align-items:flex-start;flex-direction:column}.ev-page-numbers{gap:4px}.ev-page-numbers a{min-width:34px;padding:5px 6px}}
+/* Filtros plegables en móvil; en pantallas mayores el botón se oculta y los controles siempre se ven. */
+.ev-list-filters .ev-list-filters-toggle{display:none}
+@media(max-width:620px){
+ .ev-list-filters{margin:10px 0 14px}
+ .ev-list-filters .ev-list-filters-toggle{display:inline-flex;min-height:44px;width:100%;justify-content:space-between}
+ .ev-list-filters:not(.is-open) .ev-list-controls{display:none}
+ .ev-list-filters.is-open .ev-list-controls{margin-top:8px}
+}

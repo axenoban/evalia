@@ -5,14 +5,19 @@ import {loadOrdersPage} from '../lib/api.js';
 import {pageOf} from '../lib/workspace-pagination.js';
 import {dateRange,matchesDate,PAGE_SIZES} from '../lib/record-date-filters.js';
 
+// Preferencia visual por dispositivo: solo la cantidad por página, nunca datos comerciales.
+const SIZE_KEY='evalia:registros-por-pagina';
+function storedSize(){try{const n=Number(window.localStorage.getItem(SIZE_KEY));return PAGE_SIZES.includes(n)?n:null;}catch{return null;}}
+function rememberSize(n){try{window.localStorage.setItem(SIZE_KEY,String(n));}catch{/* almacenamiento no disponible */}}
 function useRecordFilters(){
- const [page,setPage]=useState(1),[size,setSize]=useState(25);
+ // Las listas solo se montan tras autenticar en el navegador: se lee la preferencia sin una consulta extra.
+ const [page,setPage]=useState(1),[size,setSize]=useState(()=>typeof window==='undefined'?25:storedSize()??25);
  const [preset,setPreset]=useState('all'),[from,setFrom]=useState(''),[to,setTo]=useState('');
  const range=dateRange(preset,from,to);
  function changePreset(value){setPreset(value);setPage(1);}
  function changeFrom(value){setFrom(value);setPage(1);}
  function changeTo(value){setTo(value);setPage(1);}
- function changeSize(value){if(PAGE_SIZES.includes(value)){setSize(value);setPage(1);}}
+ function changeSize(value){if(PAGE_SIZES.includes(value)){setSize(value);setPage(1);rememberSize(value);}}
  function clear(){setPreset('all');setFrom('');setTo('');setPage(1);}
  return {page,size,preset,from,to,range,setPage,changeSize,changePreset,changeFrom,changeTo,clear};
 }
@@ -49,8 +54,14 @@ export function useServerOrderList(workspace,archived,orderId=null){
   loading,refreshing:loading&&Boolean(prior?.value),error:current?.error??'',retry:()=>setRetry(n=>n+1)};
 }
 export function RecordListControls({list,dateLabel,busy,onChange}){
+ const [open,setOpen]=useState(false);
  function change(fn){fn();onChange?.();}
- return <div className="ev-list-controls" role="group" aria-label="Filtros y cantidad de registros">
+ const active=(list.preset!=='all'?1:0)+(list.size!==25?1:0);
+ // En móvil los filtros se pliegan tras un botón; en PC siempre están visibles (CSS).
+ return <div className={'ev-list-filters'+(open||!list.range.valid?' is-open':'')}>
+  <button type="button" className="button button-outline ev-list-filters-toggle" aria-expanded={open||!list.range.valid} onClick={()=>setOpen(v=>!v)}>
+   Filtros{active?' ('+active+')':''} <span aria-hidden="true">{open?'⌃':'⌄'}</span></button>
+  <div className="ev-list-controls" role="group" aria-label="Filtros y cantidad de registros">
   <label className="field"><span className="field-label">{dateLabel}</span>
    <select value={list.preset} disabled={busy} onChange={e=>change(()=>list.changePreset(e.target.value))}>
     <option value="all">Todas las fechas</option><option value="today">Hoy</option><option value="week">Últimos 7 días</option><option value="month">Este mes</option><option value="custom">Rango personalizado</option>
@@ -67,6 +78,7 @@ export function RecordListControls({list,dateLabel,busy,onChange}){
   </>}
   {list.preset!=='all'&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>change(list.clear)}>Quitar filtro de fechas</button>}
   {!list.range.valid&&<p role="alert" className="form-error ev-list-filter-error">Selecciona un rango válido: la fecha inicial no puede superar la final.</p>}
+  </div>
  </div>;
 }
 export function ListPager({view,onPage,label,busy}){
