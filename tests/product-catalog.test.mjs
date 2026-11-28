@@ -15,7 +15,9 @@ test('reusable sizes and suggestions respect free price entry and normalized dup
 });
 test('stock projection preserves units, commitments and exact range',()=>{
  const stock={on_hand:72,reserved:6,pending_delivery:12,blocked:false};
- assert.deepEqual(stockProjection(stock,'add','2','dozens'),{units:24,committed:18,target:96,available:78,valid:true});
+ const added=stockProjection(stock,'add','2','dozens');
+ assert.deepEqual({units:added.units,committed:added.committed,target:added.target,available:added.available,valid:added.valid},{units:24,committed:18,target:96,available:78,valid:true});
+ assert.equal(added.published,96,'añadir sube publicadas');
  assert.equal(stockProjection(stock,'physical_sale','5','dozens').valid,false);
  assert.equal(stockProjection(stock,'physical_sale','54','units').available,0);
  assert.equal(stockProjection(stock,'set_total','18','units').valid,true);

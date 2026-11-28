@@ -30,12 +30,20 @@ export function matchingModels(models,name,size,exclude){
 }
 export function stockProjection(stock,operation,value,unit){
  const units=Number(value)*(unit==='dozens'?12:1),committed=Number(stock.reserved)+Number(stock.pending_delivery);
- // set_available: la cantidad indica las prendas LIBRES; las comprometidas se suman solas al total (el servidor
- // recalcula el compromiso con el inventario bloqueado, esto es solo la vista previa).
- const corrects=operation==='set_total'||operation==='set_available';
- const target=operation==='set_available'?units+committed:operation==='set_total'?units:operation==='add'?Number(stock.on_hand)+units:Number(stock.on_hand)-units;
- const valid=String(value).trim()!==''&&Number.isSafeInteger(Number(value))&&Number.isSafeInteger(units)&&units>=(corrects?0:1)&&Number.isSafeInteger(target)&&target<=2147483647&&target>=committed&&!(stock.blocked&&operation==='physical_sale');
- return {units,committed,target,available:target-committed,valid};
+ // Vista previa (el servidor recalcula todo con el inventario bloqueado):
+ // - set_available: la cantidad son las prendas LIBRES que quedan; si bajan, la diferencia es venta física;
+ //   si suben, son prendas nuevas. Las comprometidas se suman solas al stock en mano.
+ // - correct_published: la cantidad son las Publicadas correctas (error de carga, no es venta).
+ // Publicadas = stock en mano + vendidas (físico + entregadas); solo sube con prendas nuevas.
+ const onHand=Number(stock.on_hand),sold=Number(stock.physical_sold||0)+Number(stock.delivered||0);
+ const published=Number(stock.published??onHand+sold);
+ const corrects=operation==='set_total'||operation==='set_available'||operation==='correct_published';
+ const target=operation==='set_available'?units+committed:operation==='correct_published'?units-sold:operation==='set_total'?units:operation==='add'?onHand+units:onHand-units;
+ const change=target-onHand;
+ const soldAfter=operation==='physical_sale'||(operation==='set_available'&&change<0)?sold-change:sold;
+ const publishedAfter=operation==='correct_published'?units:operation==='set_total'?target+sold:soldAfter+target;
+ const valid=String(value).trim()!==''&&Number.isSafeInteger(Number(value))&&Number.isSafeInteger(units)&&units>=(corrects?0:1)&&Number.isSafeInteger(target)&&target>=0&&target<=2147483647&&target>=committed&&!(stock.blocked&&operation==='physical_sale');
+ return {units,committed,target,available:target-committed,valid,change,sold:soldAfter,published:publishedAfter,publishedBefore:published,soldBefore:sold};
 }
 
 export function equivalentProduct(model,{name,size,price,colorIds,photo}){

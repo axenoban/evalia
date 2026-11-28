@@ -45,14 +45,16 @@ export function excelWorkbook({stats,rows},range){
     ['Cobros aprobados',Number(stats.payments.amount),'Por fecha de aprobación del pago.'],
     ['Saldo por cobrar hoy',Number(stats.pending.amount),'Saldo actual de todos los pedidos activos pendientes.'],
     ['Compradores',Number(stats.orders.buyers),'Clientes distintos con pedidos en el periodo.'],
-    ['Alcance','','Solo pedidos del sistema. Ventas físicas externas y ganancias quedan fuera.']
+    ['Ventas físicas (prendas)',Number(stats.physical?.units??0),'Prendas registradas como vendidas al contar el stock o en «Venta física».'],
+    ['Ventas físicas estimadas',Number(stats.physical?.amount??0),'Valor a precio lista del momento. Referencia, no cobro verificado.'],
+    ['Alcance','','Pedidos del sistema y ventas físicas registradas en stock. Ganancias quedan fuera.']
   ];
   const details=rows.map(r=>[r.reference,Date.parse(boliviaStamp(r.confirmed_at).replace(' ','T')+':00Z')/86400000+25569,
     r.customer,r.whatsapp,r.status==='completed'?'Completado':'Activo',({pickup:'Retiro',shipping:'Envío'})[r.fulfillment]||'Sin clasificar',
     r.destination,r.model,r.size,Number(r.dozens),Number(r.extra_units),Number(r.units),Number(r.price_dozen_bs),Number(r.subtotal_bs)]);
   const names=['Resumen','Modelos','Detalle'];
   const sheets=[
-    sheet('EVALIA · Informe comercial',period,['Indicador','Valor','Cómo leerlo'],[30,23,82],summary,i=>[0,[2,3,4].includes(i)?money:integer,0],false),
+    sheet('EVALIA · Informe comercial',period,['Indicador','Valor','Cómo leerlo'],[30,23,82],summary,i=>[0,[2,3,4,7].includes(i)?money:integer,0],false),
     sheet('Modelos más pedidos',period+' · Hasta 10 modelos por cantidad de prendas',['Modelo','Talla','Prendas','Monto pedido'],[42,18,18,25],stats.models.map(m=>[m.name,m.size,Number(m.units),Number(m.amount)]),[0,0,integer,money]),
     sheet('Detalle de pedidos',period+' · Una fila por modelo dentro del pedido',['Pedido','Confirmado (Bolivia)','Cliente','WhatsApp','Estado','Entrega','Destino','Modelo','Talla','Docenas','Sueltas','Prendas','Precio por docena','Subtotal'],[16,24,32,20,16,16,32,34,12,12,12,12,23,23],details,[0,date,0,0,0,0,0,0,0,integer,integer,integer,money,money])
   ];

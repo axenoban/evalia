@@ -65,7 +65,7 @@ export default function OwnerStats(){
   </div>
   {!range.valid&&<p className="form-error" role="alert">{range.error}</p>}
   {exportError&&<p className="form-error" role="alert">{exportError}</p>}
-  {range.valid&&<p className="small-note">Periodo {range.from===range.to?range.from:range.from+' a '+range.to} (hora de Bolivia). Pedidos por fecha de confirmación; cobros por fecha de aprobación. No incluye ventas físicas fuera de pedidos ni ganancias.</p>}
+  {range.valid&&<p className="small-note">Periodo {range.from===range.to?range.from:range.from+' a '+range.to} (hora de Bolivia). Pedidos por fecha de confirmación; cobros por fecha de aprobación. Ventas físicas: monto estimado a precio lista según los registros de stock (no es cobro verificado). No incluye ganancias.</p>}
   {state.loading&&!data&&<p role="status" className="small-note">Calculando estadísticas…</p>}
   {state.error&&state.key===key&&<div className="surface pad" role="alert"><p>{state.error}</p></div>}
   {data&&<>
@@ -74,10 +74,12 @@ export default function OwnerStats(){
     <Tile label="Monto de pedidos" value={bs(data.orders.amount)} sub={num(data.orders.units)+' prendas'}/>
     <Tile label="Cobros aprobados" value={bs(data.payments.amount)} sub={num(data.payments.count)+' pago(s)'}/>
     <Tile label="Saldo por cobrar hoy" value={bs(data.pending.amount)} sub={num(data.pending.orders)+' pedido(s) activos'}/>
+    {data.physical&&<Tile label="Ventas físicas (estimado)" value={bs(data.physical.amount)} sub={num(data.physical.units)+' prendas · precio lista'}/>}
    </div>
    <SeriesChart series={data.series} kind={data.period.bucket}/>
    <div className="ev-stat-grid">
     <RankedBars title="Modelos más pedidos" rows={data.models} label={r=>r.name+' · '+r.size} value={r=>r.units} format={r=>num(r.units)+' pr. · '+bs(r.amount)}/>
+    {data.physical?.models?.length>0&&<RankedBars title="Ventas físicas por modelo" rows={data.physical.models} label={r=>r.name+' · '+r.size} value={r=>r.units} format={r=>num(r.units)+' pr. · '+bs(r.amount)+' est.'}/>}
     <RankedBars title="Tallas" rows={data.sizes} label={r=>'Talla '+r.size} value={r=>r.units} format={r=>num(r.units)+' prendas'}/>
     <RankedBars title="Clientes con más compras" rows={data.customers} label={r=>r.name} value={r=>r.amount} format={r=>bs(r.amount)+' · '+num(r.orders)+' ped.'}/>
     <section className="ev-stat-card"><h2>Clientes nuevos</h2><p className="ev-stat-big">{num(data.new_customers)}</p><p className="small-note">Fichas registradas en el periodo.</p></section>

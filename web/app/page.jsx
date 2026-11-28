@@ -326,33 +326,39 @@ function StockTable({data,limit=null}){
  </table></div>:<Empty title="Aún no hay productos" detail="Registra el primer modelo para comenzar."/>;
 }
 function StockEditor({model,stock,onSave,busy}){
+ const {ask}=useConfirmation();
  const [operation,setOperation]=useState('add'),[amount,setAmount]=useState('1'),[unit,setUnit]=useState('dozens');
  const requestId=useRef(null);
- const {units,committed,target,available,valid}=stockProjection(stock,operation,amount,unit);
- function change(set,value){set(value);requestId.current=null;}
+ const {units,committed,target,available,valid,change,sold,published,publishedBefore}=stockProjection(stock,operation,amount,unit);
+ const zeroOk=operation==='set_available'||operation==='correct_published';
+ function change_(set,value){set(value);requestId.current=null;}
  async function submit(e){e.preventDefault();if(!valid||busy)return;
+  // Corregir un error de carga no cuenta como venta: se confirma aparte para no alterar las ventas por descuido.
+  if(operation==='correct_published'&&!await ask({severity:'warning',title:'Corregir error de carga',message:'Las publicadas se corrigen sin registrar ventas. Usa «Registrar disponibles» si las prendas se vendieron.',facts:[{label:'Modelo',value:model.name},{label:'Publicadas',value:rup(publishedBefore)+' → '+rup(published)}],confirmLabel:'Corregir publicadas'}))return;
   if(!requestId.current)requestId.current=uuid();
   const ok=await onSave(model.id,operation,units,stock.version,requestId.current);
   if(ok){requestId.current=null;setAmount(unit==='dozens'?'1':'12');}
  }
+ const label=operation==='set_available'?(unit==='dozens'?'Docenas disponibles que quedan':'Prendas disponibles que quedan'):operation==='correct_published'?(unit==='dozens'?'Publicadas correctas (docenas)':'Publicadas correctas (prendas)'):unit==='dozens'?'Cantidad en docenas':'Cantidad en prendas';
+ const effect=!valid?null:operation==='set_available'?(change<0?rup(-change)+' prendas se registrarán como vendidas en físico.':change>0?rup(change)+' prendas nuevas se sumarán a publicadas.':'Sin cambios en el stock.'):operation==='correct_published'?'Publicadas '+rup(publishedBefore)+' → '+rup(published)+'. No cuenta como venta.':operation==='physical_sale'?rup(units)+' prendas se registrarán como vendidas en físico.':rup(units)+' prendas nuevas se sumarán a publicadas.';
  return <form className="stock-editor" onSubmit={submit}>
   <p className="editor-title">Ajuste de inventario — {model.name}</p>
   <div className="stock-ops" role="group" aria-label="Tipo de movimiento">
-   {[['add','＋ Añadir'],['physical_sale','− Venta física'],['set_available','= Corregir disponibles']].map(([v,label])=>
+   {[['add','＋ Añadir'],['physical_sale','− Venta física'],['set_available','= Registrar disponibles'],['correct_published','✎ Corregir error de carga']].map(([v,label])=>
     <button key={v} type="button" className={'pill '+(operation===v?'active':'')} disabled={busy}
-      aria-pressed={operation===v} onClick={()=>change(setOperation,v)}>{label}</button>)}
+      aria-pressed={operation===v} onClick={()=>change_(setOperation,v)}>{label}</button>)}
   </div>
-  <div className="stock-ops" role="group" aria-label="Unidad del ajuste">{[['dozens','Docenas'],['units','Prendas']].map(([v,label])=><button type="button" key={v} className={'pill '+(unit===v?'active':'')} aria-pressed={unit===v} disabled={busy} onClick={()=>{if(v!==unit){change(setUnit,v);setAmount(v==='dozens'?'1':'12');}}}>{label}</button>)}</div>
-  <div className="stock-bottom ev-stock-bottom"><div className="field"><label className="field-label" htmlFor={'stock-units-'+model.id}>{operation==='set_available'?(unit==='dozens'?'Docenas disponibles para ofrecer':'Prendas disponibles para ofrecer'):unit==='dozens'?'Cantidad en docenas':'Cantidad en prendas'}</label>
-   <div className="ev-stock-stepper"><button type="button" className="button button-outline" aria-label="Disminuir cantidad" disabled={busy||Number(amount)<=(operation==='set_available'?0:1)} onClick={()=>change(setAmount,String(Math.max(operation==='set_available'?0:1,(Number(amount)||0)-1)))}>−</button>
-   <input id={'stock-units-'+model.id} type="number" name="units" required min={operation==='set_available'?0:1} max={unit==='dozens'?178956970:2147483647} step="1" inputMode="numeric" disabled={busy} value={amount} onChange={e=>change(setAmount,e.target.value)}/>
-   <button type="button" className="button button-outline" aria-label="Aumentar cantidad" disabled={busy||Number(amount)>=(unit==='dozens'?178956970:2147483647)} onClick={()=>change(setAmount,String(Math.min(unit==='dozens'?178956970:2147483647,(Number(amount)||0)+1)))}>＋</button></div>
+  <div className="stock-ops" role="group" aria-label="Unidad del ajuste">{[['dozens','Docenas'],['units','Prendas']].map(([v,label])=><button type="button" key={v} className={'pill '+(unit===v?'active':'')} aria-pressed={unit===v} disabled={busy} onClick={()=>{if(v!==unit){change_(setUnit,v);setAmount(v==='dozens'?'1':'12');}}}>{label}</button>)}</div>
+  <div className="stock-bottom ev-stock-bottom"><div className="field"><label className="field-label" htmlFor={'stock-units-'+model.id}>{label}</label>
+   <div className="ev-stock-stepper"><button type="button" className="button button-outline" aria-label="Disminuir cantidad" disabled={busy||Number(amount)<=(zeroOk?0:1)} onClick={()=>change_(setAmount,String(Math.max(zeroOk?0:1,(Number(amount)||0)-1)))}>−</button>
+   <input id={'stock-units-'+model.id} type="number" name="units" required min={zeroOk?0:1} max={unit==='dozens'?178956970:2147483647} step="1" inputMode="numeric" disabled={busy} value={amount} onChange={e=>change_(setAmount,e.target.value)}/>
+   <button type="button" className="button button-outline" aria-label="Aumentar cantidad" disabled={busy||Number(amount)>=(unit==='dozens'?178956970:2147483647)} onClick={()=>change_(setAmount,String(Math.min(unit==='dozens'?178956970:2147483647,(Number(amount)||0)+1)))}>＋</button></div>
    </div>
-   <div className="stock-projection"><small>Disponibles para ofrecer</small><b>{Number.isSafeInteger(available)?rup(available):'—'} prendas</b><span>{rup(committed)} comprometidas (apartadas para pedidos) · Stock total {Number.isSafeInteger(target)?rup(target):'—'}</span></div>
+   <div className="stock-projection"><small>Disponibles para ofrecer</small><b>{Number.isSafeInteger(available)?rup(available):'—'} prendas</b><span>Publicadas {Number.isSafeInteger(published)?rup(published):'—'} · Vendidas {Number.isSafeInteger(sold)?rup(sold):'—'} · Comprometidas {rup(committed)}</span>{effect&&<span className="ev-stock-effect">{effect}</span>}</div>
   </div>
+  {operation==='set_available'&&<p className="small-note">Cuenta las prendas libres que te quedan y escríbelas: lo que falta se registra como vendido en físico. Las comprometidas siguen apartadas y vuelven a disponibles si el pedido se anula.</p>}
   <button className="button button-primary" type="submit" disabled={busy||!valid}>{busy?'Guardando…':'Aplicar ajuste'}</button>
-  {operation==='set_available'&&<p className="small-note">Indica solo las prendas libres. Las comprometidas siguen apartadas y vuelven a disponibles si el pedido se anula; al entregarse se descuentan del total.</p>}
-  {target<committed&&<p className="form-error" role="alert">No puedes reducir el stock por debajo del compromiso con clientes.</p>}
+  {Number.isSafeInteger(target)&&target<committed&&<p className="form-error" role="alert">No puedes dejar menos prendas que las comprometidas con clientes y las ya vendidas.</p>}
  </form>;
 }
 function ProductHistory({model}){
@@ -441,7 +447,7 @@ function Catalog({data,onSaveColor,onCreateModel,onAdjust,onUpdateModel,onArchiv
     <span className={'availability '+(!m.is_active||stock.blocked?'bad':Number(stock.available)===0?'none':'ok')}>{!m.is_active?'Inhabilitado':stock.blocked?'Revisión':Number(stock.available)===0?'Agotado':'Disponible'}</span>
     <ModelColors model={m} colors={data.colors} compact/>
     </div></div>
-    <div className="ev-product-bottom"><div className="stock-grid-mini"><div><small>Publicadas</small><b>{rup(stock.on_hand)}</b></div><div><small>Comprometidas</small><b>{rup(Number(stock.reserved||0)+Number(stock.pending_delivery||0))}</b></div><div className="emphasized"><small>Disponibles</small><b>{rup(stock.available)}</b></div></div>
+    <div className="ev-product-bottom"><div className="stock-grid-mini ev-stock-grid-4"><div><small>Publicadas</small><b>{rup(stock.published??stock.on_hand)}</b></div><div><small>Vendidas</small><b>{rup(stock.sold??0)}</b></div><div><small>Comprometidas</small><b>{rup(Number(stock.reserved||0)+Number(stock.pending_delivery||0))}</b></div><div className="emphasized"><small>Disponibles</small><b>{rup(stock.available)}</b></div></div>
      {m.is_active&&<button className="button button-outline full" type="button" disabled={busy} onClick={()=>toggle(m.id,'stock')}>{opened&&section==='stock'?'Cerrar ajuste':'▥ Ajustar stock'}</button>}
      {opened&&section==='stock'&&<StockEditor model={m} stock={stock} onSave={onAdjust} busy={busy}/>}
      {opened&&section==='history'&&<ProductHistory key={m.id+'-'+m.updated_at} model={m}/>}

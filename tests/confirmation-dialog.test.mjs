@@ -29,7 +29,9 @@ test('all existing native operational prompts use severity-aware confirmation; s
  const dialog=readFileSync(new URL('../web/app/confirmation-dialog.jsx',import.meta.url),'utf8');
  const css=readFileSync(new URL('../web/app/confirmation-dialog.css',import.meta.url),'utf8');
  assert.doesNotMatch(page,/\bwindow\.(?:confirm|alert|prompt)\(/);
- assert.equal((page.match(/await ask\(/g)||[]).length,12);
+ assert.equal((page.match(/await ask\(/g)||[]).length,13);
+ // Stock: corregir un error de carga (no es venta) se confirma aparte.
+ assert.match(page,/severity:'warning',title:'Corregir error de carga'/);
  // R2: reemplazar (advertencia) y revocar (crítica) el enlace personal del cliente.
  assert.match(page,/severity:'warning',title:'Reemplazar enlace del cliente'/);
  assert.match(page,/severity:'critical',title:'Revocar enlace del cliente'/);

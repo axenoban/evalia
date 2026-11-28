@@ -41,7 +41,8 @@ test('E3 solo propietario: servidor, menú y ruta; lectura sin escrituras',()=>{
  const page=read('web/app/page.jsx');
  assert.match(page,/tab==='stats'\?\(owner\?<OwnerStats\/>:/);
  const ui=read('web/app/owner-stats.jsx');
- assert.match(ui,/No incluye ventas físicas fuera de pedidos ni ganancias/);
+ // Decisión del propietario (28-11-2026): ventas físicas registradas en stock, estimadas a precio lista.
+ assert.match(ui,/Ventas físicas: monto estimado a precio lista según los registros de stock \(no es cobro verificado\)\. No incluye ganancias\./);
  assert.match(ui,/<details className="ev-series-table">/);
  assert.match(read('web/app/layout.jsx'),/import '\.\/owner-stats\.css';/);
  assert.match(read('supabase/tests/096_e3_owner_stats.sql'),/operator cannot read statistics/);
