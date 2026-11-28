@@ -19,7 +19,10 @@
 .ev-store-photo{aspect-ratio:1/1;background:var(--plum-soft);display:grid;place-items:center;color:var(--plum);overflow:hidden}
 .ev-store-photo img{width:100%;height:100%;object-fit:cover;display:block}
 .ev-store-body{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
-.ev-store-body h2{margin:0;font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+/* Nombre reservado a 2 líneas para que talla, precio, estado y botón queden alineados entre tarjetas. */
+.ev-store-body h2{margin:0;font-size:15px;line-height:1.3;overflow-wrap:anywhere;min-height:2.6em;
+ display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ev-store-body>.ev-store-cta,.ev-store-body>.ev-store-state{margin-top:auto}
 .ev-store-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft)}
 .ev-store-price{font-weight:800;color:var(--ink);font-size:16px}
 .ev-store-state{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 8px;border-radius:999px;width:fit-content}

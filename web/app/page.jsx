@@ -596,10 +596,11 @@ function CatalogShare({onOpenCustomers=null}){
   </div>
   {open&&<div className="ev-share-body">
    <p className="ev-share-url"><span>{url}</span></p>
-   <div className="form-actions">
-    <a className="button button-primary" href={'https://wa.me/?text='+encodeURIComponent(message)} target="_blank" rel="noopener noreferrer">Enviar por WhatsApp</a>
+   {/* Acción principal a lo ancho; secundarias en columnas iguales (2 o 3 según el dispositivo). */}
+   <a className="button button-primary ev-share-main" href={'https://wa.me/?text='+encodeURIComponent(message)} target="_blank" rel="noopener noreferrer">Enviar por WhatsApp</a>
+   <div className="ev-share-secondary">
     <button type="button" className="button button-outline" onClick={()=>copy(url,'Enlace del catálogo copiado.')}>Copiar enlace</button>
-    {typeof navigator!=='undefined'&&typeof navigator.share==='function'&&<button type="button" className="button button-outline" onClick={share}>Compartir…</button>}
+    {typeof navigator!=='undefined'&&typeof navigator.share==='function'&&<button type="button" className="button button-outline" onClick={share}>Compartir</button>}
     <a className="button button-outline" href="/catalogo" target="_blank" rel="noopener">Ver catálogo</a>
    </div>
    {hint&&<p role="status" className="small-note">{hint}</p>}
