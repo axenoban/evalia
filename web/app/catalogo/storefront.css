@@ -59,3 +59,7 @@
 .ev-store-section .ev-sticky-total{background:#fff}
 @media(max-width:520px){.ev-store-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ev-store-body{padding:10px}.ev-store-intro h1{font-size:19px}.ev-store-cta{width:100%}
  .ev-store-meta{flex-direction:column;align-items:flex-start;gap:2px}.ev-store-price{font-size:15px}}
+
+.ev-cart-extras{border-top:1px solid #ebdfe6;margin-top:12px}
+.ev-cart-extras summary{cursor:pointer;color:#634453;font-weight:600;padding:14px 2px}
+.ev-cart-extras summary:focus-visible{outline:2px solid currentColor;outline-offset:2px}

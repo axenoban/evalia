@@ -277,5 +277,5 @@ export async function loadOwnerStats(lower,upper){
   return unwrap(await client().rpc('get_evalia_owner_stats',{p_from:lower,p_to:upper}),'Estadísticas');
 }
 export async function exportOwnerOrders(lower,upper){
-  return unwrap(await client().rpc('export_evalia_orders',{p_from:lower,p_to:upper}),'Exportación');
+  return unwrap(await client().rpc('evalia_excel_report',{p_from:lower,p_to:upper}),'Exportación');
 }

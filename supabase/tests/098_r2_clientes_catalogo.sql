@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(20);
+select plan(22);
 insert into auth.users(id,email) values
  ('c2000000-0000-4000-8000-000000000001','r2-admin@example.invalid'),
  ('c2000000-0000-4000-8000-000000000002','r2-seller@example.invalid');
@@ -39,6 +39,8 @@ create temp table s on commit drop as select public.client_evalia_customer_sessi
 select is((select v->'customer'->>'name' from s),'Cliente R2','valid link resolves only its customer');
 select is((select (e->>'available')::boolean from s,jsonb_array_elements(v->'catalog') e where e->>'id'='c2000000-0000-4000-8000-000000000041'),true,'model with a dozen is available');
 select is((select (e->>'available')::boolean from s,jsonb_array_elements(v->'catalog') e where e->>'id'='c2000000-0000-4000-8000-000000000042'),false,'6 units with fewer than 6 colors is not purchasable');
+select is((select (e->>'orderCapacity')::integer from s,jsonb_array_elements(v->'catalog') e where e->>'id'='c2000000-0000-4000-8000-000000000041'),96,'private order choices match available pieces');
+select ok(not exists(select 1 from jsonb_array_elements(public.get_evalia_public_catalog()) e where e ? 'orderCapacity'),'public catalog omits private ordering limits');
 select ok(not exists(select 1 from s,jsonb_array_elements(v->'catalog') e where e ? 'stock' or e ? 'on_hand' or e ? 'available_units'),'catalog never exposes stock quantities');
 select lives_ok($q$select public.create_evalia_client_order(repeat('b2',32),'[{"modelId":"c2000000-0000-4000-8000-000000000041","dozens":1,"extraColorIds":[],"expectedPrice":"380.00"}]','c2000000-0000-4000-8000-000000000051','shipping','Santa Cruz, terminal')$q$,'client confirms an order instantly');
 select is((select o.fulfillment_method||'|'||o.shipping_destination||'|'||o.recipient_name from public.orders o join public.client_order_requests r on r.order_id=o.id where r.request_id='c2000000-0000-4000-8000-000000000051'),'shipping|Santa Cruz, terminal|Cliente R2','delivery snapshot stored like the panel');

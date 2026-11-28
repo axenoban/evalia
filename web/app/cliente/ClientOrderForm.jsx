@@ -4,6 +4,8 @@ import {useRouter} from 'next/navigation';
 import {subtotalCents,formatBs} from '../../lib/domain.js';
 import {lineProblem,expectedPrice} from '../../lib/client-order.js';
 
+import {orderLimits} from '../../lib/client-limits.js';
+
 const QUICK_DOZENS=[0,1,2,3,4,5,6];
 // Pedido del cliente: mismas reglas que el panel (docenas surtidas, 0–11 colores distintos, mínimo 6 sin docena).
 export default function ClientOrderForm({catalog,preference,destination}){
@@ -17,17 +19,19 @@ export default function ClientOrderForm({catalog,preference,destination}){
  // subtotalCents lanza con menos de 6 prendas: solo se calcula cuando la línea ya es válida
  // (lineProblem garantiza ≥6), así «Sin docena» con pocos colores muestra la guía en vez de romper la página.
  const rows=Object.entries(cart).map(([id,line])=>{const model=byId.get(id);const units=line.dozens*12+line.extras.length;
-  const problem=model?lineProblem({dozens:line.dozens,extraColorIds:line.extras}):'Modelo no disponible';
-  return {id,model,line,units,problem,subtotal:model&&!problem?subtotalCents(model.price,units):0n};});
+  const limits=orderLimits(model,line.dozens,line.extras.length);
+  const overflow=units>limits.capacity || line.extras.some(id=>!model?.colors?.some(c=>c.id===id));
+  const problem=overflow?'Cambió la disponibilidad. Ajusta el pedido o quita el modelo.':model?lineProblem({dozens:line.dozens,extraColorIds:line.extras}):'Modelo no disponible';
+  return {id,model,line,units,limits,problem,subtotal:model&&!problem?subtotalCents(model.price,units):0n};});
  const total=rows.reduce((s,r)=>s+(r.problem?0n:r.subtotal),0n);
  const destOk=method==='pickup'||dest.trim().length>=2;
  const ready=rows.length>0&&rows.every(r=>!r.problem)&&destOk;
  function change(next){requestId.current=null;setReview(false);setMessage(null);setCart(next);}
- const add=m=>change({...cart,[m.id]:{dozens:1,extras:[]}});
+ const add=m=>change({...cart,[m.id]:{dozens:m.orderCapacity>=12?1:0,extras:[]}});
  const remove=id=>{const n={...cart};delete n[id];change(n);};
- const setDozens=(id,d)=>change({...cart,[id]:{...cart[id],dozens:Math.max(0,Math.min(999,Number(d)||0))}});
+ const setDozens=(id,d)=>change({...cart,[id]:{...cart[id],dozens:Math.max(0,Math.min(orderLimits(byId.get(id),0,cart[id].extras.length).maxDozens,Math.floor(Number(d)||0)))}});
  function toggleColor(id,color){const l=cart[id],has=l.extras.includes(color);
-  if(!has&&l.extras.length>=11)return;change({...cart,[id]:{...l,extras:has?l.extras.filter(c=>c!==color):[...l.extras,color]}});}
+  if(!has&&l.extras.length>=orderLimits(byId.get(id),l.dozens,0).maxExtras)return;change({...cart,[id]:{...l,extras:has?l.extras.filter(c=>c!==color):[...l.extras,color]}});}
  async function confirm(){
   if(!ready||busy)return;
   if(!requestId.current)requestId.current=crypto.randomUUID();
@@ -56,11 +60,11 @@ export default function ClientOrderForm({catalog,preference,destination}){
    <header><div><b>{r.model?.name||'Modelo'}</b><div className="ev-cart-note">Talla {r.model?.size} · {formatBs(subtotalCents(r.model?.price||0,12))} por docena</div></div>
     <button type="button" className="ev-choice" aria-label={'Quitar '+(r.model?.name||'modelo')} onClick={()=>remove(r.id)}>✕</button></header>
    <div><div className="ev-cart-note">Docenas surtidas</div><div className="ev-choice-row" role="group" aria-label="Docenas">
-    {QUICK_DOZENS.map(d=><button key={d} type="button" className="ev-choice" aria-pressed={r.line.dozens===d} onClick={()=>setDozens(r.id,d)}>{d===0?'Sin docena':d}</button>)}
-    <input aria-label="Otra cantidad de docenas" type="number" min="0" max="999" inputMode="numeric" value={r.line.dozens} onChange={e=>setDozens(r.id,e.target.value)} style={{width:80,minHeight:44,borderRadius:10,border:'1px solid #ebdfe6',padding:'6px 8px'}}/></div></div>
-   {r.model?.colors?.length>0&&<div><div className="ev-cart-note">Unidades sueltas (1 por color, máximo 11){r.line.dozens===0?' — elige al menos 6':' — opcional'}</div>
+    {QUICK_DOZENS.filter(d=>d<=r.limits.maxDozens&&(d>0||r.model?.colors?.length>=6)).map(d=><button key={d} type="button" className="ev-choice" aria-pressed={r.line.dozens===d} onClick={()=>setDozens(r.id,d)}>{d===0?'Sin docena':d}</button>)}
+    {r.limits.maxDozens>6&&<input aria-label="Otra cantidad de docenas" type="number" min="0" max={r.limits.maxDozens} inputMode="numeric" value={r.line.dozens} onChange={e=>setDozens(r.id,e.target.value)} style={{width:80,minHeight:44,borderRadius:10,border:'1px solid #ebdfe6',padding:'6px 8px'}}/>}</div></div>
+   {(r.limits.maxExtras>0||r.line.extras.length>0)&&<details key={r.line.dozens===0?"sueltas":"adicionales"} className="ev-cart-extras" open={r.line.dozens===0||undefined}><summary>{r.line.dozens===0?"Elegir unidades sueltas":"Agregar unidades sueltas"}{r.line.extras.length>0&&" · "+r.line.extras.length+" seleccionadas"}</summary><div className="ev-cart-note">Unidades sueltas (1 por color, máximo 11){r.line.dozens===0?' — elige al menos 6':' — opcional'}</div>
     <div className="ev-choice-row">{r.model.colors.map(c=>{const on=r.line.extras.includes(c.id);return <button key={c.id} type="button" className="ev-color-choice" aria-pressed={on}
-     disabled={!on&&r.line.extras.length>=11} onClick={()=>toggleColor(r.id,c.id)}><span className="ev-swatch" style={{background:c.hex}}/>{c.name}</button>;})}</div></div>}
+     disabled={!on&&r.line.extras.length>=r.limits.maxExtras} onClick={()=>toggleColor(r.id,c.id)}><span className="ev-swatch" style={{background:c.hex}}/>{c.name}</button>;})}</div></details>}
    {r.problem?<p className="ev-cart-error" role="status">{r.problem}</p>:<p className="ev-cart-note"><b>{r.units} prendas · {formatBs(r.subtotal)}</b></p>}
   </section>)}
   {rows.length>0&&<div className="ev-store-section" style={{margin:'12px 0'}}>

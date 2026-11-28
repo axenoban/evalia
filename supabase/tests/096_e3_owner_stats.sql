@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
-select plan(16);
+select plan(17);
 -- Propietario con MFA (aal2) y operador sin MFA.
 insert into auth.users(id,email) values
  ('e3000000-0000-4000-8000-000000000001','e3-owner@example.invalid'),
@@ -60,6 +60,7 @@ select is((select (v->'models'->0->>'units')::int from s),19,'model units aggreg
 select is((select jsonb_array_length(v->'series') from s),30,'daily series covers every Bolivian day of the period');
 select is((select (v->>'new_customers')::int from s),1,'new customers in period');
 select is((select count(*)::int from public.export_evalia_orders('2026-11-01T04:00:00Z','2026-12-01T04:00:00Z')),3,'export lists lines of confirmed orders in period');
+select is(jsonb_array_length(public.evalia_excel_report('2026-11-01T04:00:00Z','2026-12-01T04:00:00Z')->'rows'),3,'workbook snapshot includes every detail line');
 reset role;
 select ok(not has_function_privilege('anon','public.get_evalia_owner_stats(timestamptz,timestamptz)','EXECUTE')
  and not has_function_privilege('anon','public.export_evalia_orders(timestamptz,timestamptz)','EXECUTE'),'anon cannot execute E3 functions');

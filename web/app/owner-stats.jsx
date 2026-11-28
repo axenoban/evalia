@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import {loadOwnerStats,exportOwnerOrders} from '../lib/api.js';
-import {STATS_PRESETS,statsRange,ordersCsv,csvFileName,barScale} from '../lib/owner-stats.js';
+import {STATS_PRESETS,statsRange,barScale} from '../lib/owner-stats.js';
 
 const bs=v=>'Bs '+new Intl.NumberFormat('es-BO',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);
 const num=v=>new Intl.NumberFormat('es-BO').format(Number(v)||0);
@@ -47,9 +47,9 @@ export default function OwnerStats(){
   if(!range.valid||exporting)return;
   setExporting(true);setExportError('');
   try{
-   const rows=await exportOwnerOrders(range.lower,range.upper);
-   const url=URL.createObjectURL(new Blob([ordersCsv(rows)],{type:'text/csv;charset=utf-8'}));
-   const a=document.createElement('a');a.href=url;a.download=csvFileName(range);document.body.appendChild(a);a.click();a.remove();
+   const [report,{excelWorkbook}]=await Promise.all([exportOwnerOrders(range.lower,range.upper),import('../lib/excel-workbook.js')]);
+   const url=URL.createObjectURL(new Blob([excelWorkbook(report,range)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+   const a=document.createElement('a');a.href=url;a.download=`Evalia_pedidos_${range.from}_${range.to}.xlsx`;document.body.appendChild(a);a.click();a.remove();
    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
   }catch(e){setExportError(e.message||'No se pudo exportar.');}
   finally{setExporting(false);}
@@ -61,7 +61,7 @@ export default function OwnerStats(){
    <div className="ev-stats-presets">{STATS_PRESETS.map(([id,label])=><button key={id} type="button" className={'pill'+(preset===id?' active':'')} aria-pressed={preset===id} onClick={()=>setPreset(id)}>{label}</button>)}</div>
    {preset==='custom'&&<div className="ev-stats-custom"><label className="field"><span className="field-label">Desde</span><input type="date" value={from} max={to||undefined} onChange={e=>setFrom(e.target.value)}/></label>
     <label className="field"><span className="field-label">Hasta</span><input type="date" value={to} min={from||undefined} onChange={e=>setTo(e.target.value)}/></label></div>}
-   <button type="button" className="button button-outline ev-stats-export" disabled={!range.valid||exporting} onClick={download}>{exporting?'Preparando archivo…':'⭳ Exportar pedidos (Excel/CSV)'}</button>
+   <button type="button" className="button button-outline ev-stats-export" disabled={!range.valid||exporting} onClick={download}>{exporting?'Preparando archivo…':'⭳ Descargar informe Excel (.xlsx)'}</button>
   </div>
   {!range.valid&&<p className="form-error" role="alert">{range.error}</p>}
   {exportError&&<p className="form-error" role="alert">{exportError}</p>}
